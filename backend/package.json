@@ -1,0 +1,25 @@
+{
+  "name": "zavodlar-backend",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Zavodlar ish stoli — Express + PostgreSQL API (bir nechta zavod)",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env --watch server.js",
+    "start": "node --env-file-if-exists=.env server.js",
+    "migrate": "node --env-file-if-exists=.env scripts/migrate.js",
+    "user": "node --env-file-if-exists=.env scripts/user.js",
+    "restore": "node --env-file-if-exists=.env scripts/restore.js",
+    "import-mongo": "node --env-file-if-exists=.env scripts/import-mongo.js",
+    "import-products": "node --env-file-if-exists=.env scripts/import-products.js"
+  },
+  "engines": {
+    "node": ">=20.12"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "pg": "^8.16.0"
+  }
+}

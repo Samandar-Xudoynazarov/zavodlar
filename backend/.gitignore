@@ -1,0 +1,5 @@
+node_modules
+.env
+# zaxira fayllari (zavod ma'lumotlari) git'ga tushmasin
+*backup*.json
+zavod-avto-zaxira-*.json

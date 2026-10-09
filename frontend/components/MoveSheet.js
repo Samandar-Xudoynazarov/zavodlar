@@ -1,0 +1,345 @@
+"use client";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
+import { fmtDate, fmtN, today, GROUPS } from "@/lib/calc";
+
+const GROUP_FUEL = (m) => m?.group === "yoqilgi";
+import Icon from "./Icon";
+import NewMaterialSheet from "./NewMaterialSheet";
+import { useUser } from "@/lib/role";
+import { meterFactor } from "@/lib/metal";
+
+/**
+ * Ombor kirimi / chiqimi — telefonda pastdan chiqadigan oyna.
+ * init: { type: "in"|"out", materialId? }
+ */
+export default function MoveSheet({ init, onClose, onSaved, data, notify, reloadMaterials }) {
+  const t = useT();
+  const { canStore, canEdit } = useUser();
+  const [adding, setAdding] = useState(false);
+  const ref = useRef(null);
+  const { materials, targets = [] } = data;
+  const [type, setType] = useState("in");
+  const [materialId, setMaterialId] = useState("");
+  const [q, setQ] = useState("");
+  const [picking, setPicking] = useState(false);
+  const [f, setF] = useState({});
+  const [bal, setBal] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const qtyRef = useRef(null);
+  const [sups, setSups] = useState([]);
+  const [lastM, setLastM] = useState(null); // tanlangan texnikaning oxirgi ko'rsatkichi
+  useEffect(() => {
+    setLastM(null);
+    if (!f.vehicleId) return;
+    let off = false;
+    api(`/vehicles/${f.vehicleId}/last`)
+      .then((x) => !off && setLastM(x))
+      .catch(() => {});
+    return () => {
+      off = true;
+    };
+  }, [f.vehicleId]);
+  useEffect(() => {
+    if (init?.type !== "in" && type !== "in") return;
+    let off = false;
+    api("/suppliers?lite=1")
+      .then((x) => !off && setSups(x))
+      .catch(() => {});
+    return () => {
+      off = true;
+    };
+  }, [init, type]);
+
+  useEffect(() => {
+    const d = ref.current;
+    if (init) {
+      setType(init.type || "in");
+      setMaterialId(init.materialId || "");
+      setPicking(!init.materialId);
+      setQ("");
+      setF({ date: today(), qty: "", price: "", supplier: "", docNumber: "", departmentId: "", vehicleId: "", person: "", note: "", meter: "" });
+      setErr("");
+      setAdding(false);
+      if (d && !d.open) d.showModal();
+    } else {
+      setAdding(false);
+      if (d?.open) d.close();
+    }
+  }, [init]);
+
+  const mat = materials.find((m) => m.id === materialId);
+  useEffect(() => {
+    setBal(null);
+    if (!materialId || !init) return;
+    let off = false;
+    const d = today();
+    api(`/stock?from=${d}&to=${d}`)
+      .then((s) => !off && setBal(s.materials?.[materialId]?.end || 0))
+      .catch(() => {});
+    return () => {
+      off = true;
+    };
+  }, [materialId, init]);
+
+  const list = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    return materials
+      .filter((m) => m.stock && !m.archived)
+      .filter((m) => !s || m.name.toLowerCase().includes(s) || (m.code || "").toLowerCase().includes(s));
+  }, [materials, q]);
+
+  const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
+  const depts = targets.filter((x) => x.kind === "department" && !x.archived);
+  const cars = targets.filter((x) => x.kind === "vehicle" && !x.archived);
+  const veh = cars.find((x) => x.id === f.vehicleId);
+  // metall: metrda yozish mumkin — material birligiga (kg) avtomatik aylantiriladi
+  const factor = meterFactor(mat);
+  const [inM, setInM] = useState(true);
+  const byMeter = Boolean(factor && inM);
+  const entered = +f.qty || 0;
+  const qty = byMeter ? Math.round(entered * factor.perM * 1e6) / 1e6 : entered;
+  const after = bal === null ? null : type === "in" ? bal + qty : bal - qty;
+
+  async function submit(e) {
+    e.preventDefault();
+    if (!mat) return setErr(t("Materialni tanlang"));
+    if (!(qty > 0)) return setErr(t("Miqdorni to'g'ri kiriting"));
+    if (type === "out" && !f.departmentId && !f.vehicleId && !f.person.trim())
+      return setErr(t("Qayerga ketganini kiriting: bo'lim, texnika yoki mas'ul shaxs"));
+    setBusy(true);
+    setErr("");
+    try {
+      const body = byMeter
+        ? { type, materialId, inputUnit: "m", inputQty: entered, date: f.date, person: f.person, note: f.note }
+        : { type, materialId, qty, date: f.date, person: f.person, note: f.note };
+      // metr rejimida narx 1 metr uchun kiritiladi → material birligi (kg) narxiga o'tkaziladi
+      const price = byMeter ? (+f.price || 0) / factor.perM : +f.price || 0;
+      if (type === "in") Object.assign(body, { price: Math.round(price * 100) / 100, supplier: f.supplier, docNumber: f.docNumber });
+      else Object.assign(body, { departmentId: f.departmentId || null, vehicleId: f.vehicleId || null, ...(f.vehicleId && f.meter !== "" && { meter: +f.meter }) });
+      await api("/movements", { method: "POST", body });
+      notify(t(type === "in" ? "Kirim saqlandi" : "Chiqim saqlandi"));
+      onSaved?.();
+      onClose();
+    } catch (e2) {
+      setErr(t(e2.message));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+    <dialog ref={ref} className="bsheet" onClose={(e) => e.target === e.currentTarget && onClose()}>
+      {init && (
+        <form onSubmit={submit}>
+          <div className="bsheet-grip" aria-hidden="true" />
+          <div className="bsheet-head">
+            <h2>{t(type === "in" ? "Kirim" : "Chiqim")}</h2>
+            <button type="button" className="icon-btn" onClick={onClose} aria-label={t("Yopish")}>
+              <Icon name="close" size={18} />
+            </button>
+          </div>
+          <div className="seg" role="tablist">
+            <button type="button" role="tab" aria-selected={type === "in"} className="seg-in" onClick={() => setType("in")}>
+              <Icon name="in" /> {t("Kirim")}
+            </button>
+            <button type="button" role="tab" aria-selected={type === "out"} className="seg-out" onClick={() => setType("out")}>
+              <Icon name="out" /> {t("Chiqim")}
+            </button>
+          </div>
+
+          {/* material */}
+          {picking || !mat ? (
+            <div className="field">
+              <label htmlFor="mv-q">{t("Material")}</label>
+              <input id="mv-q" type="search" autoFocus placeholder={t("Qidirish…")} value={q} onChange={(e) => setQ(e.target.value)} />
+              <div className="pick-list">
+                {!list.length && <div className="empty">{t("Hech narsa topilmadi")}</div>}
+                {canStore && reloadMaterials && (
+                  <button type="button" className="pick-item pick-new" onClick={() => setAdding(true)}>
+                    <span>
+                      <Icon name="plus" size={15} /> {q.trim() ? t("«{q}» — yangi material qo'shish", { q: q.trim() }) : t("Yangi material / mol qo'shish")}
+                    </span>
+                    <span className="muted">{t("ro'yxatda yo'q bo'lsa")}</span>
+                  </button>
+                )}
+                {list.map((m) => (
+                  <button
+                    type="button"
+                    key={m.id}
+                    className="pick-item"
+                    onClick={() => {
+                      setMaterialId(m.id);
+                      setPicking(false);
+                      setTimeout(() => qtyRef.current?.focus(), 50);
+                    }}
+                  >
+                    <span>{m.name}</span>
+                    <span className="muted">
+                      {t(GROUPS.find(([k]) => k === m.group)?.[1] || "")} · {m.unit}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <button type="button" className="picked" onClick={() => setPicking(true)}>
+              <span>
+                <strong>{mat.name}</strong>
+                <span className="muted">
+                  {t("Qoldiq")}: {bal === null ? "…" : `${fmtN(bal, 3)} ${mat.unit}`}
+                </span>
+              </span>
+              <span className="linkbtn">{t("O'zgartirish")}</span>
+            </button>
+          )}
+
+          <div className="form-grid two">
+            <div className="field">
+              <label htmlFor="mv-qty">
+                {t("Miqdor")} {mat && <span className="u">({byMeter ? t("metr") : mat.unit})</span>}
+              </label>
+              <input id="mv-qty" ref={qtyRef} className="big" type="number" inputMode="decimal" min="0" step="any" value={f.qty} onChange={set("qty")} required />
+              {factor && (
+                <div className="unit-seg" role="group" aria-label={t("Birlik")}>
+                  <button type="button" aria-pressed={byMeter} onClick={() => setInM(true)}>
+                    {t("metr")}
+                  </button>
+                  <button type="button" aria-pressed={!byMeter} onClick={() => setInM(false)}>
+                    {mat.unit}
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="field">
+              <label htmlFor="mv-date">{t("Sana")}</label>
+              <input id="mv-date" type="date" value={f.date} max={today()} onChange={set("date")} required />
+            </div>
+          </div>
+          {byMeter && entered > 0 && (
+            <div className="conv">
+              <span>
+                {fmtN(entered, 3)} {t("m")} × {fmtN(factor.kgPerM, 3)} {t("kg/m")}
+                {factor.perM !== factor.kgPerM ? ` ÷ 1000` : ""} =
+              </span>
+              <strong>
+                {fmtN(qty, 3)} {mat.unit}
+              </strong>
+              <span className="muted">{factor.auto ? `${t("avtomatik")}: ${factor.how}` : t("ПТО kiritgan koeffitsiyent")}</span>
+            </div>
+          )}
+          {after !== null && qty > 0 && (
+            <p className={`hint ${after < 0 ? "warn-text" : ""}`}>
+              {t("Keyin qoladi")}: <strong>{fmtN(after, 3)} {mat?.unit}</strong>
+              {after < 0 && ` — ${t("omborda yetarli emas")}`}
+            </p>
+          )}
+
+          {type === "in" ? (
+            <div className="form-grid two">
+              <div className="field">
+                <label htmlFor="mv-price">
+                  {t("Birlik narxi")} <span className="u">({t("so'm")} / {byMeter ? t("m") : mat?.unit || t("birlik")})</span>
+                </label>
+                <input id="mv-price" type="number" inputMode="decimal" min="0" step="any" value={f.price} onChange={set("price")} />
+              </div>
+              <div className="field">
+                <label htmlFor="mv-doc">{t("Nakladnoy raqami")}</label>
+                <input id="mv-doc" value={f.docNumber} onChange={set("docNumber")} />
+              </div>
+              <div className="field">
+                <label htmlFor="mv-sup">{t("Yetkazib beruvchi")}</label>
+                <input id="mv-sup" list="mv-sups" autoComplete="off" value={f.supplier} onChange={set("supplier")} />
+                <datalist id="mv-sups">
+                  {sups.map((n) => (
+                    <option key={n} value={n} />
+                  ))}
+                </datalist>
+              </div>
+              <div className="field">
+                <label htmlFor="mv-person">{t("Kim qabul qildi")}</label>
+                <input id="mv-person" value={f.person} onChange={set("person")} />
+              </div>
+            </div>
+          ) : (
+            <div className="form-grid two">
+              <div className="field">
+                <label htmlFor="mv-dep">{t("Bo'lim / sex")}</label>
+                <select id="mv-dep" value={f.departmentId} onChange={set("departmentId")}>
+                  <option value="">—</option>
+                  {depts.map((x) => (
+                    <option key={x.id} value={x.id}>
+                      {x.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="mv-car">{t("Texnika")}</label>
+                <select id="mv-car" value={f.vehicleId} onChange={set("vehicleId")}>
+                  <option value="">—</option>
+                  {cars.map((x) => (
+                    <option key={x.id} value={x.id}>
+                      {x.name}
+                      {x.code ? ` · ${x.code}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {f.vehicleId && (
+                <div className="field" style={{ gridColumn: "1/-1" }}>
+                  <label htmlFor="mv-meter">
+                    {t(veh?.meterUnit === "soat" ? "Motosoat" : "Spidometr, km")}
+                    {GROUP_FUEL(mat) && <span className="u"> ({t("yoqilg'i sarfini hisoblash uchun")})</span>}
+                  </label>
+                  <input id="mv-meter" type="number" inputMode="decimal" min={lastM?.meter || 0} step="any" value={f.meter} onChange={set("meter")} placeholder={lastM ? String(lastM.meter) : ""} />
+                  {lastM && (
+                    <span className="hint">
+                      {t("Oxirgi: {m} ({d})", { m: fmtN(lastM.meter, 1), d: fmtDate(lastM.date) })}
+                      {f.meter !== "" && +f.meter >= lastM.meter && ` · ${t("yurgan: {n}", { n: fmtN(+f.meter - lastM.meter, 1) })}`}
+                    </span>
+                  )}
+                </div>
+              )}
+              <div className="field" style={{ gridColumn: "1/-1" }}>
+                <label htmlFor="mv-person">{t("Kim oldi (mas'ul shaxs)")}</label>
+                <input id="mv-person" value={f.person} onChange={set("person")} />
+              </div>
+            </div>
+          )}
+          <div className="field">
+            <label htmlFor="mv-note">{t("Izoh")}</label>
+            <input id="mv-note" value={f.note} onChange={set("note")} />
+          </div>
+          {err && <p className="err">{err}</p>}
+          <div className="dlg-actions">
+            <button type="button" className="btn" onClick={onClose}>
+              {t("Bekor qilish")}
+            </button>
+            <button className={`btn primary ${type === "out" ? "out" : ""}`} disabled={busy}>
+              {busy ? t("Saqlanmoqda…") : t(type === "in" ? "Kirimni saqlash" : "Chiqimni saqlash")}
+            </button>
+          </div>
+        </form>
+      )}
+    </dialog>
+      <NewMaterialSheet
+        open={adding}
+        initialName={q.trim()}
+        materials={materials}
+        canEdit={canEdit}
+        notify={notify}
+        onClose={() => setAdding(false)}
+        onSaved={async (doc) => {
+          await reloadMaterials();
+          setMaterialId(doc.id);
+          setPicking(false);
+          setTimeout(() => qtyRef.current?.focus(), 80);
+        }}
+      />
+    </>
+  );
+}

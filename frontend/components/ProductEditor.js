@@ -1,0 +1,415 @@
+"use client";
+import { tr } from "@/lib/i18n";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { api } from "@/lib/api";
+import { ROW_TYPES, applyScheme, calcMetalKg, costCard, expandNorms, fmt, fmtN, priceOf } from "@/lib/calc";
+
+const clone = (x) => JSON.parse(JSON.stringify(x ?? null));
+const blankCalc = (tpl) => ({ items: [], metalKg: 0, prodRows: [], otherRows: [], margin: 20, vat: 12, ...(clone(tpl) || {}), ...(tpl ? { items: [] } : {}) });
+
+function MatSelect({ id, value, onChange, materials, filter }) {
+  return (
+    <select id={id} value={value} onChange={(e) => onChange(e.target.value)} aria-label={tr("Material")}>
+      <option value="">{tr("— material —")}</option>
+      {materials.filter(filter || (() => true)).map((m) => (
+        <option key={m.id} value={m.id}>
+          {m.name} ({m.unit})
+        </option>
+      ))}
+    </select>
+  );
+}
+
+export function RowsEditor({ title, rows, setRows, computed, idp }) {
+  const set = (i, patch) => setRows(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  return (
+    <div>
+      <h4>{title}</h4>
+      <div className="tbl-wrap">
+        <table className="edit">
+          <thead>
+            <tr>
+              <th>{tr("Nomi")}</th>
+              <th>{tr("Hisoblash turi")}</th>
+              <th className="n">{tr("Qiymat")}</th>
+              <th className="n">{tr("Summa")}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i}>
+                <td className="wide">
+                  <input id={`${idp}-n-${i}`} value={r.name} onChange={(e) => set(i, { name: e.target.value })} aria-label={tr("Nomi")} />
+                </td>
+                <td>
+                  <select id={`${idp}-t-${i}`} value={r.type} onChange={(e) => set(i, { type: e.target.value })} aria-label={tr("Turi")}>
+                    {ROW_TYPES.map(([k, l]) => (
+                      <option key={k} value={k}>
+                        {tr(l)}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="n">
+                  <input id={`${idp}-v-${i}`} type="number" step="any" value={r.value} onChange={(e) => set(i, { value: e.target.value })} aria-label={tr("Qiymat")} />
+                </td>
+                <td className="n">{fmt(computed[i]?.amount)}</td>
+                <td>
+                  <button type="button" className="btn sm danger" aria-label={tr("O'chirish")} onClick={() => setRows(rows.filter((_, j) => j !== i))}>
+                    ×
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <button type="button" className="btn sm" style={{ marginTop: 6 }} onClick={() => setRows([...rows, { name: "", type: "m3", value: 0 }])}>{tr("+ Qator")}</button>
+    </div>
+  );
+}
+
+export default function ProductEditor({ product, open, onClose, data, notify, onSaved }) {
+  const ref = useRef(null);
+  const { materials, mats, settings, products } = data;
+  const schemes = data.schemes || [];
+  const [d, setD] = useState(null);
+  const [tab, setTab] = useState("norm");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (open) {
+      // tahrirlash — asl (andoza qo'llanmagan) ko'rinishda
+      const raw = product ? data.rawProds?.get(product.id) || product : null;
+      const p = raw ? clone(raw) : { code: "", name: "", group: "", norms: [], calc: { ...blankCalc(settings.calcTemplate), scheme: schemes[0]?.id || "" }, forms: "", cycleDays: 1 };
+      if (!p.forms) p.forms = "";
+      if (!p.calc) p.calc = { ...blankCalc(settings.calcTemplate), scheme: schemes[0]?.id || "" };
+      setD(p);
+      setTab("norm");
+      if (el && !el.open) el.showModal();
+    } else if (el?.open) el.close();
+  }, [open, product, settings.calcTemplate]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const norms = d?.norms || [];
+  const calc = d?.calc || blankCalc();
+  const setNorms = (n) => setD((x) => ({ ...x, norms: n }));
+  const setCalc = (patch) => setD((x) => ({ ...x, calc: { ...x.calc, ...patch } }));
+
+  // «jonli» hisob: raqam matnlarini songa aylantirib
+  const numeric = useMemo(() => {
+    if (!d) return null;
+    const n = (v) => +v || 0;
+    return {
+      ...d,
+      norms: norms.filter((l) => l.materialId).map((l) => ({ materialId: l.materialId, norm: n(l.norm) })),
+      calc: {
+        ...calc,
+        items: calc.items.filter((l) => l.materialId).map((l) => ({ materialId: l.materialId, norm: n(l.norm) })),
+        metalKg: n(calc.metalKg),
+        margin: n(calc.margin),
+        vat: n(calc.vat),
+        prodRows: calc.prodRows.map((r) => ({ ...r, value: n(r.value) })),
+        otherRows: calc.otherRows.map((r) => ({ ...r, value: n(r.value) })),
+      },
+    };
+  }, [d, norms, calc]);
+  const expanded = useMemo(() => (numeric ? expandNorms(numeric, mats, settings) : new Map()), [numeric, mats, settings]);
+  const scheme = schemes.find((x) => x.id === calc.scheme);
+  const card = useMemo(() => (numeric ? costCard(applyScheme(numeric, schemes), mats) : null), [numeric, mats, schemes]);
+  const groups = [...new Set(products.map((p) => p.group).filter(Boolean))];
+  // «Л 5д-15» → asosiy lotok «Л 5-15» (qolibi bo'lsa)
+  const lidHost = (() => {
+    const m = String(d?.code || "").toLowerCase().replace(/\s+/g, "").replace(/,/g, ".").match(/^(.*\d)д(-.+)$/);
+    if (!m) return null;
+    const h = products.find((p) => p.id !== product?.id && String(p.code).toLowerCase().replace(/\s+/g, "").replace(/,/g, ".") === m[1] + m[2]);
+    return h && +h.forms > 0 ? h : null;
+  })();
+
+  async function save(e) {
+    e.preventDefault();
+    if (!numeric.code.trim()) return notify("Marka kiritilmagan");
+    setBusy(true);
+    try {
+      const body = { code: numeric.code.trim(), name: numeric.name, group: numeric.group, norms: numeric.norms, calc: numeric.calc, forms: +d.forms || 0, cycleDays: +d.cycleDays || 1 };
+      if (product?.id) await api(`/products/${product.id}`, { method: "PUT", body });
+      else await api("/products", { method: "POST", body });
+      notify("Saqlandi");
+      await onSaved();
+      onClose();
+    } catch (err) {
+      notify(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const derivedRows = [...expanded.entries()].filter(([, r]) => r.derived);
+
+  return (
+    <dialog ref={ref} onClose={onClose} className="wide-dlg">
+      {d && (
+        <form onSubmit={save}>
+          <h2>{product ? tr("{c} — tahrirlash", { c: product.code }) : tr("Yangi mahsulot")}</h2>
+          <div className="form-grid">
+            <div className="field">
+              <label htmlFor="pe-code">{tr("Marka")}</label>
+              <input id="pe-code" value={d.code} onChange={(e) => setD({ ...d, code: e.target.value })} required />
+            </div>
+            <div className="field">
+              <label htmlFor="pe-name">{tr("Nomi")}</label>
+              <input id="pe-name" value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} />
+            </div>
+            <div className="field">
+              <label htmlFor="pe-group">{tr("Guruh")}</label>
+              <input id="pe-group" list="pe-groups" value={d.group} onChange={(e) => setD({ ...d, group: e.target.value })} />
+              <datalist id="pe-groups">
+                {groups.map((g) => (
+                  <option key={g} value={g} />
+                ))}
+              </datalist>
+            </div>
+            <div className="field">
+              <label htmlFor="pe-forms">
+                {tr("Qoliplar soni")} <span className="u">({tr("dona")})</span>
+              </label>
+              <input id="pe-forms" type="number" min="0" step="1" value={d.forms} placeholder="0" onChange={(e) => setD({ ...d, forms: e.target.value })} />
+            </div>
+            <div className="field">
+              <label htmlFor="pe-cycle">
+                {tr("Qolip aylanishi")} <span className="u">({tr("kun")})</span>
+              </label>
+              <input id="pe-cycle" type="number" min="0.1" step="any" value={d.cycleDays} onChange={(e) => setD({ ...d, cycleDays: e.target.value })} />
+            </div>
+            {lidHost && (
+              <p className="hint" style={{ gridColumn: "1/-1", margin: 0 }}>
+                {tr("Lotok qopqog'i: «{h}» qolibiga bo'lib quyiladi — kuniga yo {n} ta, yo umuman yo'q; o'sha kuni «{h}»ning bitta qolibi band bo'ladi. «Qoliplar soni» — bitta quyishdagi qopqoqlar soni.", { h: lidHost.code, n: +d.forms || 4 })}
+              </p>
+            )}
+            {!lidHost && +d.forms > 0 && (
+              <p className="hint" style={{ gridColumn: "1/-1", margin: 0 }}>
+                {tr("Kunlik quvvat: {n} dona/kun — buyurtmalar rejasida ishlatiladi.", { n: fmtN(+d.forms / Math.max(0.1, +d.cycleDays || 1), 2) })}
+              </p>
+            )}
+          </div>
+
+          <div className="chips">
+            <button type="button" className="chip" aria-pressed={tab === "norm"} onClick={() => setTab("norm")}>{tr("Sarf normasi (Норма)")}</button>
+            <button type="button" className="chip" aria-pressed={tab === "calc"} onClick={() => setTab("calc")}>{tr("Kalkulyatsiya ·")} {card ? fmt(card.final) : 0} {tr("so'm")}</button>
+          </div>
+
+          {tab === "norm" && (
+            <div className="grid2">
+              <div>
+                <h4>{tr("1 dona uchun sarf")}</h4>
+                <div className="tbl-wrap">
+                  <table className="edit">
+                    <tbody>
+                      {norms.map((l, i) => (
+                        <tr key={i}>
+                          <td className="wide">
+                            <MatSelect id={`pn-m-${i}`} value={l.materialId} materials={materials} filter={(m) => m.group !== "xizmat"} onChange={(v) => setNorms(norms.map((x, j) => (j === i ? { ...x, materialId: v } : x)))} />
+                          </td>
+                          <td className="n">
+                            <input id={`pn-q-${i}`} type="number" step="any" min="0" value={l.norm} onChange={(e) => setNorms(norms.map((x, j) => (j === i ? { ...x, norm: e.target.value } : x)))} aria-label={tr("Norma")} />
+                          </td>
+                          <td className="muted">{mats.get(l.materialId)?.unit}</td>
+                          <td>
+                            <button type="button" className="btn sm danger" aria-label={tr("O'chirish")} onClick={() => setNorms(norms.filter((_, j) => j !== i))}>
+                              ×
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <button type="button" className="btn sm" style={{ marginTop: 6 }} onClick={() => setNorms([...norms, { materialId: "", norm: "" }])}>{tr("+ Material")}</button>
+              </div>
+              <div>
+                <h4>{tr("Avtomatik qo'shiladi")}</h4>
+                <div className="tbl-wrap">
+                  {!derivedRows.length ? (
+                    <div className="empty">{tr(
+                      "Beton yoki metall qo'shilganda bu yerda qum, sement, sheben va elektrod chiqadi."
+                    )}</div>
+                  ) : (
+                    <table>
+                      <tbody>
+                        {derivedRows.map(([id, r]) => (
+                          <tr key={id}>
+                            <td>{mats.get(id)?.name}</td>
+                            <td className="n">{fmtN(r.qty, 4)}</td>
+                            <td className="muted">{mats.get(id)?.unit}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+                <p className="hint" style={{ marginTop: 6 }}>{tr(
+                    "Qum, sement, sheben — beton markasi koeffitsiyentlaridan («Materiallar» bo'limi). Elektrod — metall og'irligining"
+                  )} {fmtN(settings.electrodePct, 2)}%.
+                                  </p>
+              </div>
+            </div>
+          )}
+
+          {tab === "calc" && card && (
+            <div className="calc-edit">
+              <div className="bar">
+                <h4 style={{ margin: 0 }}>{tr("Materiallar")}</h4>
+                <button
+                  type="button"
+                  className="btn sm"
+                  onClick={() => {
+                    const rows = [...expanded.entries()]
+                      .filter(([id]) => {
+                        const g = mats.get(id)?.group;
+                        return !(g === "xomashyo" && !norms.some((l) => l.materialId === id));
+                      })
+                      .map(([materialId, r]) => ({ materialId, norm: Math.round(r.qty * 10000) / 10000 }));
+                    setCalc({ items: rows });
+                  }}
+                >{tr("Sarf normasidan nusxa olish")}</button>
+              </div>
+              <div className="tbl-wrap">
+                <table className="edit">
+                  <thead>
+                    <tr>
+                      <th>{tr("Material")}</th>
+                      <th className="n">{tr("Norma")}</th>
+                      <th className="n">{tr("Narx")}</th>
+                      <th className="n">{tr("Summa")}</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {calc.items.map((l, i) => {
+                      const m = mats.get(l.materialId);
+                      const price = priceOf(m, mats);
+                      return (
+                        <tr key={i}>
+                          <td className="wide">
+                            <MatSelect id={`pc-m-${i}`} value={l.materialId} materials={materials} onChange={(v) => setCalc({ items: calc.items.map((x, j) => (j === i ? { ...x, materialId: v } : x)) })} />
+                          </td>
+                          <td className="n">
+                            <input id={`pc-q-${i}`} type="number" step="any" min="0" value={l.norm} onChange={(e) => setCalc({ items: calc.items.map((x, j) => (j === i ? { ...x, norm: e.target.value } : x)) })} aria-label={tr("Norma")} />
+                          </td>
+                          <td className="n muted">{m ? fmt(price) : ""}</td>
+                          <td className="n">{fmt(price * (+l.norm || 0))}</td>
+                          <td>
+                            <button type="button" className="btn sm danger" aria-label={tr("O'chirish")} onClick={() => setCalc({ items: calc.items.filter((_, j) => j !== i) })}>
+                              ×
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colSpan={3}>Итого СС. материалов</td>
+                      <td className="n">{fmt(card.materials)}</td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <button type="button" className="btn sm" style={{ marginTop: 6 }} onClick={() => setCalc({ items: [...calc.items, { materialId: "", norm: "" }] })}>{tr("+ Material")}</button>
+
+              <div className="form-grid" style={{ marginTop: 14 }}>
+                <div className="field">
+                  <label htmlFor="pe-kg">{tr("Metall og'irligi")} <span className="u">{tr("(kg, «Логистика метала» uchun)")}</span>
+                  </label>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input id="pe-kg" type="number" step="any" min="0" value={calc.metalKg} onChange={(e) => setCalc({ metalKg: e.target.value })} />
+                    <button type="button" className="btn sm" onClick={() => setCalc({ metalKg: Math.round(calcMetalKg(numeric, mats) * 1000) / 1000 })}>{tr("Hisoblash")}</button>
+                  </div>
+                </div>
+                <div className="field" style={{ gridColumn: "1/-1" }}>
+                  <label htmlFor="pe-scheme">{tr("Xarajat andozasi")}</label>
+                  <select
+                    id="pe-scheme"
+                    value={calc.scheme || ""}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      // andozadan «alohida»ga o'tganda — andozadagi qatorlar boshlang'ich qiymat sifatida ko'chiriladi
+                      if (!v && scheme) setCalc({ scheme: "", prodRows: clone(scheme.prodRows), otherRows: clone(scheme.otherRows), margin: scheme.margin, vat: scheme.vat });
+                      else setCalc({ scheme: v });
+                    }}
+                  >
+                    {schemes.map((x) => (
+                      <option key={x.id} value={x.id}>
+                        {x.name}
+                      </option>
+                    ))}
+                    <option value="">{tr("Alohida (faqat shu mahsulot uchun)")}</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="pe-margin">
+                    Маржа <span className="u">(%)</span>
+                  </label>
+                  <input id="pe-margin" type="number" step="any" value={scheme ? scheme.margin : calc.margin} disabled={!!scheme} onChange={(e) => setCalc({ margin: e.target.value })} />
+                </div>
+                <div className="field">
+                  <label htmlFor="pe-vat">
+                    НДС <span className="u">(%)</span>
+                  </label>
+                  <input id="pe-vat" type="number" step="any" value={scheme ? scheme.vat : calc.vat} disabled={!!scheme} onChange={(e) => setCalc({ vat: e.target.value })} />
+                </div>
+              </div>
+
+              {scheme ? (
+                <div className="scheme-ro">
+                  <p className="hint">
+                    {tr("Quyidagi xarajatlar «{n}» andozasidan olinadi. Ularni o'zgartirish — «Kalkulyatsiya» → «Xarajat andozalari» (shu andozadagi barcha mahsulotlarga ta'sir qiladi).", { n: scheme.name })}
+                  </p>
+                  {[["Производственная СС (ФОТ, ЕСП …)", card.prodRows], ["Другие затраты", card.otherRows]].map(([title, rows]) => (
+                    <div key={title}>
+                      <h4>{title}</h4>
+                      <div className="tbl-wrap">
+                        <table>
+                          <tbody>
+                            {rows.map((r, i) => (
+                              <tr key={i}>
+                                <td>{r.name}</td>
+                                <td className="muted">{tr(ROW_TYPES.find(([k]) => k === r.type)?.[1] || "")}</td>
+                                <td className="n">{fmtN(r.value, 2)}</td>
+                                <td className="n">{fmt(r.amount)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <RowsEditor title="Производственная СС (ФОТ, ЕСП …)" idp="pr" rows={calc.prodRows} setRows={(r) => setCalc({ prodRows: r })} computed={card.prodRows} />
+                  <RowsEditor title="Другие затраты" idp="or" rows={calc.otherRows} setRows={(r) => setCalc({ otherRows: r })} computed={card.otherRows} />
+                </>
+              )}
+
+              <div className="totals">
+                <span>{tr("Tannarx:")} {fmt(card.itogo)}</span>
+                <span>{tr("Narx QQSsiz:")} {fmt(card.noVat)}</span>
+                <strong>{tr("Narx QQS bilan:")} {fmt(card.final)} {tr("so'm")}</strong>
+              </div>
+            </div>
+          )}
+
+          <div className="dlg-actions">
+            <button type="button" className="btn" onClick={onClose}>{tr("Bekor qilish")}</button>
+            <button className="btn primary" disabled={busy}>
+              {busy ? tr("Saqlanmoqda…") : tr("Saqlash")}
+            </button>
+          </div>
+        </form>
+      )}
+    </dialog>
+  );
+}

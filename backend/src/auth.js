@@ -1,0 +1,90 @@
+import crypto from "node:crypto";
+import { promisify } from "node:util";
+
+const scrypt = promisify(crypto.scrypt);
+
+// Bosh ofis (zavodga bog'lanmagan) bo'lishi mumkin bo'lgan rollar — barcha zavodlarni ko'radi:
+//   admin      — texnik bosh administrator: zavodlar va foydalanuvchilarni sozlaydi
+//   kuzatuvchi — bosh nazoratchi: hamma zavodni ko'radi va Excel yuklab oladi, hech narsa kiritmaydi
+//   kurator    — faqat ko'radi
+// Qolgan rollar (rahbar, pto, usta, omborchi, buxgalter) har doim bitta zavodga biriktiriladi.
+export const HQ_ROLES = ["admin", "kuzatuvchi", "kurator"];
+export const ROLES = ["admin", "rahbar", "pto", "usta", "omborchi", "buxgalter", "kuzatuvchi", "kurator"];
+export const ADMIN_ROLES = ["admin", "rahbar"]; // to'liq huquq: hamma narsa + foydalanuvchilar, zaxira, o'zgarishlar tarixi
+export const WRITE_ROLES = ["admin", "rahbar", "pto"]; // ПТО ma'lumotlarini (hisobot, katalog, buyurtma, narx) o'zgartiradi
+export const STORE_ROLES = ["admin", "rahbar", "pto", "omborchi"]; // ombor kirim/chiqimi, sex/texnika, yangi material
+export const DAY_ROLES = ["admin", "rahbar", "pto", "usta"]; // kunlik hisobotni saqlaydi (usta — reja, fakt, sarf va izoh; kirim va jo'natishsiz)
+export const ACCT_ROLES = ["admin", "rahbar", "pto", "buxgalter"]; // buxgalteriya material hisobotini (oylik DOCX) saqlaydi
+// buxgalter — hamma narsani ko'radi, faqat «Material hisoboti»ni tahrirlaydi
+// kuzatuvchi va kurator — faqat ko'radi va yuklab oladi (Excel)
+const TOKEN_DAYS = 30;
+
+/* ---------- parol xeshi (scrypt) ---------- */
+export async function hashPassword(plain) {
+  const salt = crypto.randomBytes(16);
+  const key = await scrypt(String(plain), salt, 32);
+  return `scrypt$${salt.toString("base64url")}$${key.toString("base64url")}`;
+}
+
+export async function verifyPassword(plain, stored) {
+  const [alg, saltB64, keyB64] = String(stored || "").split("$");
+  if (alg !== "scrypt" || !saltB64 || !keyB64) return false;
+  const expected = Buffer.from(keyB64, "base64url");
+  const key = await scrypt(String(plain ?? ""), Buffer.from(saltB64, "base64url"), expected.length);
+  return crypto.timingSafeEqual(key, expected);
+}
+
+/** Parol va boshqa satrlarni vaqt bo'yicha xavfsiz solishtirish */
+export function safeEqual(a, b) {
+  const x = crypto.createHash("sha256").update(String(a ?? "")).digest();
+  const y = crypto.createHash("sha256").update(String(b ?? "")).digest();
+  return crypto.timingSafeEqual(x, y);
+}
+
+export function passwordProblem(p) {
+  if (typeof p !== "string" || p.length < 6) return "Parol kamida 6 belgidan iborat bo'lsin";
+  if (p.length > 100) return "Parol juda uzun";
+  return "";
+}
+
+/* ---------- token: base64url(JSON).imzo ---------- */
+function secret() {
+  const s = process.env.AUTH_SECRET;
+  if (!s || s.length < 16) throw new Error("AUTH_SECRET o'rnatilmagan yoki juda qisqa (kamida 16 belgi)");
+  return crypto.createHash("sha256").update(s).digest();
+}
+const sign = (body) => crypto.createHmac("sha256", secret()).update(body).digest("base64url");
+
+export function issueToken(user) {
+  const body = Buffer.from(
+    JSON.stringify({ u: String(user.id), v: user.tokenVersion || 0, e: Date.now() + TOKEN_DAYS * 864e5 })
+  ).toString("base64url");
+  return `${body}.${sign(body)}`;
+}
+
+/** Imzo va muddatni tekshiradi. To'g'ri bo'lsa { u, v } qaytaradi */
+export function readToken(token) {
+  const [body, sig] = String(token || "").split(".");
+  if (!body || !sig) return null;
+  const good = sign(body);
+  if (sig.length !== good.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(good))) return null;
+  try {
+    const p = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
+    if (!p?.u || !(p.e > Date.now())) return null;
+    return p;
+  } catch {
+    return null;
+  }
+}
+
+export const publicUser = (u) => ({
+  id: String(u.id),
+  username: u.username,
+  name: u.name || u.username,
+  role: u.role,
+  factoryId: u.factoryId || null, // null — barcha zavodlar
+  active: u.active !== false,
+  mustChangePassword: Boolean(u.mustChangePassword),
+  lastLoginAt: u.lastLoginAt || null,
+  createdAt: u.createdAt || null,
+});

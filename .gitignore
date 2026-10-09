@@ -1,0 +1,10 @@
+node_modules
+.next
+.env
+.env.local
+.env*.local
+.vercel
+# zaxira nusxalar va zavod ma'lumotlari git'ga tushmasin
+*backup*.json
+*zaxira*.json
+_eski_nusxa_*/
