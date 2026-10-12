@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@/lib/role";
 import { api } from "@/lib/api";
 import Icon from "./Icon";
+import ExportMenu from "./ExportMenu";
 import NakladnoyDialog from "./NakladnoyDialog";
 import { addDaySheet, deliver, newWorkbook, pickRows } from "@/lib/excel";
 import { BRAK_REASONS, consumption, fmtDate, fmtN, lsGet, lsSet, productOptions, round, shiftDate, today } from "@/lib/calc";
@@ -188,8 +189,9 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
   // jadval aynan shu sana uchun yuklangan bo'lsagina saqlash, eksport va o'chirish mumkin
   const ready = !loading && loaded?.date === date;
 
-  async function save() {
+  async function save(shipRows) {
     if (!ready) return notify("Kun ma'lumoti yuklanmagan — avval qayta yuklang");
+    if (!Array.isArray(shipRows)) shipRows = ships;
     setSaving(true);
     try {
       const body = {
@@ -198,7 +200,7 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
           .filter((r) => r.productId)
           .map((r) => ({ productId: r.productId, plan: num(r.plan), fact: num(r.fact), brak: num(r.brak), brakReason: num(r.brak) > 0 ? r.brakReason || "boshqa" : "", note: r.note || "" })),
         materials: Object.entries(matIn).map(([materialId, v]) => ({ materialId, sarf: num(v?.sarf), kirim: num(v?.kirim) })),
-        shipments: ships
+        shipments: shipRows
           .filter((r) => r.productId && num(r.qty) > 0)
           .map((r) => ({ productId: r.productId, qty: num(r.qty), customer: r.customer || "", vehicle: r.vehicle || "", orderId: r.orderId || null })),
       };
@@ -216,6 +218,16 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
     } finally {
       setSaving(false);
     }
+  }
+
+  // Накладнаяdagi mahsulotlar → shu kunning jo'natishi. replaceIdx — накладная qaysi jo'natish qatorlaridan
+  // to'ldirilgan bo'lsa, o'shalar yangilanadi (ikki marta qo'shilmaydi), qolganlari joyida qoladi. Kun saqlanadi.
+  async function applyNakladnoy(rows, replaceIdx = []) {
+    const drop = new Set(replaceIdx);
+    const next = [...ships.filter((_, i) => !drop.has(i)), ...rows];
+    setShips(next);
+    setDirty(true);
+    await save(next);
   }
 
   // ekrandagi (hali saqlanmagan bo'lsa ham) holat bo'yicha Excel
@@ -309,49 +321,85 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
   const planSum = prod.reduce((s, r) => s + num(r.plan), 0);
   const factSum = prod.reduce((s, r) => s + num(r.fact), 0);
   const brakSum = prod.reduce((s, r) => s + num(r.brak), 0);
+  const shippedSum = [...shipBy.values()].reduce((s, qty) => s + qty, 0);
+  const completion = planSum ? (factSum / planSum) * 100 : null;
+  const saveState = saving
+    ? tr("Saqlanmoqda…")
+    : loading
+      ? tr("Yuklanmoqda…")
+      : !ready
+        ? tr("Hisobot yuklanmadi")
+        : dirty
+          ? tr("Saqlanmagan o'zgarishlar")
+          : exists
+            ? tr("Barcha o'zgarishlar saqlangan")
+            : tr("Yangi hisobot");
   const popts = productOptions(products);
   const activeOrders = orders.filter((o) => o.status !== "topshirildi");
 
   return (
-    <section className="sheet day">
+    <section className={`sheet day${canDay ? " has-savebar" : ""}`}>
       <div className="print-only print-head">
         <div>{settings.company}</div>
         <strong>Ежедневная информация о выпуске ЖБИ и об остатках основных материалов на {fmtDate(date)}</strong>
       </div>
 
-      <div className="bar no-print">
-        <div className="l">
-          <h2>{tr("Kunlik hisobot")}</h2>
+      <div className="bar day-header no-print">
+        <div className="day-heading">
+          <h2>{tr(canDay ? "Hisobotni to'ldirish" : "Hisobot tafsilotlari")}</h2>
+          <p className="hint">{tr("Kunlik reja, ishlab chiqarish va ombor harakatlari.")}</p>
+        </div>
+        <div className="r">
+          <ExportMenu disabled={exporting || !ready}>
+            <button className="btn" onClick={() => exportExcel(false)} disabled={exporting || !ready}>
+              <Icon name="download" /> {tr("Excel yuklab olish")}
+            </button>
+            <button className="btn" onClick={() => exportExcel(true)} disabled={exporting || !ready}>
+              <Icon name="share" /> {tr("Ulashish")}
+            </button>
+            <button className="btn" onClick={() => window.print()} disabled={!ready}>
+              <Icon name="print" /> {tr("Chop etish")}
+            </button>
+          </ExportMenu>
+          {canEdit && exists && ready && (
+            <button className="btn danger" onClick={removeDay}>
+              <Icon name="trash" /> {tr("Kunni o'chirish")}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="day-controls no-print">
+        <div className="day-date-group">
+          <label className="day-date-label" htmlFor="day-date">{tr("Hisobot sanasi")}</label>
           <div className="daynav">
             <button className="btn sm" onClick={() => go(shiftDate(date, -1))} aria-label={tr("Oldingi kun")}>
               <Icon name="chevL" />
             </button>
-            <input id="day-date" type="date" value={date} onChange={(e) => go(e.target.value)} aria-label={tr("Sana")} />
+            <input id="day-date" type="date" value={date} onChange={(e) => go(e.target.value)} aria-label={tr("Hisobot sanasi")} />
             <button className="btn sm" onClick={() => go(shiftDate(date, 1))} aria-label={tr("Keyingi kun")}>
               <Icon name="chevR" />
             </button>
             <button className="btn sm" onClick={() => go(today())}>{tr("Bugun")}</button>
           </div>
-          {dirty && <span className="pill st-jarayonda">{tr("Saqlanmagan")}</span>}
-          {!dirty && exists && <span className="pill st-tayyor">{tr("Saqlangan")}</span>}
         </div>
-        <div className="r">
-          <button className="btn" onClick={() => exportExcel(false)} disabled={exporting || !ready}>
-            <Icon name="download" /> {tr("Excel yuklab olish")}</button>
-          <button className="btn" onClick={() => exportExcel(true)} disabled={exporting || !ready}>
-            <Icon name="share" /> {tr("Ulashish")}</button>
-          <button className="btn" onClick={() => window.print()}>
-            <Icon name="print" /> {tr("Chop etish")}</button>
-          {canEdit && exists && ready && (
-            <button className="btn danger" onClick={removeDay}>{tr("Kunni o'chirish")}</button>
-          )}
-          {canDay && (
-            <button className="btn primary" onClick={save} disabled={saving || !ready}>
-              <Icon name="save" /> {saving ? tr("Saqlanmoqda…") : tr("Saqlash")}
-            </button>
-          )}
-        </div>
+        {!canDay && <span className="pill st-topshirildi">{tr("Ko'rish rejimi")}</span>}
       </div>
+
+      {canDay && (
+        <div className={`day-savebar no-print ${saving ? "is-saving" : dirty ? "is-dirty" : exists ? "is-saved" : ""}`}>
+          <div className="day-save-state" role="status" aria-live="polite" aria-atomic="true">
+            <Icon name={dirty ? "edit" : exists ? "inv" : "day"} size={20} />
+            <div className="day-save-copy">
+              <strong>{saveState}</strong>
+              <span>{fmtDate(date)}</span>
+            </div>
+          </div>
+          <button className="btn primary day-save-button" onClick={() => save()} disabled={saving || !ready} aria-busy={saving}>
+            <Icon name="save" /> {saving ? tr("Saqlanmoqda…") : tr("Saqlash")}
+          </button>
+        </div>
+      )}
       {stock?.beforeOpening && (
         <div className="notice">{tr("Bu sana boshlang'ich qoldiq sanasidan ({d}) oldin — qoldiqlar hisoblanmaydi.", { d: fmtDate(stock.openingDate) })}</div>
       )}
@@ -373,11 +421,40 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
         </div>
       ) : (
         <>
+          <div className="kpis day-kpis no-print" aria-label={tr("Kun ko'rsatkichlari")}>
+            <div className="kpi">
+              <div className="k">{tr("Reja")}</div>
+              <div className="v">{fmtN(planSum)} <small>{tr("dona")}</small></div>
+              <p className="hint day-kpi-meta">{tr("Belgilangan ishlab chiqarish")}</p>
+            </div>
+            <div className="kpi">
+              <div className="k">{tr("Fakt")}</div>
+              <div className="v">{fmtN(factSum)} <small>{tr("dona")}</small></div>
+              <p className="hint day-kpi-meta">{tr("Bajarilishi")}: {completion === null ? "—" : `${fmtN(completion, 0)} %`}</p>
+            </div>
+            <div className={`kpi${brakSum ? " kpi-risk" : ""}`}>
+              <div className="k">{tr("Brak")}</div>
+              <div className="v">{fmtN(brakSum)} <small>{tr("dona")}</small></div>
+              <p className="hint day-kpi-meta">{tr("Sifatli faktga kirmaydi")}</p>
+            </div>
+            <div className="kpi">
+              <div className="k">{tr("Jo'natildi")}</div>
+              <div className="v">{fmtN(shippedSum)} <small>{tr("dona")}</small></div>
+              <p className="hint day-kpi-meta">{tr("Shu kundagi jo'natishlar")}</p>
+            </div>
+          </div>
+
           {/* ---- reja / fakt ---- */}
-          <div>
-            <h3>{tr("Mahsulotlar: reja / fakt")}</h3>
+          <div className="day-section">
+            <div className="day-section-head">
+              <span className="day-step no-print" aria-hidden="true">01</span>
+              <div className="day-section-copy">
+                <h3>{tr("Mahsulotlar: reja / fakt")}</h3>
+                <p className="hint no-print">{tr("Reja va sifatli faktni kiriting. Brakni alohida yozing.")}</p>
+              </div>
+            </div>
             <div className="tbl-wrap">
-              <fieldset className="plain" disabled={!canDay}><table className="edit">
+              <fieldset className="plain" disabled={!canDay}><table className="edit day-production-table">
                 <thead>
                   <tr>
                     <th>{tr("Mahsulot")}</th>
@@ -394,7 +471,7 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
                     const pct = num(r.plan) ? (num(r.fact) / num(r.plan)) * 100 : null;
                     return (
                       <tr key={i}>
-                        <td className="wide">
+                        <td className="wide day-prod-product">
                           <select id={`dp-p-${i}`} value={r.productId} onChange={(e) => setProdRow(i, { productId: e.target.value })} aria-label={tr("Mahsulot")}>
                             <option value="">{tr("— mahsulot tanlang —")}</option>
                             {popts.map(([k, l]) => (
@@ -404,13 +481,13 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
                             ))}
                           </select>
                         </td>
-                        <td className="n">
+                        <td className="n day-prod-plan">
                           <input id={`dp-plan-${i}`} type="number" min="0" step="1" value={r.plan} onChange={(e) => setProdRow(i, { plan: e.target.value })} aria-label={tr("Reja")} />
                         </td>
-                        <td className="n">
+                        <td className="n day-prod-fact">
                           <input id={`dp-fact-${i}`} type="number" min="0" step="1" value={r.fact} onChange={(e) => setProdRow(i, { fact: e.target.value })} aria-label={tr("Fakt")} />
                         </td>
-                        <td className="n brak-cell">
+                        <td className="n brak-cell day-prod-brak">
                           <input id={`dp-brak-${i}`} type="number" min="0" step="1" value={r.brak} placeholder="0" onChange={(e) => setProdRow(i, { brak: e.target.value })} aria-label={tr("Brak")} />
                           {num(r.brak) > 0 && (
                             <select id={`dp-brr-${i}`} value={r.brakReason || "boshqa"} onChange={(e) => setProdRow(i, { brakReason: e.target.value })} aria-label={tr("Brak sababi")}>
@@ -422,11 +499,11 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
                             </select>
                           )}
                         </td>
-                        <td className={`n ${pct === null ? "" : pct >= 100 ? "ok" : "warn"}`}>{pct === null ? "—" : `${fmtN(pct, 0)} %`}</td>
-                        <td>
+                        <td className={`n day-prod-percent ${pct === null ? "" : pct >= 100 ? "ok" : "warn"}`}>{pct === null ? "—" : `${fmtN(pct, 0)} %`}</td>
+                        <td className="day-prod-note">
                           <input id={`dp-note-${i}`} value={r.note || ""} onChange={(e) => setProdRow(i, { note: e.target.value })} aria-label={tr("Izoh")} />
                         </td>
-                        <td className="no-print">
+                        <td className="no-print day-prod-remove">
                           <button className="btn sm danger" aria-label={tr("Qatorni o'chirish")} onClick={touch(() => setProd((rows) => rows.filter((_, j) => j !== i)))}>
                             ×
                           </button>
@@ -436,19 +513,19 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
                   })}
                 </tbody>
                 <tfoot>
-                  <tr>
-                    <td>{tr("Jami")}</td>
-                    <td className="n">{fmtN(planSum)}</td>
-                    <td className="n">{fmtN(factSum)}</td>
-                    <td className={`n${brakSum ? " late" : ""}`}>{brakSum ? fmtN(brakSum) : "—"}</td>
-                    <td className="n">{planSum ? `${fmtN((factSum / planSum) * 100, 0)} %` : "—"}</td>
-                    <td colSpan={2}></td>
+                  <tr className="day-production-total">
+                    <td className="day-prod-product">{tr("Jami")}</td>
+                    <td className="n day-prod-plan">{fmtN(planSum)}</td>
+                    <td className="n day-prod-fact">{fmtN(factSum)}</td>
+                    <td className={`n day-prod-brak${brakSum ? " late" : ""}`}>{brakSum ? fmtN(brakSum) : "—"}</td>
+                    <td className="n day-prod-percent">{completion === null ? "—" : `${fmtN(completion, 0)} %`}</td>
+                    <td className="day-total-empty" colSpan={2}></td>
                   </tr>
                 </tfoot>
               </table></fieldset>
             </div>
             {canDay && (
-              <div className="no-print" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+              <div className="day-section-actions no-print">
                 <button className="btn sm" onClick={touch(() => setProd((rows) => [...rows, emptyProd()]))}>{tr("+ Mahsulot qo'shish")}</button>
                 {date >= today() && (
                   <button className="btn sm" onClick={fillFromPlan} title={tr("Buyurtmalar rejasidagi taklif bo'yicha")}>{tr("Rejani buyurtmalardan to'ldirish")}</button>
@@ -459,10 +536,14 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
           </div>
 
           {/* ---- materiallar ---- */}
-          <div>
-            <div className="bar">
-              <h3 style={{ margin: 0 }}>{tr("Xomashyo va materiallar")}</h3>
-              <div className="r no-print">
+          <div className="day-section">
+            <div className="bar day-section-head">
+              <span className="day-step no-print" aria-hidden="true">02</span>
+              <div className="day-section-copy">
+                <h3>{tr("Xomashyo va materiallar")}</h3>
+                <p className="hint no-print">{tr("Ishlab chiqarish sarfini kiriting yoki normadan to'ldiring.")}</p>
+              </div>
+              <div className="r day-section-actions no-print">
                 <label className="check">
                   <input id="day-showall" type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> {tr("Barcha materiallar")}</label>
                 {canDay && (
@@ -515,13 +596,22 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
                 </tbody>
               </table></fieldset>
             </div>
-            <p className="hint no-print" style={{ marginTop: 6 }}>{tr("Metall kg da. «Norma (fakt)» — fakt × Норма (beton → qum/sement/sheben, elektrod = metallning {p} %). Sarf normadan 10 % dan ko'p farq qilsa sariq bilan belgilanadi. Kirim va chiqim — omborchi kiritgan harakatlar («Ombor» bo'limi).", { p: fmtN(settings.electrodePct, 2) })}</p>
+            <details className="day-help no-print">
+              <summary>{tr("Sarf va qoldiq qanday hisoblanadi?")}</summary>
+              <p className="hint">{tr("Metall kg da. «Norma (fakt)» — fakt × Норма (beton → qum/sement/sheben, elektrod = metallning {p} %). Sarf normadan 10 % dan ko'p farq qilsa sariq bilan belgilanadi. Kirim va chiqim — omborchi kiritgan harakatlar («Ombor» bo'limi).", { p: fmtN(settings.electrodePct, 2) })}</p>
+            </details>
           </div>
 
           {/* ---- tayyor mahsulot ---- */}
           <div className="grid2">
-            <div>
-              <h3>{tr("Tayyor mahsulot qoldig'i")}</h3>
+            <div className="day-section">
+              <div className="day-section-head">
+                <span className="day-step no-print" aria-hidden="true">03</span>
+                <div className="day-section-copy">
+                  <h3>{tr("Tayyor mahsulot qoldig'i")}</h3>
+                  <p className="hint no-print">{tr("Ishlab chiqarish va jo'natishdan keyingi qoldiq.")}</p>
+                </div>
+              </div>
               <div className="tbl-wrap">
                 {!prodStock.length ? (
                   <div className="empty">{tr("Qoldiq yo'q.")}</div>
@@ -561,8 +651,14 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
             </div>
 
             {/* ---- jo'natish ---- */}
-            <div>
-              <h3>{tr("Jo'natish (отгрузка)")}</h3>
+            <div className="day-section">
+              <div className="day-section-head">
+                <span className="day-step no-print" aria-hidden="true">04</span>
+                <div className="day-section-copy">
+                  <h3>{tr("Jo'natish (отгрузка)")}</h3>
+                  <p className="hint no-print">{tr("Yuk xati tayyorlang yoki jo'natishni qo'lda kiriting.")}</p>
+                </div>
+              </div>
               <div className="tbl-wrap">
                 <fieldset className="plain" disabled={!canEdit}><table className="edit">
                   <thead>
@@ -633,21 +729,22 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
                   </tbody>
                 </table></fieldset>
               </div>
-              <div className="no-print" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-                {canEdit && (
-                  <button className="btn sm" onClick={touch(() => setShips((rows) => [...rows, emptyShip()]))}>{tr("+ Jo'natish qo'shish")}</button>
-                )}
-                {/* doim ko'rinadi: jo'natish bo'lmasa — «Договор №» tanlab, shartnomadagi buyurtmadan to'ldiriladi */}
-                <button className="btn sm" onClick={() => setNkOpen(true)} title={tr("Shu kungi jo'natish bo'yicha yuk xati (PDF)")}>
+              <div className="day-section-actions no-print">
+                {/* asosiy yo'l: накладная yoziladi — undagi mahsulotlar PDF bilan birga shu kunning jo'natishiga avtomatik tushadi */}
+                <button className={`btn sm${canEdit ? " primary" : ""}`} onClick={async () => { await Promise.resolve(onSaved()).catch(() => {}); setNkOpen(true); }} disabled={!ready} title={tr("Yuk xati (PDF) — undagi mahsulotlar jo'natishga avtomatik yoziladi")}>
                   <Icon name="print" size={14} /> {tr("Накладная (PDF)")}
                 </button>
+                {canEdit && (
+                  <button className="btn sm" onClick={touch(() => setShips((rows) => [...rows, emptyShip()]))}>{tr("+ Jo'natish qo'lda")}</button>
+                )}
               </div>
-              {nkOpen && <NakladnoyDialog ships={ships} date={date} data={data} notify={notify} onClose={() => setNkOpen(false)} />}
+              {canEdit && <p className="hint no-print">{tr("Накладная tayyorlanganda undagi mahsulotlar shu jadvalga o'zi qo'shiladi va kun saqlanadi — alohida yozish shart emas.")}</p>}
+              {nkOpen && <NakladnoyDialog ships={ships} date={date} data={data} notify={notify} onClose={() => setNkOpen(false)} onApply={canEdit ? applyNakladnoy : null} />}
             </div>
           </div>
 
-          <div className="field no-print">
-            <label htmlFor="day-note">{tr("Izoh")}</label>
+          <div className="field day-note no-print">
+            <label htmlFor="day-note">{tr("Kun bo'yicha izoh")}</label>
             <textarea id="day-note" rows={2} readOnly={!canDay} value={note} onChange={touch((e) => setNote(e.target.value))} />
           </div>
 

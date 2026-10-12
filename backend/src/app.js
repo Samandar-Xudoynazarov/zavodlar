@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
-import { q, one, rows, migrate, tx } from "./db.js";
-import { ROLES, HQ_ROLES, ADMIN_ROLES, WRITE_ROLES, ACCT_ROLES, STORE_ROLES, DAY_ROLES, hashPassword, verifyPassword, safeEqual, passwordProblem, issueToken, readToken, publicUser } from "./auth.js";
+import { q, one, rows, migrate, tx, dbUrl, DB_VARS } from "./db.js";
+import { ROLES, HQ_ROLES, ADMIN_ROLES, WRITE_ROLES, ACCT_ROLES, MPLAN_ROLES, STORE_ROLES, DAY_ROLES, hashPassword, verifyPassword, safeEqual, passwordProblem, issueToken, readToken, publicUser } from "./auth.js";
 import { audit, diff } from "./audit.js";
 import { USER_LIMIT, USER_LOCK_MIN, IP_LIMIT, IP_LOCK_MIN, clientIp, userKey, ipKey, takeAttempt, lock, loginSucceeded, clearUserLocks } from "./limits.js";
 import { ValidationError, ConflictError, SPEC, clean, insertSql, updateSql, isId, validDate } from "./valid.js";
@@ -31,10 +31,29 @@ app.use(
 app.use(express.json({ limit: "2mb" }));
 
 /* ---------- ochiq yo'llar ---------- */
+// Holat: baza ulanishi va jadvallar. Xato bo'lsa — sababi (parolsiz), Vercel sozlamasini tekshirish uchun
 app.get("/api/health", async (_req, res) => {
-  await migrate();
-  await q("SELECT 1");
-  res.json({ ok: true, db: "postgres", time: new Date().toISOString() });
+  const url = dbUrl();
+  let host = "";
+  try {
+    host = url ? new URL(url).hostname : "";
+  } catch {
+    host = "noto'g'ri yozilgan";
+  }
+  const info = { db: "postgres", dbVar: DB_VARS.find((k) => process.env[k]) || null, dbHost: host };
+  try {
+    await migrate();
+    await q("SELECT 1");
+    res.json({ ok: true, ...info, time: new Date().toISOString() });
+  } catch (err) {
+    const msg = String(err?.message || err).replace(/\/\/[^@\s]+@/g, "//***@");
+    const hint = !url
+      ? "DATABASE_URL o'rnatilmagan: Vercel → loyiha → Storage → Neon bazasini shu loyihaga ulang, keyin Redeploy"
+      : /^(localhost|127\.0\.0\.1)$/.test(host) && process.env.VERCEL
+        ? "DATABASE_URL kompyuterdagi bazaga (localhost) qarayapti — Vercel unga ulana olmaydi. Neon bazasining ulanish qatorini qo'ying"
+        : "";
+    res.status(503).json({ ok: false, ...info, error: msg, code: err?.code || null, hint });
+  }
 });
 
 app.use("/api", async (_req, _res, next) => {
@@ -144,6 +163,8 @@ app.use("/api", (req, res, next) => {
   const role = req.user.role;
   if (WRITE_ROLES.includes(role)) return next();
   if (ACCT_ROLES.includes(role) && /^\/acct-reports(\/|$)/.test(req.path)) return next();
+  // tasdiqlangan reja: usta ham tuzadi va saqlaydi (o'chira olmaydi)
+  if (MPLAN_ROLES.includes(role) && req.method === "PUT" && /^\/month-plans\/[^/]+$/.test(req.path)) return next();
   if (STORE_ROLES.includes(role) && (STORE_PATH.test(req.path) || (/^\/materials(\/|$)/.test(req.path) && req.method !== "DELETE"))) return next();
   if (DAY_ROLES.includes(role) && req.method === "PUT" && /^\/days\/[^/]+$/.test(req.path)) return next();
   if (DAY_ROLES.includes(role) && /^\/product-moves(\/|$)/.test(req.path)) return next();
@@ -236,46 +257,52 @@ app.post("/api/users", adminOnly, async (req, res) => {
   res.status(201).json(publicUser(user));
 });
 
-async function adminsLeft(exceptId) {
-  const r = await q("SELECT count(*) AS n FROM users WHERE role = ANY($1) AND active AND factory_id IS NULL AND id <> $2", [ADMIN_ROLES, exceptId]);
+async function adminsLeft(exceptId, client) {
+  const r = await q("SELECT count(*) AS n FROM users WHERE role = ANY($1) AND active AND factory_id IS NULL AND id <> $2", [ADMIN_ROLES, exceptId], client);
   return r.rows[0].n;
 }
 const isHqAdmin = (u) => ADMIN_ROLES.includes(u.role) && !u.factoryId && u.active;
 
-async function findManaged(req, res) {
+async function findManaged(req, res, client) {
   if (!isId(req.params.id)) return notFound(res), null;
-  const user = await one("SELECT * FROM users WHERE id = $1", [req.params.id]);
+  const user = await one("SELECT * FROM users WHERE id = $1 FOR UPDATE", [req.params.id], client);
   if (!user || (req.user.factoryId && user.factoryId !== req.user.factoryId)) return notFound(res), null;
   return user;
 }
 
 app.put("/api/users/:id", adminOnly, async (req, res) => {
-  const user = await findManaged(req, res);
-  if (!user) return;
-  const before = publicUser(user);
-  const b = req.body || {};
-  if (b.role !== undefined && !ROLES.includes(b.role)) return res.status(400).json({ error: "Rol noto'g'ri" });
-  const next = { name: user.name, role: user.role, active: user.active, factoryId: user.factoryId };
-  if (b.name !== undefined) next.name = String(b.name).trim().slice(0, 120);
-  if (b.role !== undefined) next.role = b.role;
-  if (b.active !== undefined) next.active = Boolean(b.active);
-  if (b.factoryId !== undefined || b.role !== undefined) next.factoryId = userFactory(req, next.role, b.factoryId !== undefined ? b.factoryId : user.factoryId);
-  if (isHqAdmin(user) && !isHqAdmin(next) && !(await adminsLeft(user.id))) return res.status(400).json({ error: "Kamida bitta faol bosh administrator qolishi kerak" });
+  const result = await tx(async (c) => {
+    await c.query("SELECT pg_advisory_xact_lock(4243)");
+    const user = await findManaged(req, res, c);
+    if (!user) return;
+    const before = publicUser(user);
+    const b = req.body || {};
+    if (b.role !== undefined && !ROLES.includes(b.role)) throw new ValidationError("Rol noto'g'ri");
+    const next = { name: user.name, role: user.role, active: user.active, factoryId: user.factoryId };
+    if (b.name !== undefined) next.name = String(b.name).trim().slice(0, 120);
+    if (b.role !== undefined) next.role = b.role;
+    if (b.active !== undefined) next.active = Boolean(b.active);
+    if (b.factoryId !== undefined || b.role !== undefined) next.factoryId = userFactory(req, next.role, b.factoryId !== undefined ? b.factoryId : user.factoryId);
+    if (isHqAdmin(user) && !isHqAdmin(next) && !(await adminsLeft(user.id, c))) throw new ValidationError("Kamida bitta faol bosh administrator qolishi kerak");
 
-  let pwHash = null;
-  if (b.password) {
-    const problem = passwordProblem(b.password);
-    if (problem) return res.status(400).json({ error: problem });
-    pwHash = await hashPassword(b.password);
-  }
-  const bump = pwHash || (user.active && !next.active) || next.factoryId !== user.factoryId || next.role !== user.role;
-  const nu = await one(
-    `UPDATE users SET name = $2, role = $3, active = $4, factory_id = $5,
-       password_hash = COALESCE($6, password_hash), must_change_password = must_change_password OR $6 IS NOT NULL,
-       token_version = token_version + $7, updated_at = now()
-     WHERE id = $1 RETURNING *`,
-    [user.id, next.name, next.role, next.active, next.factoryId, pwHash, bump ? 1 : 0]
-  );
+    let pwHash = null;
+    if (b.password) {
+      const problem = passwordProblem(b.password);
+      if (problem) throw new ValidationError(problem);
+      pwHash = await hashPassword(b.password);
+    }
+    const bump = pwHash || (user.active && !next.active) || next.factoryId !== user.factoryId || next.role !== user.role;
+    const nu = await one(
+      `UPDATE users SET name = $2, role = $3, active = $4, factory_id = $5,
+         password_hash = COALESCE($6, password_hash), must_change_password = must_change_password OR $6 IS NOT NULL,
+         token_version = token_version + $7, updated_at = now()
+       WHERE id = $1 RETURNING *`,
+      [user.id, next.name, next.role, next.active, next.factoryId, pwHash, bump ? 1 : 0], c
+    );
+    return { user, before, nu, pwHash };
+  });
+  if (!result || res.headersSent) return;
+  const { user, before, nu, pwHash } = result;
   if (pwHash) await clearUserLocks(user.username);
   const after = publicUser(nu);
   const changes = diff("user", before, after);
@@ -285,11 +312,16 @@ app.put("/api/users/:id", adminOnly, async (req, res) => {
 });
 
 app.delete("/api/users/:id", adminOnly, async (req, res) => {
-  const user = await findManaged(req, res);
-  if (!user) return;
-  if (user.id === req.user.id) return res.status(400).json({ error: "O'zingizni o'chira olmaysiz" });
-  if (isHqAdmin(user) && !(await adminsLeft(user.id))) return res.status(400).json({ error: "Kamida bitta faol bosh administrator qolishi kerak" });
-  await q("DELETE FROM users WHERE id = $1", [user.id]);
+  const user = await tx(async (c) => {
+    await c.query("SELECT pg_advisory_xact_lock(4243)");
+    const user = await findManaged(req, res, c);
+    if (!user) return;
+    if (user.id === req.user.id) throw new ValidationError("O'zingizni o'chira olmaysiz");
+    if (isHqAdmin(user) && !(await adminsLeft(user.id, c))) throw new ValidationError("Kamida bitta faol bosh administrator qolishi kerak");
+    await q("DELETE FROM users WHERE id = $1", [user.id], c);
+    return user;
+  });
+  if (!user || res.headersSent) return;
   await audit(req, { action: "delete", entity: "user", entityId: user.id, label: user.username, before: publicUser(user), factoryId: user.factoryId });
   res.json({ ok: true });
 });
@@ -320,12 +352,16 @@ app.get("/api/audit", adminOnly, async (req, res) => {
 export const BACKUP_TABLES = ["factories", "settings", "materials", "products", "days", "orders", "targets", "inventories", "movements", "suppliers", "product_moves", "vehicle_logs", "acct_reports", "month_plans", "counters"];
 app.get("/api/backup", adminOnly, async (req, res) => {
   const fid = req.user.factoryId;
-  const data = {};
-  for (const t of BACKUP_TABLES) {
-    const col = t === "factories" ? "id" : "factory_id";
-    data[t] = (await q(`SELECT * FROM ${t} ${fid ? `WHERE ${col} = $1` : ""}`, fid ? [fid] : [])).rows;
-  }
-  data.users = (await q(`SELECT id, username, name, role, factory_id, active, must_change_password, last_login_at, created_at, updated_at FROM users ${fid ? "WHERE factory_id = $1" : ""}`, fid ? [fid] : [])).rows;
+  const data = await tx(async (c) => {
+    await c.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY");
+    const data = {};
+    for (const t of BACKUP_TABLES) {
+      const col = t === "factories" ? "id" : "factory_id";
+      data[t] = (await q(`SELECT * FROM ${t} ${fid ? `WHERE ${col} = $1` : ""}`, fid ? [fid] : [], c)).rows;
+    }
+    data.users = (await q(`SELECT id, username, name, role, factory_id, active, must_change_password, last_login_at, created_at, updated_at FROM users ${fid ? "WHERE factory_id = $1" : ""}`, fid ? [fid] : [], c)).rows;
+    return data;
+  });
   const now = new Date();
   const stamp = new Date(now.getTime() + 5 * 36e5).toISOString().slice(0, 16).replace(/[T:]/g, "-");
   const counts = Object.fromEntries(Object.entries(data).map(([k, v]) => [k, v.length]));
@@ -354,8 +390,8 @@ app.use((err, _req, res, _next) => {
   if (err?.code === "23503") return res.status(409).json({ error: "Bog'langan yozuv bor yoki topilmadi" });
   if (err?.code === "23514" || err?.code === "22P02" || err?.code === "23502") return res.status(400).json({ error: "Noto'g'ri qiymat" });
   console.error(err);
-  if (/ECONNREFUSED|ENOTFOUND|password authentication|does not exist|DATABASE_URL/i.test(String(err?.message))) {
-    return res.status(503).json({ error: "Ma'lumotlar bazasiga ulanib bo'lmadi — DATABASE_URL ni tekshiring" });
+  if (/ECONNREFUSED|ENOTFOUND|ETIMEDOUT|password authentication|database ".*" does not exist|DATABASE_URL/i.test(String(err?.message))) {
+    return res.status(503).json({ error: "Ma'lumotlar bazasiga ulanib bo'lmadi — DATABASE_URL ni tekshiring (batafsil: /api/health)" });
   }
   res.status(500).json({ error: "Serverda xatolik" });
 });

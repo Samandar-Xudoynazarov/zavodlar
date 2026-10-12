@@ -34,11 +34,15 @@ if (!yes) {
 await migrate();
 const pool = getPool();
 // 1) joriy holatni saqlab qo'yamiz
-const now = {};
-for (const t of BACKUP_TABLES) {
-  const col = t === "factories" ? "id" : "factory_id";
-  now[t] = (await pool.query(`SELECT * FROM ${t} WHERE ${col} = ANY($1::uuid[])`, [fids])).rows;
-}
+const now = await tx(async (c) => {
+  await c.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY");
+  const data = {};
+  for (const t of BACKUP_TABLES) {
+    const col = t === "factories" ? "id" : "factory_id";
+    data[t] = (await c.query(`SELECT * FROM ${t} WHERE ${col} = ANY($1::uuid[])`, [fids])).rows;
+  }
+  return data;
+});
 const autoName = `zavod-avto-zaxira-${new Date(Date.now() + 5 * 36e5).toISOString().slice(0, 16).replace(/[T:]/g, "-")}.json`;
 fs.writeFileSync(autoName, JSON.stringify({ app: "zavodlar", format: 2, db: "postgres", createdAt: new Date().toISOString(), createdBy: "restore", data: now }));
 console.log(`Joriy holat saqlandi: ${autoName}`);

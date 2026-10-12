@@ -172,6 +172,21 @@ export default function OverviewTab({ notify, onOpenFactory }) {
       .sort((a, b) => b.spread - a.spread);
   }, [list]);
 
+  const dailyTotal = useMemo(() => {
+    if (!list) return null;
+    const sum = (key) => list.reduce((value, f) => value + (+f.today[key] || 0), 0);
+    const plan = sum("plan");
+    const fact = sum("fact");
+    return {
+      plan,
+      fact,
+      shipped: sum("shipped"),
+      planPct: pct(fact, plan),
+      reported: list.filter((f) => f.today.reported).length,
+      attention: list.filter((f) => f.noReport || (isToday && (f.late.length || f.risk.length || f.low.length))).length,
+    };
+  }, [list, isToday]);
+
   const names = list?.map((f) => f.factory.name) || [];
   const delta = (a, b) => {
     if (a == null || !b) return null;
@@ -201,9 +216,12 @@ export default function OverviewTab({ notify, onOpenFactory }) {
       ) : (
         <>
           {/* ---------- Tanlangan kun (standart — bugun) ---------- */}
-          <div>
-            <div className="bar" style={{ marginBottom: 10 }}>
-              <h3 style={{ margin: 0 }}>{isToday ? t("Bugun — {d}", { d: fmtDate(raw.day) }) : t("Kun — {d}", { d: fmtDate(raw.day) })}</h3>
+          <div className="ov-section">
+            <div className="bar section-heading">
+              <div>
+                <h3>{isToday ? t("Bugun — {d}", { d: fmtDate(raw.day) }) : t("Kun — {d}", { d: fmtDate(raw.day) })}</h3>
+                <p className="hint">{t("{n} ta zavoddan {r} tasida hisobot bor", { n: list.length, r: dailyTotal.reported })}</p>
+              </div>
               <span className="month-pick">
                 <button type="button" className="btn sm" aria-label={t("Oldingi kun")} onClick={() => setDay((d) => shiftDate(d, -1))}>
                   ‹
@@ -219,12 +237,22 @@ export default function OverviewTab({ notify, onOpenFactory }) {
                 )}
               </span>
             </div>
-            <p className="hint" style={{ margin: "0 0 10px" }}>{t("Zavod kartasini bosing — o'sha zavodning bo'limlari ochiladi")}</p>
+            <div className="kpis ov-daily-kpis">
+              <Kpi icon="plan" k={t("Kunlik reja")} v={fmt(dailyTotal.plan)} u={t("dona")} note={t("Kunlik hisobotlardagi reja")} />
+              <Kpi icon="all" k={t("Ishlab chiqarildi")} v={fmt(dailyTotal.fact)} u={t("dona")} note={dailyTotal.planPct == null ? t("Reja kiritilmagan") : t("Reja bajarilishi: {v}", { v: `${fmtN(dailyTotal.planPct, 0)} %` })} />
+              <Kpi icon="sup" k={t("Jo'natildi")} v={fmt(dailyTotal.shipped)} u={t("dona")} note={t("Tanlangan kun bo'yicha")} />
+              <Kpi icon="alert" k={t("E'tibor talab qiladi")} v={fmt(dailyTotal.attention)} u={t("zavod")} warn={dailyTotal.attention > 0} note={isToday ? t("Hisobot, ombor va buyurtmalar") : t("Kunlik hisobot holati")} />
+            </div>
+            <div className="section-heading">
+              <div>
+                <h3>{t("Zavodlar holati")}</h3>
+                <p className="hint">{t("Zavod kartasini bosing — o'sha zavodning bo'limlari ochiladi")}</p>
+              </div>
+            </div>
             <div className="ov-cards">
               {list.map((f) => {
                 const issues = [];
                 if (f.noReport) issues.push(["st-jarayonda", isToday ? t("Bugungi hisobot kiritilmagan") : t("Kunlik hisobot kiritilmagan")]);
-                if (!f.today.workDay && !f.today.reported) issues.push(["st-topshirildi", t("Dam olish kuni")]);
                 // buyurtma va ombor holati — hozirgi holat, faqat bugun ko'rilganda
                 const out = f.low.filter((x) => x.state === "out").length;
                 if (isToday) {
@@ -233,11 +261,20 @@ export default function OverviewTab({ notify, onOpenFactory }) {
                   if (out) issues.push(["st-bad", t("{n} ta material tugagan", { n: out })]);
                   if (f.low.length - out) issues.push(["st-jarayonda", t("{n} ta material kam qoldi", { n: f.low.length - out })]);
                 }
+                const critical = isToday && (f.late.length > 0 || out > 0);
                 return (
-                  <button key={f.factory.id} className="ov-card" onClick={() => onOpenFactory(f.factory.id)}>
+                  <button key={f.factory.id} type="button" className={`ov-card${critical ? " ov-card-alert" : issues.length ? " ov-card-warn" : ""}`} aria-label={t("{name} bo'limlarini ochish", { name: f.factory.name })} onClick={() => onOpenFactory(f.factory.id)}>
                     <div className="ov-card-h">
-                      <span className="strong">{f.factory.name}</span>
-                      <span className="sub">{t(KIND[f.factory.kind] || f.factory.kind)}</span>
+                      <div className="ov-card-title">
+                        <Icon name="all" size={22} />
+                        <div>
+                          <span className="strong">{f.factory.name}</span>
+                          <span className="sub">{t(KIND[f.factory.kind] || f.factory.kind)}</span>
+                        </div>
+                      </div>
+                      <span className={`pill ov-card-status ${issues.length ? critical ? "st-bad" : "st-jarayonda" : "st-tayyor"}`}>
+                        {issues.length ? t("E'tibor kerak") : t("Nazoratda")}
+                      </span>
                     </div>
                     <div className="ov-today">
                       <div>
@@ -266,9 +303,12 @@ export default function OverviewTab({ notify, onOpenFactory }) {
                           </span>
                         ))
                       ) : (
-                        <span className="pill st-tayyor">✓ {t("Muammo yo'q")}</span>
+                        <span className={`pill ${f.today.reported ? "st-tayyor" : "st-topshirildi"}`}>
+                          {f.today.reported ? t("Hisobot kiritilgan") : t("Dam olish kuni")}
+                        </span>
                       )}
                     </div>
+                    <span className="ov-card-link">{t("Zavod bo'limlarini ochish")} <Icon name="chevR" size={17} /></span>
                   </button>
                 );
               })}
@@ -276,8 +316,8 @@ export default function OverviewTab({ notify, onOpenFactory }) {
           </div>
 
           {/* ---------- Tanlangan kun: mahsulotlar bo'yicha ---------- */}
-          <div>
-            <h3>{t("Kunlik tafsilot — {d}", { d: fmtDate(raw.day) })}</h3>
+          <div className="ov-section">
+            <div className="section-heading"><h3>{t("Kunlik tafsilot — {d}", { d: fmtDate(raw.day) })}</h3></div>
             <div className="ov-days">
               {list.map((f) => (
                 <details key={f.factory.id} className="ov-day" open={list.length <= 2 || undefined}>
@@ -329,6 +369,7 @@ export default function OverviewTab({ notify, onOpenFactory }) {
                       </table>
                     </div>
                   )}
+                  {!f.dayLines.length && <p className="hint ov-day-empty">{t("Bu kun uchun mahsulot va jo'natish ma'lumotlari kiritilmagan.")}</p>}
                   {f.day?.note && <p className="hint">{t("Izoh")}: {f.day.note}</p>}
                 </details>
               ))}
@@ -336,8 +377,8 @@ export default function OverviewTab({ notify, onOpenFactory }) {
           </div>
 
           {/* ---------- Oylik natija ---------- */}
-          <div>
-            <h3>{t("Oylik natija — {m}", { m: monthName(month) })}</h3>
+          <div className="ov-section">
+            <div className="section-heading"><h3>{t("Oylik natija — {m}", { m: monthName(month) })}</h3></div>
             <div className="kpis">
               <Kpi k={t("Quyilgan beton")} v={fmtN(total.cur.m3, 0)} u="m³" d={delta(total.cur.m3, total.prev.m3)} />
               <Kpi k={t("Jo'natish (sotuv narxida)")} v={mln(total.cur.sales)} u={t("mln so'm")} d={delta(total.cur.sales, total.prev.sales)} />
@@ -393,8 +434,8 @@ export default function OverviewTab({ notify, onOpenFactory }) {
 
           {/* ---------- Solishtirish ---------- */}
           {list.length > 1 && (
-            <div>
-              <h3>{t("Zavodlarni solishtirish — {m}", { m: monthName(month) })}</h3>
+            <div className="ov-section">
+              <div className="section-heading"><h3>{t("Zavodlarni solishtirish — {m}", { m: monthName(month) })}</h3></div>
               <div className="chart-grid">
                 <Chart
                   title={t("1 m³ betonga material xarajati, ming so'm")}
@@ -475,8 +516,8 @@ export default function OverviewTab({ notify, onOpenFactory }) {
           )}
 
           {/* ---------- Ombor va buyurtmalar ---------- */}
-          <div>
-            <h3>{t("Ombor va buyurtmalar — bugun")}</h3>
+          <div className="ov-section">
+            <div className="section-heading"><h3>{t("Ombor va buyurtmalar — bugun")}</h3></div>
             <div className="tbl-wrap">
               <table>
                 <thead>
@@ -563,14 +604,15 @@ export default function OverviewTab({ notify, onOpenFactory }) {
   );
 }
 
-function Kpi({ k, v, u, d, warn }) {
+function Kpi({ k, v, u, d, warn, icon, note }) {
   return (
     <div className={`kpi ${warn ? "kpi-warn" : ""}`}>
-      <div className="k">{k}</div>
+      <div className="k">{icon && <span className="kpi-icon"><Icon name={icon} size={17} /></span>}{k}</div>
       <div className="v">
         {v}
         <small>{u}</small>
       </div>
+      {note && <div className="kpi-note">{note}</div>}
       {d && <div className="k kpi-prev">{tr("o'tgan oyga nisbatan")} {d}</div>}
     </div>
   );

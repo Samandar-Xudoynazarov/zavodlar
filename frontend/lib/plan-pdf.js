@@ -5,6 +5,7 @@
  */
 import { tr } from "./i18n";
 import { fmt, fmtDate, fmtN } from "./calc";
+import { deliverBlob } from "./share";
 
 const PDF_MIME = "application/pdf";
 const MON_SHORT = ["yan", "fev", "mar", "apr", "may", "iyun", "iyul", "avg", "sen", "okt", "noy", "dek"];
@@ -284,28 +285,5 @@ export async function buildPlanPdf(def) {
 
 /** Yuklab olish yoki ulashish (telefonda Telegram va h.k.) */
 export async function deliverPdf(blob, filename, { share = false } = {}) {
-  if (share) {
-    const file = new File([blob], filename, { type: PDF_MIME });
-    if (navigator.canShare?.({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file], title: filename });
-        return "shared";
-      } catch (e) {
-        if (e?.name === "AbortError") return "cancelled";
-      }
-    }
-  }
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.rel = "noopener";
-  a.style.display = "none";
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => {
-    a.remove();
-    URL.revokeObjectURL(url);
-  }, 4000);
-  return share ? "downloaded-fallback" : "downloaded";
+  return deliverBlob(blob, filename, PDF_MIME, { share });
 }

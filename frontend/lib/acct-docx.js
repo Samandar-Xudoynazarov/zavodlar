@@ -4,6 +4,7 @@
  * Blank, shriftlar, jadval chegaralari va joylashuv shablondan o'zgarishsiz olinadi — faqat qiymatlar yoziladi.
  */
 import JSZip from "jszip";
+import { deliverBlob } from "./share";
 
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 export const TEMPLATE_URL = "/templates/material-hisobot.docx";
@@ -142,28 +143,5 @@ export const acctFileName = (month) => {
 
 /** Yuklab olish yoki ulashish (telefonda Telegram va h.k.) */
 export async function deliverDocx(blob, filename, { share = false } = {}) {
-  if (share) {
-    const file = new File([blob], filename, { type: DOCX_MIME });
-    if (navigator.canShare?.({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file], title: filename });
-        return "shared";
-      } catch (e) {
-        if (e?.name === "AbortError") return "cancelled";
-      }
-    }
-  }
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.rel = "noopener";
-  a.style.display = "none";
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => {
-    a.remove();
-    URL.revokeObjectURL(url);
-  }, 4000);
-  return share ? "downloaded-fallback" : "downloaded";
+  return deliverBlob(blob, filename, DOCX_MIME, { share });
 }

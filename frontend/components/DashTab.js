@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { tr, useT } from "@/lib/i18n";
 import { concreteVolume, fmt, fmtDate, fmtN, priceOf, today } from "@/lib/calc";
 import Chart from "./Chart";
+import Icon from "./Icon";
 import ExportButtons from "./ExportButtons";
 import { fileDate } from "@/lib/xlsx-export";
 
@@ -75,6 +76,10 @@ export default function DashTab({ data, notify }) {
   const cur = derived?.cur;
   const prev = derived?.prev;
   const daily = n === 1;
+  const hasActivity = rows?.some((r) =>
+    ["plan", "fact", "brak", "writeoff", "shipped", "kirimSum"].some((key) => (+r[key] || 0) !== 0) ||
+    ["prod", "ship", "sarf", "chiqim"].some((key) => Object.values(r[key] || {}).some((value) => (+value || 0) !== 0))
+  );
   const mln = (v) => `${fmtN(v / 1e6, 1)} ${tr("mln")}`;
 
   return (
@@ -107,12 +112,21 @@ export default function DashTab({ data, notify }) {
         <div className="loading">{t("Yuklanmoqda…")}</div>
       ) : (
         <>
-          <div className="kpis">
+          {!hasActivity && (
+            <div className="dashboard-empty-notice" role="status">
+              <Icon name="dash" size={28} />
+              <div>
+                <h3>{t("Tanlangan davrda ko'rsatkichlar hali yo'q")}</h3>
+                <p>{t("Kunlik hisobot va ombor harakatlari kiritilgach, natijalar shu yerda ko'rinadi.")}</p>
+              </div>
+            </div>
+          )}
+          {cur && <div className="kpis">
             <Kpi k={t("Ishlab chiqarildi — {m}", { m: monthName(daily ? month : cur.key) })} v={fmt(cur.fact)} u={t("dona")} prev={prev && t("o'tgan oy: {v}", { v: fmt(prev.fact) })} />
             <Kpi k={t("Reja bajarilishi")} v={cur.planPct == null ? "—" : fmtN(cur.planPct, 0)} u="%" prev={prev?.planPct != null && t("o'tgan oy: {v}", { v: `${fmtN(prev.planPct, 0)} %` })} />
             <Kpi k={t("Brak ulushi")} v={cur.brakPct == null ? "—" : fmtN(cur.brakPct, 1)} u="%" warn={cur.brakPct > 2} prev={prev?.brakPct != null && t("o'tgan oy: {v}", { v: `${fmtN(prev.brakPct, 1)} %` })} />
             <Kpi k={t("Material xarajati")} v={fmtN(cur.costTotal / 1e6, 1)} u={t("mln so'm")} prev={prev && t("o'tgan oy: {v}", { v: mln(prev.costTotal) })} />
-          </div>
+          </div>}
 
           <div className="chart-grid">
             <Chart

@@ -153,6 +153,19 @@ Hammasi har zavod uchun alohida ishlaydi (zavod tanlagichdagi zavod bo'yicha). B
 
 Bazaga o'zgarishlar `sql/003_pto_features.sql` da — backend birinchi ishga tushganda **avtomatik** qo'llanadi (mavjud buyurtmalar saqlanib qoladi). Frontend'da yangi kutubxona bor, shuning uchun bir marta `npm install` qiling.
 
+## Накладная, ulashish va pto-app yangiliklari (2026-10-09)
+
+- **Накладная → jo'natish**: «Kunlik hisobot» → «Накладная (PDF)». Накладнаяga yozilgan mahsulotlar PDF tayyorlanganda shu kunning
+  jo'natishiga **avtomatik** qo'shiladi (shartnoma tanlangan bo'lsa — o'sha buyurtmaga bog'lanadi) va kun saqlanadi. Mavjud jo'natishdan
+  ochilgan накладная o'sha qatorlarni yangilaydi (ikki marta qo'shilmaydi). Ulashish bekor qilinsa — jo'natishga yozilmaydi.
+  «+ Jo'natish qo'lda» tugmasi zaxira sifatida qoldi.
+- **Накладная PDF**: yuqori o'ng burchakda muhr (shtamp) uchun bo'sh joy (~44×43 mm, ostida «М.П.»); summalar xonalarga ajratiladi.
+- **Ulashish (Telegram)**: barcha Excel / PDF / Word tugmalari yonida «Ulashish» bor. iPhone'da fayl tayyorlanguncha Safari ruxsati
+  tugasa, «Fayl tayyor» oynasi chiqadi — undagi «Ulashish (Telegram)» bosilganda ulashish oynasi ochiladi. iPhone'da «Yuklab olish» ham
+  ulashish oynasi orqali ishlaydi («Fayllarga saqlash» bor). Zaxira nusxa (butun baza) ataylab faqat yuklab olinadi.
+- **pto-app'dan**: tasdiqlangan rejani **usta** ham tuzadi va saqlaydi (o'chira olmaydi); tasdiqlangan reja ostida **material sarfi** bloki;
+  «Kalkulyatsiya»da **guruhlar** bo'yicha ko'rish; mahsulot xarajatlarini andozadan ajratib, faqat o'zi uchun tahrirlash va andozaga qaytarish.
+
 ## Tekshiruv hisobotidagi xatolar tuzatildi (2026-10-09)
 
 «2026-10-08-review.md» dagi topilmalar zavodlar-app'da tuzatildi va sinovdan o'tkazildi:
@@ -199,3 +212,7 @@ Eski ilova bilan **bir xil** (frontend deyarli o'zgarmaydi) + yangilari:
 | GET | `/api/plan?orders=id1,id2&days=N` | tanlangan buyurtmalar bo'yicha reja |
 
 Qolgan yo'llar (`/materials`, `/products`, `/days`, `/stock`, `/movements`, `/orders`, `/plan`, `/dashboard`, `/inventories`, `/suppliers`, `/finished`, `/vehicles`, `/settings`, `/audit`, `/backup`) — eski README'dagidek, faqat tanlangan zavod doirasida.
+
+## Backend regressiya sinovlari
+
+`backend` papkasida `npm test` — kunlik hisobot IDlarining zavodga tegishliligi, parallel yozish paytidagi zaxira izchilligi va oxirgi bosh administrator himoyasini PostgreSQL bilan tekshiradi. `.env` dagi baza ulanishi kerak. Sinov alohida vaqtinchalik sxemada ishlaydi va oxirida uni o‘chiradi; mavjud ilova jadvallari o‘zgarmaydi. Baza foydalanuvchisiga sxema yaratish huquqi kerak.

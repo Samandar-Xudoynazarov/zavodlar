@@ -8,9 +8,12 @@ pg.types.setTypeParser(1700, (v) => (v === null ? null : parseFloat(v)));
 pg.types.setTypeParser(20, (v) => (v === null ? null : parseInt(v, 10))); // bigint (count(*))
 
 let pool = null;
+// Neon / Vercel Postgres integratsiyasi o'zgaruvchini boshqa nom bilan qo'shishi mumkin
+export const DB_VARS = ["DATABASE_URL", "POSTGRES_URL", "DATABASE_URL_UNPOOLED", "POSTGRES_URL_NON_POOLING"];
+export const dbUrl = () => DB_VARS.map((k) => process.env[k]).find(Boolean) || "";
 export function getPool() {
   if (!pool) {
-    const url = process.env.DATABASE_URL;
+    const url = dbUrl();
     if (!url) throw new Error("DATABASE_URL muhit o'zgaruvchisi o'rnatilmagan");
     // Vercel'da har bir funksiya nusxasi o'z ulanishini ochadi — ulanishlar soni kichik bo'lsin
     pool = new pg.Pool({ connectionString: url, max: +process.env.DB_POOL || (process.env.VERCEL ? 3 : 10), idleTimeoutMillis: process.env.VERCEL ? 10000 : 30000 });

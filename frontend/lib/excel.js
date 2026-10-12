@@ -5,6 +5,7 @@
  * (в начала / Приход / Отправка / Остатка), pastda «Отгрузка:» va imzolar.
  */
 import { fmtDate } from "./calc";
+import { deliverBlob } from "./share";
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const thin = { style: "thin" };
@@ -224,31 +225,7 @@ export async function newWorkbook() {
 /** Faylni yuklab olish yoki (telefonda) Telegram va boshqalarga ulashish */
 export async function deliver(wb, filename, { share = false } = {}) {
   const buf = await wb.xlsx.writeBuffer();
-  const blob = new Blob([buf], { type: XLSX_MIME });
-  if (share) {
-    const file = new File([blob], filename, { type: XLSX_MIME });
-    if (navigator.canShare?.({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file], title: filename });
-        return "shared";
-      } catch (e) {
-        if (e?.name === "AbortError") return "cancelled";
-      }
-    }
-  }
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.rel = "noopener";
-  a.style.display = "none";
-  a.click();
-  setTimeout(() => {
-    a.remove();
-    URL.revokeObjectURL(url);
-  }, 4000);
-  return share ? "downloaded-fallback" : "downloaded";
+  return deliverBlob(new Blob([buf], { type: XLSX_MIME }), filename, XLSX_MIME, { share });
 }
 
 /**

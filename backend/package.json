@@ -3,7 +3,7 @@
   "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "Zavodlar ish stoli — Express + PostgreSQL API (bir nechta zavod)",
+  "description": "Zavodlar ish stoli â€” Express + PostgreSQL API (bir nechta zavod)",
   "main": "server.js",
   "scripts": {
     "dev": "node --env-file-if-exists=.env --watch server.js",
@@ -12,7 +12,8 @@
     "user": "node --env-file-if-exists=.env scripts/user.js",
     "restore": "node --env-file-if-exists=.env scripts/restore.js",
     "import-mongo": "node --env-file-if-exists=.env scripts/import-mongo.js",
-    "import-products": "node --env-file-if-exists=.env scripts/import-products.js"
+    "import-products": "node --env-file-if-exists=.env scripts/import-products.js",
+    "test": "node --env-file-if-exists=.env tests/regression.js"
   },
   "engines": {
     "node": ">=20.12"

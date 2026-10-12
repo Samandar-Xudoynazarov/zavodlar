@@ -1,7 +1,7 @@
 // Buxgalteriya material hisoboti va tasdiqlangan oylik ishlab chiqarish rejasi (har zavodga alohida)
 import { Router } from "express";
 import { q, one, rows } from "../db.js";
-import { WRITE_ROLES } from "../auth.js";
+import { WRITE_ROLES, MPLAN_ROLES } from "../auth.js";
 import { audit } from "../audit.js";
 import { isId, validDate, validMonth } from "../valid.js";
 import { notFound, who } from "../common.js";
@@ -61,7 +61,7 @@ r.delete("/acct-reports/:month", async (req, res) => {
 });
 
 /* ---------- Oylik ishlab chiqarish rejasi (rahbar tasdiqlagan) ---------- */
-// Excel'dan yuklangan yoki qo'lda tuzilgan reja. Saqlash — ПТО, admin, rahbar; ko'rish — hamma
+// Excel'dan yuklangan yoki qo'lda tuzilgan reja. Saqlash — ПТО, admin, rahbar, usta; o'chirish — usta'siz; ko'rish — hamma
 const num0 = (v, max = 1e7) => {
   const n = +v;
   return Number.isFinite(n) ? Math.min(max, Math.max(-max, Math.round(n * 1000) / 1000)) : 0;
@@ -97,6 +97,8 @@ function cleanMonthPlan(b, month) {
     },
   };
 }
+// saqlash — ПТО, admin, rahbar va usta; o'chirish — usta'siz
+const planOnly = (req, res, next) => (MPLAN_ROLES.includes(req.user.role) ? next() : res.status(403).json({ error: "Sizda bu amal uchun ruxsat yo'q" }));
 const writeOnly = (req, res, next) => (WRITE_ROLES.includes(req.user.role) ? next() : res.status(403).json({ error: "Sizda bu amal uchun ruxsat yo'q" }));
 
 // oylar ro'yxati (qaysi oylarga reja bor)
@@ -119,7 +121,7 @@ r.get("/month-plans/:month", async (req, res) => {
   if (!MONTH_RE.test(month)) return badMonth(res);
   res.json({ plan: await one("SELECT * FROM month_plans WHERE factory_id = $1 AND month = $2", [req.factoryId, month]) });
 });
-r.put("/month-plans/:month", writeOnly, async (req, res) => {
+r.put("/month-plans/:month", planOnly, async (req, res) => {
   const month = req.params.month;
   if (!MONTH_RE.test(month)) return badMonth(res);
   const c = cleanMonthPlan(req.body || {}, month);

@@ -31,6 +31,7 @@ import FleetTab from "@/components/FleetTab";
 import DashTab from "@/components/DashTab";
 import OverviewTab from "@/components/OverviewTab";
 import AcctTab from "@/components/AcctTab";
+import ShareReady from "@/components/ShareReady";
 
 // [kalit, nomi, izoh, kimlarga (bo'sh — hammaga)]
 const NO_STORE = ["admin", "rahbar", "pto", "buxgalter", "kuzatuvchi", "kurator"]; // buxgalter hammasini ko'radi, faqat material hisobotini yozadi
@@ -57,6 +58,15 @@ const TABS = [
   ["targets", "Sex va texnika", "Chiqim manzillari: bo'limlar va mashinalar", [...NO_STORE, "omborchi"]],
   ["admin", "Boshqaruv", "Foydalanuvchilar, zaxira nusxa va o'zgarishlar tarixi", ["admin", "rahbar"]],
 ];
+const NAV_GROUPS = [
+  { id: "overview", label: "Ish stoli", keys: ["all", "dash"] },
+  { id: "production", label: "Ishlab chiqarish", keys: ["day", "fg", "cat"] },
+  { id: "warehouse", label: "Ombor va ta'minot", keys: ["wh", "moves", "inv", "sup", "stock", "mat"] },
+  { id: "orders", label: "Buyurtmalar", keys: ["ord", "plan", "cost"] },
+  { id: "reports", label: "Hisobotlar", keys: ["month", "acct"] },
+  { id: "management", label: "Boshqaruv", keys: ["veh", "targets", "admin"] },
+];
+const groupFor = (key) => NAV_GROUPS.find((group) => group.keys.includes(key));
 const tabsFor = (user) => TABS.filter((t) => (!t[3] || t[3].includes(user?.role)) && (t[4] !== "hq" || (user && !user.factoryId && (user.factories?.length || 0) > 1)));
 // Telefondagi pastki menyu: rol bo'yicha 4 ta asosiy bo'lim (+ o'rtada «+» tugmasi)
 const BOTTOM = {
@@ -173,6 +183,42 @@ function App() {
   const [toast, setToast] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const toastTimer = useRef(null);
+  const [navQuery, setNavQuery] = useState("");
+  const [collapsedGroups, setCollapsedGroups] = useState(["warehouse", "orders", "reports", "management"]);
+  const menuButton = useRef(null);
+  const navigation = useRef(null);
+
+  useEffect(() => {
+    if (!user) return;
+    const allowed = tabsFor(user);
+    const key = allowed.find(([k]) => k === tab)?.[0] || allowed.find(([k]) => k === HQ_DEFAULT[user?.role])?.[0] || allowed.find(([k]) => k === DEFAULT_TAB[user?.role])?.[0] || allowed[0]?.[0];
+    const group = groupFor(key);
+    if (group) setCollapsedGroups(NAV_GROUPS.filter((item) => item.id !== group.id && item.id !== "overview").map((item) => item.id));
+  }, [tab, user?.role, user?.factoryId, user?.factories?.length]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const mobile = window.matchMedia("(max-width: 980px)").matches;
+    const previousOverflow = document.body.style.overflow;
+    if (mobile) document.body.style.overflow = "hidden";
+    const input = navigation.current?.querySelector("input");
+    input?.focus();
+    const escape = (event) => {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+        menuButton.current?.focus();
+      }
+      if (event.key === "Tab" && mobile) {
+        const controls = [...navigation.current.querySelectorAll("button, input, select")].filter((element) => !element.disabled && element.getClientRects().length);
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
+    };
+    document.addEventListener("keydown", escape);
+    return () => { document.body.style.overflow = previousOverflow; document.removeEventListener("keydown", escape); };
+  }, [menuOpen]);
 
   const notify = useCallback((msg) => {
     setToast(tr(msg)); // server xabarlari ham tanlangan tilga o'giriladi
@@ -257,6 +303,7 @@ function App() {
 
   const chooseTab = (k) => {
     setMenuOpen(false);
+    setNavQuery("");
     if (k === active) return;
     if (!confirmLeave()) return;
     unsaved.current = false;
@@ -319,7 +366,7 @@ function App() {
   return (
     <UserContext.Provider value={user}>
       <div className={`app${menuOpen ? " menu-open" : ""}`}>
-        <aside className="side no-print" aria-label={t("Bo'limlar")}>
+        <aside ref={navigation} id="app-navigation" className="side no-print" aria-label={t("Bo'limlar")}>
           <div className="brand">
             <div className="brand-mark">ПТО</div>
             <div>
@@ -331,13 +378,31 @@ function App() {
             </button>
           </div>
           {factoryPicker("factory-pick side-pick")}
-          <nav className="nav" role="tablist">
-            {tabs.map(([k, l]) => (
-              <button key={k} role="tab" aria-selected={active === k} onClick={() => chooseTab(k)}>
-                <Icon name={k} size={18} />
-                <span>{t(l)}</span>
-              </button>
-            ))}
+          <label className="nav-search">
+            <Icon name="search" size={18} />
+            <input type="search" value={navQuery} onChange={(event) => setNavQuery(event.target.value)} placeholder={t("Bo'limni qidirish")} aria-label={t("Bo'limni qidirish")} />
+          </label>
+          <nav className="nav" aria-label={t("Bo'limlar")}>
+            {NAV_GROUPS.map((group) => {
+              const visibleTabs = tabs.filter(([key, label]) => group.keys.includes(key) && (!navQuery.trim() || `${t(label)} ${t(group.label)}`.toLocaleLowerCase().includes(navQuery.trim().toLocaleLowerCase())));
+              if (!visibleTabs.length) return null;
+              const expanded = Boolean(navQuery.trim()) || !collapsedGroups.includes(group.id);
+              return (
+                <section className={`nav-group${group.keys.includes(active) ? " is-active" : ""}`} key={group.id}>
+                  <button type="button" className="nav-group-title" aria-expanded={expanded} aria-controls={`nav-group-${group.id}`} onClick={() => setCollapsedGroups((prev) => prev.includes(group.id) ? prev.filter((id) => id !== group.id) : [...prev, group.id])}>
+                    <span>{t(group.label)}</span><Icon name="chevR" size={15} />
+                  </button>
+                  <div id={`nav-group-${group.id}`} className="nav-group-items" role="tablist" aria-label={t(group.label)} hidden={!expanded}>
+                    {visibleTabs.map(([key, label]) => (
+                      <button key={key} id={`nav-tab-${key}`} type="button" role="tab" aria-selected={active === key} onClick={() => chooseTab(key)}>
+                        <Icon name={key} size={19} /><span>{t(label)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+            {navQuery.trim() && !tabs.some(([key, label]) => `${t(label)} ${t(groupFor(key)?.label || "")}`.toLocaleLowerCase().includes(navQuery.trim().toLocaleLowerCase())) && <p className="nav-empty" role="status">{t("Bo'lim topilmadi")}</p>}
           </nav>
           <div className="side-foot">
             <LangSwitch dark />
@@ -368,7 +433,9 @@ function App() {
 
         <main className="main">
           <header className="topbar no-print">
+            <button ref={menuButton} type="button" className="icon-btn menu-btn" onClick={() => setMenuOpen(true)} aria-label={t("Menyuni ochish")} aria-expanded={menuOpen} aria-controls="app-navigation"><Icon name="menu" size={22} /></button>
             <div className="topbar-txt">
+              <div className="topbar-eyebrow"><span>{t(groupFor(active)?.label || "Ish stoli")}</span><span className="topbar-context">{active === "all" ? t("Barcha zavodlar") : factory?.name || t("Zavod ish stoli")}</span></div>
               <h1>{t(current[1])}</h1>
               <p>{t(current[2])}</p>
             </div>
@@ -454,6 +521,7 @@ function App() {
             </Fragment>
           )}
         </main>
+        <ShareReady />
 
         {/* telefon: pastki menyu */}
         {user && (
@@ -476,7 +544,7 @@ function App() {
                   <span>{t(SHORT[k] || l)}</span>
                 </button>
               ))}
-            <button onClick={() => setMenuOpen(true)} aria-current={!bottom.some(([k]) => k === active) ? "page" : undefined}>
+            <button onClick={() => setMenuOpen(true)} aria-expanded={menuOpen} aria-controls="app-navigation" aria-current={!bottom.some(([k]) => k === active) ? "page" : undefined}>
               <Icon name="menu" size={22} />
               <span>{t("Menyu")}</span>
             </button>

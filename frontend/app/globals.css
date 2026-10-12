@@ -196,6 +196,9 @@ select.st{border:0;font-weight:600;font-size:12px;border-radius:999px;padding:3p
 @media (max-width:1100px){.split{grid-template-columns:minmax(0,1fr)}}
 .list-pane{max-height:720px;overflow:auto}
 .list-pane thead th{position:sticky;top:0;z-index:1}
+tr.grp-row td{background:var(--paper);font-weight:700;font-size:12.5px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.03em;padding-top:10px}
+table.rt > tbody > tr.grp-row{background:transparent;border:0;padding:10px 2px 2px;margin:4px 0 0}
+table.rt > tbody > tr.grp-row > td{justify-content:flex-start;text-align:left;border:0;min-height:0;padding:0}
 tr.clickable{cursor:pointer}
 tr.selected td{background:var(--accent-soft)!important}
 .card-tbl tr.sum td{background:var(--paper);font-weight:600;border-top:1px solid var(--line)}
@@ -911,3 +914,392 @@ select.need{border-color:var(--signal);background:var(--signal-soft)}
 .nk-pick-list button:hover,.nk-pick-list button[aria-selected="true"]{background:var(--accent-soft)}
 .nk-pick-h{font-size:11.5px;color:var(--ink-3);padding:4px 10px}
 .nk-items .tbl-wrap,.nk-dlg .tbl-wrap{overflow:visible}
+
+/* ---------- «Fayl tayyor» (iPhone'da ulashish uchun ikkinchi bosish) ---------- */
+dialog.share-ready{padding:22px;display:grid;gap:12px}
+dialog.share-ready:not([open]){display:none}
+dialog.share-ready h2{margin:0}
+
+/* ================= tushunarli ish stoli: ekran dizayni ================= */
+/* Ekran uchun; mavjud bosma hisobotning o'lchamlari o'zgarmaydi. */
+@media screen{
+  :root{
+    --ground:#F1F4F8;--paper:#F7F9FC;--ink:#172238;--ink-2:#42526A;--ink-3:#596B83;
+    --line:#D9E2ED;--line-2:#E8EDF4;--control-line:#B6C5D8;
+    --accent:#2458C7;--accent-soft:#EDF3FF;
+    --side:#142033;--side-ink:#BECADC;--side-line:#2A384E;--side-active:#23334D;
+    --shadow:0 1px 3px rgba(19,34,58,.04);--shadow-lg:0 12px 30px rgba(19,34,58,.16);
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E1522;--panel:#172131;--paper:#1C293C;--ink:#EDF2FA;--ink-2:#C2CEE0;--ink-3:#A4B4CC;
+    --line:#34445B;--line-2:#28384E;--control-line:#586C88;
+    --accent:#8EB3FF;--accent-ink:#101B2F;--accent-soft:#213657;
+    --side:#0B1524;--side-ink:#C0CCDF;--side-line:#293850;--side-active:#1D2D44;
+    --shadow:0 1px 3px rgba(0,0,0,.2);--shadow-lg:0 12px 30px rgba(0,0,0,.4);
+  }
+  body{font-size:15px;line-height:1.5}
+  h3{font-size:15px;text-transform:none;letter-spacing:0;color:var(--ink);line-height:1.4}
+  h4{font-size:15px}
+  .hint{font-size:13px;line-height:1.6}
+  .main{padding-inline:30px;gap:22px}
+  .topbar{padding:2px 0 4px;align-items:center;gap:18px}
+  .topbar h1{font-size:28px;letter-spacing:-.025em;line-height:1.25}
+  .topbar p{color:var(--ink-2);font-size:14px;margin-top:6px;line-height:1.5}
+  .topbar-eyebrow{display:block;color:var(--accent);font-size:11px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px}
+  .topbar-context{display:inline-flex;align-items:center;max-width:260px;padding:7px 12px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--ink-2);font-size:12.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sheet{padding:24px;gap:24px;box-shadow:var(--shadow)}
+  .sheet > .bar:first-child{padding-bottom:14px;border-bottom:1px solid var(--line-2)}
+  .sheet.ov > .bar:first-child{padding-bottom:16px}
+  .notice{font-size:14px;line-height:1.55;padding:13px 16px}
+  .empty,.loading{color:var(--ink-2);font-size:14px}
+
+  /* Bo'limlar qidiruvi va guruhlari */
+  .side{padding:22px 14px 16px;gap:18px}
+  .brand{padding:0 8px;gap:12px}
+  .brand-mark{width:40px;height:40px;border-radius:11px;background:#326BDD;color:#fff}
+  .brand-name{font-size:16px;letter-spacing:-.01em}
+  .brand-sub{font-size:12px;margin-top:3px}
+  .nav-search{display:flex;align-items:center;gap:9px;padding:0 11px;min-height:40px;border:1px solid var(--side-line);border-radius:9px;background:var(--side-active);color:var(--side-ink)}
+  .nav-search input{width:100%;min-width:0;border:0;background:transparent;color:var(--side-hi);padding:9px 0;font-size:13px;min-height:0;box-shadow:none}
+  .nav-search input::placeholder{color:var(--side-ink);opacity:1}
+  .nav-search:focus-within{outline:2px solid #82AAFA;outline-offset:2px}
+  .nav-search input:focus-visible{outline:none}
+  .nav{gap:13px}
+  .nav-group{display:grid;gap:3px}
+  .nav .nav-group-title{min-height:30px;padding:5px 10px;border-radius:6px;gap:6px;justify-content:space-between;color:var(--side-ink);font-size:11px;font-weight:700;letter-spacing:.065em;text-transform:uppercase}
+  .nav .nav-group-title:hover{color:var(--side-hi);background:var(--side-active)}
+  .nav-group:has([aria-selected="true"]) > .nav-group-title{color:#B8D0FF}
+  .nav-group-chevron{margin-left:auto;flex:none;transition:transform .15s}
+  .nav-group-title[aria-expanded="false"] .nav-group-chevron{transform:rotate(-90deg)}
+  .nav-group-items{display:grid;gap:3px}
+  .nav-group-items > button{font-size:13.5px;line-height:1.35;min-height:40px;padding:9px 11px;gap:10px}
+  .nav button[aria-selected="true"]{background:#234477;color:#fff;box-shadow:inset 3px 0 0 #82AAFA;font-weight:650}
+  .nav button[aria-selected="true"] .ico{color:#BFD5FF}
+  .nav-empty{font-size:13px;padding:12px 10px;color:var(--side-ink);line-height:1.5}
+  .side-foot{gap:7px;padding:16px 8px 0;font-size:12px}
+  .side-date{font-size:13px}
+  .side-user{gap:4px;padding-top:5px}
+  .side-logout{min-height:34px;margin-top:5px;font-size:12.5px}
+  .side-pick{min-height:42px}
+
+  /* O'qiladigan maydonlar va bir xil amal tugmalari */
+  .btn{min-height:38px;padding:8px 13px;font-size:13.5px;line-height:1.25;box-shadow:none;justify-content:center}
+  .btn.primary{font-weight:700}
+  .btn.primary:hover{filter:brightness(.96)}
+  .btn.sm{min-height:30px;padding:5px 10px;font-size:12.5px;font-weight:600}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+  .icon-btn{width:38px;height:38px}
+  input,select,textarea{border-color:var(--control-line);min-height:38px;font-size:14px;padding:8px 10px;line-height:1.4}
+  input::placeholder,textarea::placeholder{color:var(--ink-3);opacity:1}
+  input[type=checkbox],input[type=radio]{min-height:0;accent-color:var(--accent)}
+  input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-color:var(--accent)}
+  .field{gap:7px}
+  .field label{font-size:13px;font-weight:650;color:var(--ink-2)}
+  .field .u{font-size:12px}
+  .check{font-size:13px}
+  .linkbtn{color:var(--accent);font-size:13px;text-underline-offset:3px}
+  .pill{padding:4px 10px;font-size:12px;line-height:1.4}
+  .st-jarayonda{color:color-mix(in srgb,var(--ink) 30%,#9A5B00)}
+
+  /* Eksport va ikkinchi darajali amallar */
+  .action-menu{position:relative;display:inline-flex;flex:none}
+  .action-menu-trigger{gap:8px}
+  .action-menu-trigger[aria-expanded="true"]{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+  .action-menu-panel{position:absolute;right:0;top:calc(100% + 7px);z-index:40;width:260px;max-width:calc(100vw - 32px);max-height:min(420px,65dvh);overflow:auto;display:grid;gap:5px;padding:8px;border:1px solid var(--line);border-radius:11px;background:var(--panel);box-shadow:var(--shadow-lg)}
+  .action-menu-panel > .btn,.action-menu-panel .export-btns > .btn{width:100%;justify-content:flex-start;white-space:normal;text-align:left;border-color:transparent;background:transparent;padding:10px 11px;min-height:40px}
+  .action-menu-panel > .btn:hover,.action-menu-panel .export-btns > .btn:hover{background:var(--paper);border-color:var(--line)}
+  .action-menu-panel .export-btns{display:grid;width:100%;gap:4px}
+  .action-menu-panel .pdf-ctl{display:flex;gap:5px;align-items:center;padding:2px 0}
+  .action-menu-panel .pdf-ctl > .btn{flex:1;justify-content:flex-start;min-width:0;border-color:transparent}
+  .action-menu-panel .pdf-ctl > select{width:94px;font-size:12.5px;min-height:36px}
+
+  /* Ko'rsatkichlar, jadvallar va grafiklar */
+  .kpis{gap:14px}
+  .kpi{position:relative;padding:18px 18px 16px;background:var(--panel);border-color:var(--line);min-width:0}
+  .kpi .k{font-size:13px;line-height:1.4;font-weight:650;color:var(--ink-2)}
+  .kpi .v{font-size:31px;line-height:1.2;letter-spacing:-.025em;margin-top:8px;overflow-wrap:anywhere}
+  .kpi .v small{font-size:13px;color:var(--ink-2);font-weight:500;letter-spacing:0}
+  .kpi:first-child{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 24%,var(--line))}
+  .kpi-sub,.kpi-prev,.kpi-note{font-size:12px;color:var(--ink-3);line-height:1.5;margin-top:5px}
+  .kpi-icon{display:inline-flex;align-items:center;vertical-align:middle;margin-right:6px;color:var(--accent)}
+  .kpi .kpi-note{margin-bottom:0}
+  .kpi-risk{border-color:color-mix(in srgb,var(--signal) 55%,var(--line))!important}
+  th{font-size:12px;color:var(--ink-2);font-weight:700;letter-spacing:.025em;padding:12px 13px;line-height:1.4}
+  td{font-size:14px;padding:11px 13px;line-height:1.4}
+  td .sub{font-size:12.5px;color:var(--ink-3);margin-top:2px}
+  td .code,.code{font-size:13px}
+  tfoot td{padding-block:12px;font-size:14px}
+  table.edit td{padding:7px 8px}
+  table.edit input,table.edit select{min-height:34px;border-color:var(--control-line);font-size:13.5px;padding:6px 8px}
+  .chart-card{padding:18px 18px 12px}
+  .chart-card h3{font-size:15px;line-height:1.4}
+  .chart-card figcaption p{font-size:13px;line-height:1.5}
+  .legend-row{font-size:12.5px;gap:6px 14px}
+  .card-row,.ord-card,.veh-item{border-color:var(--line)}
+  .ord-stats{background:var(--paper)}
+  .ord-meta,.ord-stat .k,.ord-chip-sub{color:var(--ink-3);font-size:12.5px}
+
+  /* Barcha zavodlar holati */
+  .ov-section{display:grid;gap:16px;min-width:0}
+  .section-heading{display:grid;gap:5px;margin-bottom:4px;min-width:0}
+  .section-heading h3{font-size:17px;line-height:1.35;margin:0;font-weight:700;letter-spacing:-.01em}
+  .section-heading .hint{margin:0}
+  .ov-daily-kpis{margin-bottom:4px}
+  .ov-cards{gap:16px;grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+  .ov-card{background:var(--panel);padding:18px;gap:16px;box-shadow:none;align-content:start;min-width:0}
+  .ov-card:hover{background:var(--paper);border-color:var(--accent)}
+  .ov-card-h{align-items:flex-start;gap:12px}
+  .ov-card-h .strong{font-size:16px;line-height:1.35}
+  .ov-card-h .sub{font-size:12.5px}
+  .ov-card-title{display:flex;align-items:center;gap:9px;min-width:0}
+  .ov-card-title > .ico{color:var(--accent);flex:none}
+  .ov-card-title strong{font-size:16px;line-height:1.35;overflow-wrap:anywhere}
+  .ov-card-status{font-size:12px;color:var(--ink-3);flex:none}
+  .ov-card-alert{border-color:color-mix(in srgb,var(--bad) 50%,var(--line));border-left:3px solid var(--bad)}
+  .ov-card-warn{border-color:color-mix(in srgb,var(--signal) 55%,var(--line));border-left:3px solid var(--signal)}
+  .ov-today{gap:12px}
+  .ov-today .k{font-size:12px;line-height:1.4;color:var(--ink-2);font-weight:550}
+  .ov-today .v{font-size:23px;line-height:1.3;margin-top:4px;letter-spacing:-.02em}
+  .ov-today .v small{font-size:12px;letter-spacing:0;color:var(--ink-3)}
+  .meter{height:7px}
+  .ov-issues{gap:6px;min-height:22px}
+  .ov-issues .pill{font-size:11.5px}
+  .ov-card-link{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--line-2);padding-top:12px;color:var(--accent);font-size:13px;font-weight:650}
+  .dashboard-empty-notice{display:flex;align-items:flex-start;gap:12px;padding:18px;border:1px dashed var(--control-line);border-radius:var(--r);background:var(--paper);color:var(--ink-2)}
+  .dashboard-empty-notice > .ico{color:var(--accent);margin-top:2px}
+  .dashboard-empty-notice h3{margin:0 0 5px;font-size:15px}
+  .dashboard-empty-notice p{font-size:13px;line-height:1.6;margin:0}
+
+  /* Kunlik hisobot: aniq ketma-ketlik va ko'rinadigan saqlash */
+  .day-header{align-items:flex-start}
+  .sheet.day > .day-header .day-heading h2{display:block}
+  .day-heading h2{font-size:18px;letter-spacing:-.01em;line-height:1.4;margin:0 0 4px}
+  .day-heading .hint{margin:0}
+  .day-controls{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .day-date-group{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .day-date-label{font-size:13px;color:var(--ink-2);font-weight:650}
+  .daynav{gap:6px}
+  .daynav input{font-weight:600}
+  .daynav .btn.sm{min-width:32px;min-height:36px;font-size:14px}
+  .day-savebar{position:sticky;top:16px;z-index:15;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 16px;border:1px solid var(--line);border-radius:11px;background:var(--panel);box-shadow:0 3px 12px rgba(19,34,58,.07)}
+  .day-savebar.is-dirty{border-color:color-mix(in srgb,var(--signal) 65%,var(--line));background:color-mix(in srgb,var(--signal-soft) 22%,var(--panel))}
+  .day-save-state{display:flex;align-items:center;gap:10px;color:var(--ink-2);min-width:0}
+  .day-save-state > .ico{color:var(--ink-3)}
+  .is-dirty .day-save-state > .ico{color:#A36500}
+  .is-saved .day-save-state > .ico{color:var(--ok)}
+  .day-save-copy{display:grid;gap:2px;min-width:0}
+  .day-save-copy strong{font-size:13.5px;font-weight:650;color:var(--ink)}
+  .day-save-copy span{font-size:12px;line-height:1.4;color:var(--ink-2)}
+  .day-save-button{flex:none;min-width:132px;min-height:42px}
+  .day-kpis .v{font-size:28px}
+  .day-kpi-meta{font-size:12px;color:var(--ink-3);margin-top:7px}
+  .day-section{display:grid;gap:12px;min-width:0}
+  .day-section-head{display:flex;align-items:center;gap:11px;flex-wrap:wrap;min-width:0}
+  .day-step{display:inline-grid;place-items:center;width:31px;height:31px;flex:none;border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));border-radius:9px;background:var(--accent-soft);color:var(--accent);font-size:13px;font-weight:750}
+  .day-section-copy{display:grid;gap:3px;flex:1;min-width:0}
+  .day-section-copy h3{font-size:16px;line-height:1.35;margin:0;font-weight:700}
+  .day-section-copy .hint{margin:0}
+  .day-section-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .day-production-table th{white-space:normal;vertical-align:bottom}
+  .day-production-table td.day-prod-fact input{font-weight:700;color:var(--accent)}
+  .day-production-table td.day-prod-percent{font-weight:650}
+  .day-help{border:1px solid var(--line);border-radius:9px;background:var(--paper);padding:10px 12px;color:var(--ink-2);font-size:13px;line-height:1.55}
+  .day-help summary{font-weight:600;cursor:pointer}
+  .day-help p{margin:9px 0 0}
+  .day-note textarea{min-height:92px}
+}
+@media screen and (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0E1522;--panel:#172131;--paper:#1C293C;--ink:#EDF2FA;--ink-2:#C2CEE0;--ink-3:#A4B4CC;
+    --line:#34445B;--line-2:#28384E;--control-line:#586C88;
+    --accent:#8EB3FF;--accent-ink:#101B2F;--accent-soft:#213657;
+    --side:#0B1524;--side-ink:#C0CCDF;--side-line:#293850;--side-active:#1D2D44;
+    --shadow:0 1px 3px rgba(0,0,0,.2);--shadow-lg:0 12px 30px rgba(0,0,0,.4);
+  }
+}
+@media screen and (min-width:981px){.app{grid-template-columns:260px minmax(0,1fr)}}
+@media screen and (max-height:820px){
+  .side{padding-block:14px;gap:13px}
+  .nav{gap:9px}
+  .nav-group-items > button{min-height:36px;padding-block:7px}
+  .nav .nav-group-title{padding-block:3px;min-height:27px}
+  .side-foot{padding-top:12px;gap:5px}
+}
+@media screen and (max-width:1180px) and (min-width:981px){
+  .main{padding-inline:22px}
+  .sheet{padding:20px}
+  .topbar-context{max-width:180px}
+  .kpi{padding:16px 14px}
+  .kpi .v{font-size:27px}
+}
+@media screen and (max-width:980px){
+  .side{width:300px;max-width:88vw;padding-top:calc(22px + env(safe-area-inset-top,0px))}
+  .main{padding-inline:18px;gap:20px}
+  .topbar h1{font-size:25px}
+  .topbar-context{font-size:12px;max-width:220px;padding:6px 10px}
+  .day.has-savebar{padding-bottom:100px}
+  .day-savebar{position:fixed;top:auto;bottom:calc(var(--bnav-h) + env(safe-area-inset-bottom,0px) + 8px);left:18px;right:18px;z-index:24;padding:11px 14px;box-shadow:0 4px 18px rgba(19,34,58,.13)}
+  .menu-open .day-savebar{visibility:hidden}
+  .day-save-button{min-height:44px}
+  .bnav > button{font-size:11.5px;color:var(--ink-2)}
+  .bnav > button[aria-current="page"]{background:var(--accent-soft);border-radius:9px 9px 0 0}
+  .bnav .bnav-fab{box-shadow:0 4px 12px rgba(36,88,199,.24)}
+  .day-header > .r{gap:8px}
+}
+@media screen and (max-width:760px){
+  .kpis{gap:10px}
+  .kpi{padding:15px}
+  .kpi .v{font-size:27px}
+  .topbar-context{max-width:180px}
+  .ov-today .v{font-size:22px}
+}
+@media screen and (max-width:640px){
+  .main{padding-inline:12px;gap:18px;padding-top:16px}
+  .topbar{align-items:flex-start;gap:10px}
+  .topbar h1{font-size:24px}
+  .topbar p{font-size:13px;line-height:1.5;margin-top:5px}
+  .topbar-eyebrow{font-size:10.5px;margin-bottom:4px}
+  .topbar-context{max-width:100%;font-size:11.5px;padding:5px 9px}
+  .sheet{padding:0;gap:20px;background:transparent;border:0;box-shadow:none}
+  .sheet > .bar:first-child{padding-bottom:12px}
+  .btn{min-height:42px;padding:10px 12px;font-size:13px}
+  .btn.sm{min-height:36px;padding:7px 10px;font-size:12px}
+  input,select,textarea{min-height:42px;font-size:16px}
+  .icon-btn{width:40px;height:40px}
+  .kpi{padding:14px 12px;background:var(--panel)}
+  .kpi .k{font-size:12px;line-height:1.4}
+  .kpi .v,.day-kpis .v{font-size:25px;margin-top:7px}
+  .kpi .v small{font-size:11.5px}
+  .kpis-3 .kpi{padding:12px 10px}
+  .kpis-3 .kpi .v{font-size:20px}
+  .kpis-3 .kpi .k{font-size:11.5px;line-height:1.4}
+  .kpi-note{font-size:11.5px}
+  .chart-card{padding:15px 13px 10px}
+  .section-heading h3{font-size:16px}
+  .ov-cards{grid-template-columns:minmax(0,1fr);gap:12px}
+  .ov-card{padding:16px;gap:14px}
+  .ov-card-h .strong,.ov-card-title strong{font-size:16px}
+  .ov-today .v{font-size:23px}
+  .ov-today .k{font-size:11.5px}
+  .ov-card-link{padding-top:10px;min-height:34px}
+  .dashboard-empty-notice{padding:14px;gap:10px}
+  .day-header{gap:12px}
+  .day-heading{flex:1 1 180px}
+  .day-heading h2{font-size:17px}
+  .day-header > .r{flex:1 1 100%;justify-content:flex-end}
+  .day-controls{align-items:flex-start;gap:10px}
+  .day-date-group{display:grid;gap:5px;width:100%}
+  .daynav{display:flex;gap:5px;width:100%}
+  .daynav input{flex:1;min-width:0;width:0;font-size:15px;min-height:40px}
+  .daynav .btn.sm{min-height:40px;min-width:34px;font-size:13px;padding-inline:9px}
+  .day-savebar{left:12px;right:12px;gap:10px;padding:10px 12px}
+  .day-save-state{gap:8px}
+  .day-save-copy strong{font-size:12.5px}
+  .day-save-copy span{font-size:11.5px}
+  .day-save-button{min-width:110px;padding:11px 12px;font-size:13px}
+  .day-section{gap:11px}
+  .day-section-head{gap:9px}
+  .day-step{width:29px;height:29px;font-size:12px}
+  .day-section-copy h3{font-size:15px}
+  .day-section-copy .hint{font-size:12px;line-height:1.5}
+  .day-section-actions{flex:1 1 100%;justify-content:flex-start;gap:7px}
+  table.rt > tbody > tr,table.rt > tfoot > tr{padding:9px 13px;margin-bottom:10px}
+  table.rt > tbody > tr > td[data-label]:not([data-label=""])::before,table.rt > tfoot > tr > td[data-label]:not([data-label=""])::before{font-size:12.5px;color:var(--ink-2)}
+  table.rt.edit td input,table.rt.edit td select{font-size:16px;min-height:40px}
+  .day .day-production-table.rt > tbody > tr,.day .day-production-table.rt > tfoot > tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);margin-bottom:12px}
+  .day .day-production-table.rt > tbody > tr > td,.day .day-production-table.rt > tfoot > tr > td{min-width:0;border:0;padding:6px;min-height:0;display:flex;align-items:stretch;justify-content:flex-start;flex-direction:column;gap:6px;text-align:left}
+  .day .day-production-table.rt > tbody > tr > td::before,.day .day-production-table.rt > tfoot > tr > td::before{display:block;max-width:none;margin:0;font-size:11.5px;line-height:1.35;color:var(--ink-2);font-weight:600;text-align:left}
+  .day .day-production-table.rt td.day-prod-product{grid-column:1/-1;display:block;padding:0 0 9px;border-bottom:1px solid var(--line-2);font-size:15px}
+  .day .day-production-table.rt td.day-prod-product::before{display:none}
+  .day .day-production-table.rt td.day-prod-product select{width:100%;max-width:none;text-align:left;min-height:42px}
+  .day .day-production-table.rt td.day-prod-product .sub{display:block;margin:5px 0 0;font-size:12px;font-weight:400}
+  .day .day-production-table.rt td.day-prod-plan,.day .day-production-table.rt td.day-prod-fact,.day .day-production-table.rt td.day-prod-brak{background:var(--paper)!important;border-radius:8px;padding:8px}
+  .day .day-production-table.rt td.day-prod-fact{background:var(--accent-soft)!important}
+  .day .day-production-table.rt td.day-prod-plan input,.day .day-production-table.rt td.day-prod-fact input,.day .day-production-table.rt td.day-prod-brak input{width:100%;max-width:none;min-width:0;text-align:right;font-size:16px;padding:8px 6px;flex:none}
+  .day .day-production-table.rt td.day-prod-brak select{width:100%;max-width:none;text-align:left;min-width:0;font-size:12px;flex:none}
+  .day .day-production-table.rt td.day-prod-percent{grid-column:span 2;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;font-size:13px;font-weight:700;padding:6px}
+  .day .day-production-table.rt td.day-prod-percent::before{font-weight:500}
+  .day .day-production-table.rt td.day-prod-note{grid-column:1/-1;grid-row:4;border-top:1px solid var(--line-2);padding:10px 0 0}
+  .day .day-production-table.rt td.day-prod-note input{width:100%;max-width:none;min-width:0;min-height:40px;text-align:left;font-size:14px}
+  .day .day-production-table.rt td.day-prod-remove{grid-column:3;grid-row:3;justify-content:center;align-items:flex-end;padding:0}
+  .day .day-production-table.rt td.day-prod-remove .btn{min-height:32px;padding:5px 9px}
+  .day .day-production-table.rt > tfoot > tr.day-production-total{background:var(--paper);padding:12px;font-size:14px}
+  .day .day-production-table.rt > tfoot > tr.day-production-total td{font-size:15px;font-weight:700}
+  .day .day-production-table.rt td.day-total-empty{display:none}
+  .day-help{font-size:12.5px;padding:11px 12px}
+}
+@media screen and (max-width:380px){
+  .kpi .v,.day-kpis .v{font-size:22px}
+  .day-save-state > .ico{display:none}
+  .day-save-button{min-width:96px;padding-inline:10px}
+  .day .day-production-table.rt > tbody > tr{padding:10px;gap:5px}
+  .day .day-production-table.rt td.day-prod-plan,.day .day-production-table.rt td.day-prod-fact,.day .day-production-table.rt td.day-prod-brak{padding:6px}
+  .daynav .btn.sm{padding-inline:7px}
+}
+@media screen and (prefers-reduced-motion:reduce){.nav-group-chevron{transition:none}}
+/* Guruh menyusi va komponentlar bilan yakuniy moslashuv */
+@media screen{
+  .nav-group-items[hidden],.action-menu-panel[hidden]{display:none}
+  .nav-group-title > .ico{transition:transform .15s}
+  .nav-group-title[aria-expanded="true"] > .ico{transform:rotate(90deg)}
+  .nav-group.is-active > .nav-group-title{color:#B8D0FF}
+  .topbar-eyebrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px}
+  .topbar-context{font-size:12px;font-weight:600;letter-spacing:0;text-transform:none;padding:3px 9px}
+  .ov-card-title > div{display:grid;gap:3px;min-width:0}
+  .ov-card-title .strong{overflow-wrap:anywhere}
+  .ov-card-title .sub{display:block}
+  .ov-card-status{max-width:106px;white-space:normal;text-align:center;font-size:11px;line-height:1.4}
+  .ov-today > div{min-width:0}
+  .ov-today .v{overflow-wrap:anywhere}
+  .ov-day-empty{padding:8px 0 2px;font-size:13px;line-height:1.5;color:var(--ink-3)}
+  .day-section-head.bar{justify-content:flex-start}
+  .day-section-head > .day-section-actions{margin-left:auto}
+}
+@media screen and (max-width:980px){
+  .menu-btn{display:inline-grid;flex:none;margin-top:19px}
+  .side{width:min(320px,calc(100vw - 40px));max-width:none;visibility:hidden}
+  .menu-open .side{visibility:visible}
+}
+@media screen and (max-width:640px){
+  .menu-btn{margin-top:17px}
+  .topbar-context{font-size:11px;padding:3px 8px;max-width:100%}
+  .day-section-head > .day-section-actions{margin-left:0}
+}
+@media screen and (prefers-reduced-motion:reduce){.nav-group-title > .ico{transition:none}}
+/* Zavod kartalari: katta ekranda to'rttasi bir qatorda */
+@media screen and (min-width:641px) and (max-width:1279px){
+  .ov-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media screen and (min-width:1280px){
+  .ov-cards{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+  .ov-card{padding:16px;gap:13px;grid-template-rows:auto auto 7px 1fr auto;align-content:stretch}
+  .ov-card-h{flex-direction:column;align-items:flex-start;gap:9px}
+  .ov-card-title{width:100%;align-items:flex-start;gap:8px}
+  .ov-card-title > .ico{width:20px;height:20px;margin-top:1px}
+  .ov-card-title .strong{font-size:15px;line-height:1.4}
+  .ov-card-title .sub{font-size:12px}
+  .ov-card-status{max-width:100%;white-space:nowrap;align-self:flex-start}
+  .ov-today{gap:6px}
+  .ov-today .k{font-size:11.5px;line-height:1.4}
+  .ov-today .v{font-size:21px;line-height:1.25}
+  .ov-today .v small{display:block;font-size:11.5px;margin-top:3px}
+  .ov-card-link{font-size:12px;line-height:1.45;align-self:end;min-height:42px;align-items:center}
+  .ov-card-link > .ico{flex:none}
+  .ov-issues{align-content:start;align-items:flex-start}
+}
+@media screen and (min-width:1640px){
+  .ov-card-h{flex-direction:row;align-items:flex-start;gap:10px}
+  .ov-card-title{width:auto;flex:1}
+  .ov-card-title .strong{font-size:16px}
+  .ov-card-status{max-width:106px;white-space:normal}
+  .ov-today{gap:10px}
+  .ov-today .v{font-size:23px}
+  .ov-today .v small{display:inline;margin-top:0}
+}
+/* Ichki gridning uzun buyurtma nomi telefon ekranini kengaytirmasin. */
+@media screen {
+  .day-section{grid-template-columns:minmax(0,1fr)}
+  .day-section > .tbl-wrap{min-width:0;max-width:100%}
+  .day-section fieldset.plain{min-inline-size:0;max-width:100%}
+  .day-section-copy{overflow-wrap:anywhere}
+}

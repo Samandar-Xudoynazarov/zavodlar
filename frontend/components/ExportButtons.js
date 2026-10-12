@@ -3,6 +3,7 @@ import { useState } from "react";
 import { tr } from "@/lib/i18n";
 import { exportSheets } from "@/lib/xlsx-export";
 import Icon from "./Icon";
+import ExportMenu from "./ExportMenu";
 
 /**
  * «Excel» (yuklab olish) va «Ulashish» (Telegram, pochta…) tugmalari — barcha rollar uchun.
@@ -24,6 +25,7 @@ export default function ExportButtons({ build, company, notify, disabled, label 
     }
   }
   return (
+    <ExportMenu disabled={busy || disabled}>
     <span className="export-btns">
       <button type="button" className="btn" onClick={() => run(false)} disabled={busy || disabled} title={tr("Excel faylni yuklab olish")}>
         <Icon name="download" /> {busy ? tr("Tayyorlanmoqda…") : tr(label)}
@@ -32,5 +34,6 @@ export default function ExportButtons({ build, company, notify, disabled, label 
         <Icon name="share" /> {tr(shareLabel)}
       </button>
     </span>
+    </ExportMenu>
   );
 }

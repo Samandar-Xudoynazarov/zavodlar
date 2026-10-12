@@ -108,6 +108,14 @@ export default function CostTab({ data, onEdit, notify, onSchemesSaved }) {
   const { products, mats } = data;
   const [sel, setSel] = useState(() => lsGet("pto.costSel", products[0]?.id));
   const [q, setQ] = useState("");
+  // guruhlar — «Katalog»dagi kabi (mahsulotning «Guruh» maydoni bo'yicha)
+  const [group, setGroupRaw] = useState(() => lsGet("pto.costGroup", "all"));
+  const setGroup = (g) => {
+    setGroupRaw(g);
+    lsSet("pto.costGroup", g);
+  };
+  const groups = useMemo(() => [...new Set(products.map((p) => p.group).filter(Boolean))], [products]);
+  const activeGroup = group === "all" || groups.includes(group) ? group : "all"; // guruh o'chirilgan bo'lsa — hammasi
   const rows = useMemo(
     () =>
       products.map((p) => {
@@ -116,7 +124,15 @@ export default function CostTab({ data, onEdit, notify, onSchemesSaved }) {
       }),
     [products, mats]
   );
-  const shown = rows.filter((r) => !q || `${r.p.code} ${r.p.name} ${r.p.group}`.toLowerCase().includes(q.toLowerCase()));
+  const shown = rows.filter(
+    (r) => (activeGroup === "all" || r.p.group === activeGroup) && (!q || `${r.p.code} ${r.p.name} ${r.p.group}`.toLowerCase().includes(q.toLowerCase()))
+  );
+  // «Hammasi»da ro'yxat guruhlarga bo'lib ko'rsatiladi (guruhsizlar — oxirida)
+  const sections = useMemo(() => {
+    if (activeGroup !== "all") return [[activeGroup, shown]];
+    const order = [...groups, ""];
+    return order.map((g) => [g, shown.filter((r) => (r.p.group || "") === g)]).filter(([, l]) => l.length);
+  }, [shown, groups, activeGroup]);
   const cur = rows.find((r) => r.p.id === sel) || rows[0];
 
   // tanlangan mahsulotlar (belgilash katakchalari): Excel va chop etish faqat shular uchun
@@ -137,7 +153,7 @@ export default function CostTab({ data, onEdit, notify, onSchemesSaved }) {
       return s1;
     });
   // tanlangan bo'lsa — faqat ular (ro'yxat tartibida), bo'lmasa — ro'yxatda ko'ringanlarning hammasi
-  const target = picked.size ? rows.filter((r) => picked.has(r.p.id)) : shown;
+  const target = picked.size ? rows.filter((r) => picked.has(r.p.id)) : sections.flatMap(([, l]) => l); // guruhlar tartibida
   // kartalar: tanlanganlar, bo'lmasa — ochiq turgan karta
   const cardTarget = picked.size ? target.filter((r) => r.has) : cur?.has ? [cur] : [];
 
@@ -274,7 +290,7 @@ export default function CostTab({ data, onEdit, notify, onSchemesSaved }) {
                 {
                   name: tr("Narxlar ro'yxati"),
                   title: tr("Mahsulotlar narxlari (kalkulyatsiya bo'yicha)"),
-                  subtitle: picked.size ? tr("{n} ta tanlangan mahsulot", { n: target.length }) : undefined,
+                  subtitle: picked.size ? tr("{n} ta tanlangan mahsulot", { n: target.length }) : activeGroup !== "all" ? `${tr("Guruh")}: ${activeGroup}` : undefined,
                   columns: [
                     { header: tr("Marka"), key: "code", width: 18 },
                     { header: tr("Nomi"), key: "name", width: 30 },
@@ -314,6 +330,15 @@ export default function CostTab({ data, onEdit, notify, onSchemesSaved }) {
           </button>
         </div>
       </div>
+      {groups.length > 0 && (
+        <div className="chips no-print">
+          {[["all", tr("Hammasi")], ...groups.map((g) => [g, g])].map(([k, l]) => (
+            <button key={k} type="button" className="chip" aria-pressed={activeGroup === k} onClick={() => setGroup(k)}>
+              {l} · {k === "all" ? products.length : products.filter((p) => p.group === k).length}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="bar pick-bar no-print">
         <span className="hint">
           {picked.size
@@ -340,23 +365,33 @@ export default function CostTab({ data, onEdit, notify, onSchemesSaved }) {
                 <th className="n">{tr("Narx QQS bilan")}</th>
               </tr>
             </thead>
-            <tbody>
-              {shown.map(({ p, c, has }) => (
-                <tr key={p.id} className={`clickable ${cur?.p.id === p.id ? "selected" : ""}`} onClick={() => choose(p.id)}>
-                  <td className="pick" onClick={(e) => e.stopPropagation()}>
-                    <input type="checkbox" checked={picked.has(p.id)} onChange={() => togglePick(p.id)} aria-label={tr("Tanlash: {c}", { c: p.code })} />
-                  </td>
-                  <td>
-                    <span className="code">{p.code}</span>
-                    <span className="sub">{p.name}</span>
-                  </td>
-                  <td className="n">{has ? fmtN(c.V, 3) : ""}</td>
-                  <td className="n">{has ? fmt(c.itogo) : "—"}</td>
-                  <td className="n strong">{has ? fmt(c.final) : "—"}</td>
-                </tr>
-              ))}
-            </tbody>
+            {sections.map(([g, list]) => (
+              <tbody key={g || "-"}>
+                {activeGroup === "all" && sections.length > 1 && (
+                  <tr className="grp-row">
+                    <td colSpan={5}>
+                      {g || tr("Guruhsiz")} <span className="muted">· {list.length}</span>
+                    </td>
+                  </tr>
+                )}
+                {list.map(({ p, c, has }) => (
+                  <tr key={p.id} className={`clickable ${cur?.p.id === p.id ? "selected" : ""}`} onClick={() => choose(p.id)}>
+                    <td className="pick" onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox" checked={picked.has(p.id)} onChange={() => togglePick(p.id)} aria-label={tr("Tanlash: {c}", { c: p.code })} />
+                    </td>
+                    <td>
+                      <span className="code">{p.code}</span>
+                      <span className="sub">{p.name}</span>
+                    </td>
+                    <td className="n">{has ? fmtN(c.V, 3) : ""}</td>
+                    <td className="n">{has ? fmt(c.itogo) : "—"}</td>
+                    <td className="n strong">{has ? fmt(c.final) : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            ))}
           </table>
+          {!shown.length && <div className="empty">{tr("Hech narsa topilmadi")}</div>}
         </div>
         {cur && <div className="cost-side">{side}</div>}
       </div>

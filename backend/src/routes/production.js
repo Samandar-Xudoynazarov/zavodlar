@@ -78,6 +78,17 @@ r.put("/days/:date", async (req, res) => {
       data.shipments.filter((l) => l.productId && +l.qty > 0).map((l) => ({ ...l, orderId: isId(l.orderId) ? l.orderId : null })),
       "shipments"
     );
+  // JSONB ichidagi IDlar ham shu zavod katalogiga tegishli bo'lishi shart.
+  for (const [table, key, lines, label] of [
+    ["products", "productId", [...(data.production || []), ...(data.shipments || [])], "Mahsulot"],
+    ["materials", "materialId", data.materials || [], "Material"],
+  ]) {
+    for (const line of lines) line[key] = line[key].toLowerCase();
+    const ids = [...new Set(lines.map((l) => l[key]))];
+    if (!ids.length) continue;
+    const found = await rows(`SELECT id FROM ${table} WHERE factory_id = $1 AND id = ANY($2::uuid[]) FOR KEY SHARE`, [req.factoryId, ids], c);
+    if (found.length !== ids.length) throw new ValidationError(`${label} topilmadi yoki boshqa zavodga tegishli`);
+  }
   // jo'natish faqat shu mahsulot bor (shu zavoddagi) buyurtmaga bog'lanadi, aks holda bog'lanmagan bo'lib qoladi
   if (data.shipments?.some((l) => l.orderId)) {
     const ids = [...new Set(data.shipments.filter((l) => l.orderId).map((l) => l.orderId))];

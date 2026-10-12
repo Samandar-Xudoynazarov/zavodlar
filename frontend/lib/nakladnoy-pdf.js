@@ -60,13 +60,34 @@ function copy(d, { compact }) {
     ],
     margin: [0, compact ? 7 : 9, 0, 0],
   });
+  // yuqori o'ng burchak — muhr (shtamp) uchun bo'sh joy; ostida kichik «М.П.» (место печати)
+  // dumaloq muhr odatda 40 mm (≈113 pt) — atrofida ozgina zaxira bilan
+  const stampW = compact ? 126 : 150;
+  const stampH = compact ? 122 : 140;
   return {
     stack: [
-      { text: [{ text: "НАКЛАДНАЯ № ", bold: true }, { text: `  ${d.num || "        "}  `, decoration: "underline" }], fontSize: compact ? 17 : 20, margin: [0, 0, 0, compact ? 9 : 12] },
-      metaLine("Отправитель:", cyr(d.sender)),
-      metaLine("Получатель:", cyr(d.receiver)),
-      metaLine("Дата отправки:", fmtDate(d.date)),
-      metaLine("Договор №:", cyr(d.contract)),
+      {
+        columns: [
+          {
+            width: "*",
+            stack: [
+              { text: [{ text: "НАКЛАДНАЯ № ", bold: true }, { text: `  ${d.num || "        "}  `, decoration: "underline" }], fontSize: compact ? 17 : 20, margin: [0, 0, 0, compact ? 9 : 12] },
+              metaLine("Отправитель:", cyr(d.sender)),
+              metaLine("Получатель:", cyr(d.receiver)),
+              metaLine("Дата отправки:", fmtDate(d.date)),
+              metaLine("Договор №:", cyr(d.contract)),
+            ],
+          },
+          {
+            width: stampW,
+            stack: [
+              { canvas: [{ type: "rect", x: 0, y: 0, w: stampW, h: stampH, lineWidth: 0, lineColor: "#ffffff" }] },
+              { text: "М.П.", fontSize: 8, color: "#9a9a9a", alignment: "center", margin: [0, -14, 0, 0] },
+            ],
+          },
+        ],
+        columnGap: compact ? 8 : 14,
+      },
       {
         margin: [0, 6, 0, 10],
         table: {
