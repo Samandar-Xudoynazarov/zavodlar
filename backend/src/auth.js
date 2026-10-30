@@ -9,7 +9,7 @@ const scrypt = promisify(crypto.scrypt);
 //   kurator    — faqat ko'radi
 // Qolgan rollar (rahbar, pto, usta, omborchi, buxgalter) har doim bitta zavodga biriktiriladi.
 export const HQ_ROLES = ["admin", "kuzatuvchi", "kurator"];
-export const ROLES = ["admin", "rahbar", "pto", "usta", "omborchi", "buxgalter", "kuzatuvchi", "kurator"];
+export const ROLES = ["admin", "rahbar", "pto", "usta", "omborchi", "buxgalter", "kadrlar", "kuzatuvchi", "kurator"];
 export const ADMIN_ROLES = ["admin", "rahbar"]; // to'liq huquq: hamma narsa + foydalanuvchilar, zaxira, o'zgarishlar tarixi
 export const WRITE_ROLES = ["admin", "rahbar", "pto"]; // ПТО ma'lumotlarini (hisobot, katalog, buyurtma, narx) o'zgartiradi
 export const STORE_ROLES = ["admin", "rahbar", "pto", "omborchi"]; // ombor kirim/chiqimi, sex/texnika, yangi material

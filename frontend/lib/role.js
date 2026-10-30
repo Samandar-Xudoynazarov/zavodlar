@@ -8,7 +8,8 @@ export const ROLES = [
   ["pto", "ПТО muhandisi"],
   ["usta", "Sex boshlig'i (usta)"],
   ["omborchi", "Omborchi"],
-  ["buxgalter", "Buxgalter (material hisoboti)"],
+  ["buxgalter", "Buxgalter (hisobot va oylik)"],
+  ["kadrlar", "Kadrlar mutaxassisi"],
   ["kuzatuvchi", "Kuzatuvchi (ko'rish va yuklab olish)"],
   ["kurator", "Kurator (faqat ko'rish)"],
 ];

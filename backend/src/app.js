@@ -11,6 +11,9 @@ import production from "./routes/production.js";
 import store from "./routes/store.js";
 import overview from "./routes/overview.js";
 import reports from "./routes/reports.js";
+import hr from "./routes/hr.js";
+import notifications from "./routes/notifications.js";
+import telegramSettings, { telegramWebhook } from "./routes/telegram.js";
 
 const app = express();
 if (process.env.TRUST_PROXY) app.set("trust proxy", true);
@@ -60,6 +63,8 @@ app.use("/api", async (_req, _res, next) => {
   await migrate(); // birinchi so'rovda jadvallar yaratiladi / yangilanadi
   next();
 });
+
+app.use("/api/telegram/webhook", telegramWebhook);
 
 const BAD_LOGIN = "Login yoki parol noto'g'ri";
 // mavjud bo'lmagan login uchun ham scrypt ishlatiladi — javob vaqtidan login borligini bilib bo'lmaydi
@@ -145,9 +150,21 @@ app.use("/api", async (req, res, next) => {
     req.factory = (isId(want) && list.find((f) => f.id === want)) || list.find((f) => !f.archived) || list[0] || null;
   }
   req.factoryId = req.factory?.id || null;
-  if (!req.factoryId && !/^\/(me|users|factories|audit)(\/|$)/.test(req.path)) {
+  if (!req.factoryId && !/^\/(me|users|factories|audit|notifications)(\/|$)/.test(req.path)) {
     return res.status(400).json({ error: "Zavod topilmadi — «Boshqaruv → Zavodlar» bo'limida zavod qo'shing" });
   }
+  next();
+});
+
+// Kuzatuvchi xabarni o'qilgan deb belgilashi mumkin; umumiy yozish huquqi talab qilinmaydi.
+app.use("/api", notifications);
+app.use("/api", telegramSettings);
+
+// Personnel/payroll has its own stricter permissions, including read access.
+app.use("/api/hr", hr);
+app.use("/api", (req, res, next) => {
+  if (req.user.role === "kadrlar" && !/^\/me(\/password)?$/.test(req.path))
+    return res.status(403).json({ error: "Sizda bu amal uchun ruxsat yo'q" });
   next();
 });
 
@@ -349,7 +366,7 @@ app.get("/api/audit", adminOnly, async (req, res) => {
 });
 
 /* ---------- Zaxira nusxa (bosh ofis admini: hamma zavod; zavod admini: o'z zavodi) ---------- */
-export const BACKUP_TABLES = ["factories", "settings", "materials", "products", "days", "orders", "targets", "inventories", "movements", "suppliers", "product_moves", "vehicle_logs", "acct_reports", "month_plans", "counters"];
+export const BACKUP_TABLES = ["factories", "settings", "materials", "products", "days", "orders", "targets", "inventories", "movements", "suppliers", "product_moves", "vehicle_logs", "acct_reports", "month_plans", "counters", "hr_employees", "hr_rates", "hr_months", "hr_payments", "hr_events"];
 app.get("/api/backup", adminOnly, async (req, res) => {
   const fid = req.user.factoryId;
   const data = await tx(async (c) => {

@@ -32,7 +32,7 @@ export function setToken(t) {
   } catch {}
 }
 
-async function request(path, { method = "GET", body, raw = false } = {}) {
+async function request(path, { method = "GET", body, raw = false, signal } = {}) {
   let res;
   try {
     res = await fetch(`${BASE}/api${path}`, {
@@ -40,6 +40,7 @@ async function request(path, { method = "GET", body, raw = false } = {}) {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}`, ...(getFactory() && { "X-Factory": getFactory() }) },
       body: body === undefined ? undefined : JSON.stringify(body),
       cache: "no-store",
+      signal,
     });
   } catch {
     const e = new Error("Serverga ulanib bo'lmadi. Internet yoki NEXT_PUBLIC_API_URL ni tekshiring.");

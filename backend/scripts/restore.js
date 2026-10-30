@@ -23,6 +23,9 @@ if (backup.app !== "zavodlar" || backup.format !== 2 || !backup.data) {
   process.exit(1);
 }
 const D = backup.data;
+const HR_TABLES = ['hr_employees', 'hr_rates', 'hr_months', 'hr_payments', 'hr_events'];
+const hasHr = HR_TABLES.some(t => Object.hasOwn(D, t));
+if (hasHr && HR_TABLES.some(t => !Array.isArray(D[t]))) throw new Error('Kadrlar zaxirasi to‘liq emas');
 const fids = (D.factories || []).map((f) => f.id);
 console.log(`Zaxira: ${backup.createdAt} (${backup.createdBy}), zavodlar: ${(D.factories || []).map((f) => f.name).join(", ")}`);
 console.log(backup.counts);
@@ -49,7 +52,10 @@ console.log(`Joriy holat saqlandi: ${autoName}`);
 
 // 2) almashtirish (bog'lanishlar tartibida: avval bolalar o'chiriladi, keyin ota-onalar qo'shiladi)
 const ORDER = ["factories", "settings", "materials", "products", "targets", "orders", "days", "inventories", "movements", "suppliers", "product_moves", "vehicle_logs", "acct_reports", "month_plans", "counters"];
+// Older backups have no personnel data: preserve existing personnel tables.
+if (hasHr) ORDER.push(...HR_TABLES);
 const JSONB = new Set(["lines", "items", "rows", "customers", "extra_cols", "signers", "opening", "calc_template", "cost_schemes", "plan", "recipe", "writeoff", "norms", "calc", "notes", "production", "materials", "shipments", "created_by", "approved_by", "updated_by"]);
+for (const key of ['work_days','holidays','attendance','adjustments','snapshot','closed_by','voided_by','actor','detail']) JSONB.add(key);
 try {
   await tx(async (c) => {
     for (const t of [...ORDER].reverse()) {
@@ -66,7 +72,7 @@ try {
           row = { ...rest, items: list.map((l) => ({ shippedBefore: 0, ...l })) };
         }
         const cols = Object.keys(row);
-        const vals = cols.map((k) => (JSONB.has(k) && row[k] !== null ? JSON.stringify(row[k]) : row[k]));
+        const vals = cols.map((k) => (JSONB.has(k) && row[k] !== null && !(t === 'hr_employees' && k === 'notes') ? JSON.stringify(row[k]) : row[k]));
         const upsert = t === "factories" ? ` ON CONFLICT (id) DO UPDATE SET ${cols.filter((k) => k !== "id").map((k) => `${k} = EXCLUDED.${k}`).join(", ")}` : "";
         await c.query(`INSERT INTO ${t} (${cols.join(", ")}) VALUES (${cols.map((_, i) => `$${i + 1}`).join(", ")})${upsert}`, vals);
       }

@@ -1,5 +1,15 @@
 # Zavodlar ish stoli — 4 zavod, PostgreSQL
 
+## Foydalanuvchi yo‘riqnomasi
+
+**Yangi bo‘lim:** [Kadrlar va oylik: ish tartibi, hisoblash qoidalari va huquqlar](docs/kadrlar-va-oylik.md).
+
+- [O‘zbekcha — lotin](docs/qollanma-uz-lotin.md)
+- [Ўзбекча — кирилл](docs/qollanma-uz-kirill.md)
+- [Русский](docs/rukovodstvo-ru.md)
+
+Yo‘riqnomalarda kirish, xodimlar vazifalari, ombor, reja, kunlik hisobot, jo‘natish va hisobot olish tartibi tushuntirilgan.
+
 Eski `pto-app` ilovasining yangi versiyasi: **bitta ilova, bitta baza, bir nechta zavod**.
 Baza MongoDB o'rniga **PostgreSQL**. Keyinchalik Ahost (cPanel, Toshkent, TAS-IX) serveriga joylanadi.
 
@@ -216,3 +226,7 @@ Qolgan yo'llar (`/materials`, `/products`, `/days`, `/stock`, `/movements`, `/or
 ## Backend regressiya sinovlari
 
 `backend` papkasida `npm test` — kunlik hisobot IDlarining zavodga tegishliligi, parallel yozish paytidagi zaxira izchilligi va oxirgi bosh administrator himoyasini PostgreSQL bilan tekshiradi. `.env` dagi baza ulanishi kerak. Sinov alohida vaqtinchalik sxemada ishlaydi va oxirida uni o‘chiradi; mavjud ilova jadvallari o‘zgarmaydi. Baza foydalanuvchisiga sxema yaratish huquqi kerak.
+
+## Kunlik reja bildirishnomalari
+
+Kunlik reja saqlanganda faol kuzatuvchilarga ilova ichida xabar chiqadi. Telegram xabarlari uchun bot va har bir kuzatuvchining ulanishi kerak. Sozlash: [README-notifications.md](README-notifications.md).

@@ -6,6 +6,7 @@
   "description": "Zavodlar ish stoli â€” Express + PostgreSQL API (bir nechta zavod)",
   "main": "server.js",
   "scripts": {
+    "telegram:setup": "node --env-file-if-exists=.env scripts/telegram-setup.js",
     "dev": "node --env-file-if-exists=.env --watch server.js",
     "start": "node --env-file-if-exists=.env server.js",
     "migrate": "node --env-file-if-exists=.env scripts/migrate.js",
@@ -13,7 +14,10 @@
     "restore": "node --env-file-if-exists=.env scripts/restore.js",
     "import-mongo": "node --env-file-if-exists=.env scripts/import-mongo.js",
     "import-products": "node --env-file-if-exists=.env scripts/import-products.js",
-    "test": "node --env-file-if-exists=.env tests/regression.js"
+    "test": "node --env-file-if-exists=.env tests/regression.js && node --env-file-if-exists=.env tests/notifications.js && node --env-file-if-exists=.env tests/telegram.js && node --env-file-if-exists=.env tests/payroll.js",
+    "test:payroll": "node --env-file-if-exists=.env tests/payroll.js",
+    "test:notifications": "node --env-file-if-exists=.env tests/notifications.js",
+    "test:telegram": "node --env-file-if-exists=.env tests/telegram.js"
   },
   "engines": {
     "node": ">=20.12"

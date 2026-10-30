@@ -1,0 +1,65 @@
+[
+  {
+    "language": "uz",
+    "path": "C:\\Users\\SAMANDAR\\Desktop\\zavodlar-app\\output\\pdf\\Zavodlar-yoriqnoma-UZ-lotin.pdf",
+    "pages": 13,
+    "bytes": 365460,
+    "page_text_lengths": [
+      144,
+      836,
+      1271,
+      978,
+      1791,
+      1016,
+      1176,
+      364,
+      1609,
+      1250,
+      1255,
+      1392,
+      761
+    ]
+  },
+  {
+    "language": "kr",
+    "path": "C:\\Users\\SAMANDAR\\Desktop\\zavodlar-app\\output\\pdf\\Zavodlar-yoriqnoma-UZ-kirill.pdf",
+    "pages": 13,
+    "bytes": 389259,
+    "page_text_lengths": [
+      136,
+      790,
+      1208,
+      923,
+      1706,
+      959,
+      1119,
+      355,
+      1513,
+      1201,
+      1189,
+      1329,
+      728
+    ]
+  },
+  {
+    "language": "ru",
+    "path": "C:\\Users\\SAMANDAR\\Desktop\\zavodlar-app\\output\\pdf\\Zavodlar-rukovodstvo-RU.pdf",
+    "pages": 13,
+    "bytes": 386105,
+    "page_text_lengths": [
+      133,
+      810,
+      1193,
+      974,
+      1847,
+      992,
+      1172,
+      347,
+      1696,
+      1207,
+      1304,
+      1418,
+      765
+    ]
+  }
+]

@@ -31,7 +31,9 @@ import FleetTab from "@/components/FleetTab";
 import DashTab from "@/components/DashTab";
 import OverviewTab from "@/components/OverviewTab";
 import AcctTab from "@/components/AcctTab";
+import HrTab from "@/components/HrTab";
 import ShareReady from "@/components/ShareReady";
+import NotificationCenter from "@/components/NotificationCenter";
 
 // [kalit, nomi, izoh, kimlarga (bo'sh — hammaga)]
 const NO_STORE = ["admin", "rahbar", "pto", "buxgalter", "kuzatuvchi", "kurator"]; // buxgalter hammasini ko'radi, faqat material hisobotini yozadi
@@ -57,8 +59,11 @@ const TABS = [
   ["veh", "Texnika hisobi", "Yoqilg'i sarfi normaga nisbatan, ta'mir va texnik xizmat", [...NO_STORE, "omborchi"]],
   ["targets", "Sex va texnika", "Chiqim manzillari: bo'limlar va mashinalar", [...NO_STORE, "omborchi"]],
   ["admin", "Boshqaruv", "Foydalanuvchilar, zaxira nusxa va o'zgarishlar tarixi", ["admin", "rahbar"]],
+  ["hr", "Xodimlar", "Xodimlar, tabel, oylik hisoblash va to'lovlar", ["admin", "rahbar", "buxgalter", "kadrlar", "usta"]],
 ];
+TABS.push(["hr-time", "Tabel", "Davomat va ish soati", ["admin","rahbar","buxgalter","kadrlar","usta"]], ["hr-payroll", "Oylik hisoblash", "Oylik hisoblash", ["admin","rahbar","buxgalter"]], ["hr-payments", "To'lovlar", "Avans va oylik", ["admin","rahbar","buxgalter"]], ["hr-reports", "Hisobotlar", "Kadrlar hisobotlari", ["admin","rahbar","buxgalter","kadrlar","usta"]]);
 const NAV_GROUPS = [
+  { id: "personnel", label: "Kadrlar bo‘limi", keys: ["hr", "hr-time", "hr-payroll", "hr-payments", "hr-reports"] },
   { id: "overview", label: "Ish stoli", keys: ["all", "dash"] },
   { id: "production", label: "Ishlab chiqarish", keys: ["day", "fg", "cat"] },
   { id: "warehouse", label: "Ombor va ta'minot", keys: ["wh", "moves", "inv", "sup", "stock", "mat"] },
@@ -67,19 +72,20 @@ const NAV_GROUPS = [
   { id: "management", label: "Boshqaruv", keys: ["veh", "targets", "admin"] },
 ];
 const groupFor = (key) => NAV_GROUPS.find((group) => group.keys.includes(key));
-const tabsFor = (user) => TABS.filter((t) => (!t[3] || t[3].includes(user?.role)) && (t[4] !== "hq" || (user && !user.factoryId && (user.factories?.length || 0) > 1)));
+const tabsFor = (user) => TABS.filter((t) => (user?.role !== "kadrlar" || t[0].startsWith("hr")) && (!t[3] || t[3].includes(user?.role)) && (t[4] !== "hq" || (user && !user.factoryId && (user.factories?.length || 0) > 1)));
 // Telefondagi pastki menyu: rol bo'yicha 4 ta asosiy bo'lim (+ o'rtada «+» tugmasi)
 const BOTTOM = {
+  kadrlar: ["hr"],
   omborchi: ["wh", "moves", "targets"],
-  buxgalter: ["acct", "month", "cost", "dash"],
-  usta: ["day", "plan", "wh"],
+  buxgalter: ["hr", "acct", "month", "cost"],
+  usta: ["day", "plan", "hr"],
   admin: ["all", "day", "wh", "moves"],
   pto: ["day", "wh", "moves"],
   rahbar: ["all", "dash", "day", "wh"], // to'liq huquq — o'rtada «+» (kirim/chiqim) ham bor
   kuzatuvchi: ["all", "dash", "day", "plan", "wh"],
   kurator: ["all", "dash", "day", "plan", "wh"],
 };
-const DEFAULT_TAB = { buxgalter: "acct", omborchi: "wh", rahbar: "dash", kuzatuvchi: "dash", kurator: "dash" };
+const DEFAULT_TAB = { kadrlar: "hr", buxgalter: "acct", omborchi: "wh", rahbar: "dash", kuzatuvchi: "dash", kurator: "dash" };
 // bosh ofis rahbari tizimga kirganda — umumiy panel
 const HQ_DEFAULT = { rahbar: "all", kuzatuvchi: "all", kurator: "all" };
 // pastki menyuda sig'adigan qisqa nomlar
@@ -182,6 +188,7 @@ function App() {
   const [editProduct, setEditProduct] = useState(undefined); // undefined = yopiq, null = yangi
   const [toast, setToast] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [dayFocus, setDayFocus] = useState(0);
   const toastTimer = useRef(null);
   const [navQuery, setNavQuery] = useState("");
   const [collapsedGroups, setCollapsedGroups] = useState(["warehouse", "orders", "reports", "management"]);
@@ -238,6 +245,10 @@ function App() {
         setPhase("password");
         return;
       }
+      if (me.role === "kadrlar") {
+        setMaterials([]); setProducts([]); setOrders([]); setTargets([]); setSettings({});
+        setPhase("ready"); return;
+      }
       const [m, p, o, s, tg] = await Promise.all([api("/materials"), api("/products"), api("/orders"), api("/settings"), api("/targets")]);
       setTargets(tg);
       setMaterials(m);
@@ -269,7 +280,21 @@ function App() {
   const bump = useCallback(() => setVersion((v) => v + 1), []);
 
   useEffect(() => {
-    const saved = lsGet("pto.tab", "");
+    const query = new URLSearchParams(window.location.search);
+    const targetDay = query.get("day");
+    const targetFactory = query.get("factory");
+    const linkedDay = /^\d{4}-\d{2}-\d{2}$/.test(targetDay || "") && !Number.isNaN(Date.parse(targetDay)) && new Date(`${targetDay}T00:00:00Z`).toISOString().slice(0, 10) === targetDay;
+    if (linkedDay) {
+      lsSet("pto.day", targetDay);
+      lsSet("pto.tab", "day");
+      if (/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(targetFactory || "")) setFactory(targetFactory);
+      // Havolani bir marta ochamiz; keyingi refresh oxirgi tanlangan kunni saqlasin.
+      const consumed = new URL(window.location.href);
+      consumed.searchParams.delete("day");
+      consumed.searchParams.delete("factory");
+      window.history.replaceState(window.history.state, "", consumed.pathname + consumed.search + consumed.hash);
+    }
+    const saved = linkedDay ? "day" : lsGet("pto.tab", "");
     if (TABS.some(([k]) => k === saved)) setTab(saved);
     loadAll();
   }, [loadAll]);
@@ -324,14 +349,14 @@ function App() {
   const tabs = tabsFor(user);
   const current = tabs.find(([k]) => k === tab) || tabs.find(([k]) => k === HQ_DEFAULT[user?.role]) || tabs.find(([k]) => k === DEFAULT_TAB[user?.role]) || tabs[0];
   const active = current[0];
-  const canMove = canStoreRole(user?.role);
+  const canMove = canStoreRole(user?.role) && !active.startsWith("hr");
   const bottom = (BOTTOM[user?.role] || BOTTOM.kuzatuvchi).map((k) => tabs.find((x) => x[0] === k)).filter(Boolean);
 
   const factories = user?.factories || [];
   const factory = user?.factory || null;
-  const switchFactory = (id) => {
+  const switchFactory = (id, alreadyConfirmed = false) => {
     if (!id || id === factory?.id) return;
-    if (!confirmLeave()) return;
+    if (!alreadyConfirmed && !confirmLeave()) return;
     unsaved.current = false;
     setMenuOpen(false);
     setFactory(id);
@@ -342,6 +367,18 @@ function App() {
     setSettings(null);
     setPhase("loading");
     loadAll();
+  };
+  const openDailyPlan = ({ factoryId: targetFactory, date }) => {
+    if (user?.role !== "kuzatuvchi" || !/^\d{4}-\d{2}-\d{2}$/.test(date || "")) return false;
+    if (user.factoryId && user.factoryId !== targetFactory) return false;
+    if (!confirmLeave()) return false;
+    lsSet("pto.day", date);
+    lsSet("pto.tab", "day");
+    unsaved.current = false;
+    setTab("day");
+    setDayFocus((value) => value + 1);
+    if (targetFactory !== factory?.id) switchFactory(targetFactory, true);
+    return true;
   };
   const factoryPicker = (cls) =>
     factories.length > 1 && (
@@ -395,7 +432,7 @@ function App() {
                   <div id={`nav-group-${group.id}`} className="nav-group-items" role="tablist" aria-label={t(group.label)} hidden={!expanded}>
                     {visibleTabs.map(([key, label]) => (
                       <button key={key} id={`nav-tab-${key}`} type="button" role="tab" aria-selected={active === key} onClick={() => chooseTab(key)}>
-                        <Icon name={key} size={19} /><span>{t(label)}</span>
+                        <Icon name={key.startsWith("hr") ? "hr" : key} size={19} /><span>{t(label)}</span>
                       </button>
                     ))}
                   </div>
@@ -440,6 +477,7 @@ function App() {
               <p>{t(current[2])}</p>
             </div>
             {active !== "all" && factoryPicker("factory-pick top-pick")}
+            {phase === "ready" && user?.role === "kuzatuvchi" && <NotificationCenter key={user.id} user={user} onOpenPlan={openDailyPlan} notify={notify} />}
             {canMove && phase === "ready" && (
               <div className="topbar-acts">
                 <button className="btn in" onClick={() => setMove({ type: "in" })}>
@@ -472,9 +510,10 @@ function App() {
           ) : (
             // zavod almashganda barcha bo'limlar qaytadan yuklanadi
             <Fragment key={factory?.id || "-"}>
-              {active === "day" && <DayTab data={data} notify={notify} onSaved={reloadOrders} onDirtyChange={onDirtyChange} version={version} />}
+              {active === "day" && <DayTab key={dayFocus} data={data} notify={notify} onSaved={reloadOrders} onDirtyChange={onDirtyChange} version={version} />}
               {active === "month" && <MonthTab data={data} notify={notify} />}
               {active === "acct" && <AcctTab data={data} notify={notify} />}
+              {active.startsWith("hr") && <HrTab initialView={active === "hr" ? "employees" : active.slice(3)} onViewChange={v=>chooseTab(v === "employees" ? "hr" : `hr-${v}`)} notify={notify} openForm={openForm} />}
               {active === "wh" && <WarehouseTab data={data} notify={notify} version={version} openMove={setMove} reloadMaterials={reloadMaterials} />}
               {active === "moves" && <MovesTab data={data} notify={notify} version={version} onChanged={bump} />}
               {active === "stock" && <StockTab data={data} notify={notify} reloadSettings={reloadSettings} version={version} />}

@@ -8,6 +8,8 @@ import { getSettings, openingOf, loadDays, loadMoves, loadPmoves, nextNo, notFou
 import { stockReport } from "../stock.js";
 import { planOrders, checkNewOrder, addDays } from "../plan.js";
 import { itemsOf, orderView, planLines, shipKey } from "../orders.js";
+import { createDailyPlanNotification } from "../notifications.js";
+import { deliverTelegramNotification } from "../telegram.js";
 
 const r = Router();
 const OPEN0 = "0000-00-00";
@@ -45,7 +47,7 @@ r.put("/days/:date", async (req, res) => {
   // baseUpdatedAt umuman yuborilmasa (eski brauzer) — tekshirilmaydi.
   const checkVer = Object.prototype.hasOwnProperty.call(b, "baseUpdatedAt");
   const base = checkVer && b.baseUpdatedAt ? new Date(b.baseUpdatedAt).getTime() : null;
-  const { before, doc } = await tx(async (c) => {
+  const { before, doc, notificationId } = await tx(async (c) => {
   await c.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`day:${req.factoryId}:${date}`]);
   const before = await one("SELECT * FROM days WHERE factory_id = $1 AND date = $2", [req.factoryId, date], c);
   if (checkVer && before && new Date(before.updatedAt).getTime() !== base)
@@ -104,8 +106,17 @@ r.put("/days/:date", async (req, res) => {
     [req.factoryId, date, ...vals],
     c
   );
-  return { before, doc };
+  const notificationId = await createDailyPlanNotification(req, before, doc, c);
+  return { before, doc, notificationId };
   });
+  if (notificationId) {
+    try {
+      await deliverTelegramNotification(notificationId);
+    } catch {
+      // Xabar bazada navbatda qoladi: Telegram xatosi muvaffaqiyatli saqlashni bekor qilmasin.
+      console.error("Telegram xabari yuborilmadi; navbatda saqlandi");
+    }
+  }
   await audit(req, { action: before ? "update" : "create", entity: "day", entityId: date, label: date, before, after: doc });
   res.json(doc);
 });

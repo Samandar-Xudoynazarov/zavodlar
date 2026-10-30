@@ -215,8 +215,9 @@ function Users({ openForm, notify, factories }) {
       </div>
       <p className="hint" style={{ marginTop: 8 }}>
         <strong>{tr("Zavod")}</strong>{": "}{tr("har bir xodim bitta zavodga biriktiriladi va faqat o'sha zavodni ko'radi.")} <strong>{tr("Bosh ofis (barcha zavodlar)")}</strong>{": "}{tr("faqat administrator (sozlash uchun) va kuzatuvchi — bosh nazoratchi: hamma zavodni ko'radi, Excel yuklab oladi, hech narsa kiritmaydi.")} <strong>{tr("Administrator")}</strong> {tr("va")} <strong>{tr("Zavod rahbari")}</strong> {tr("o'z zavodida hamma narsani va foydalanuvchilarni boshqaradi.")} <strong>{tr("ПТО muhandisi")}</strong> {tr("hisobot, ombor, buyurtma, katalog va materiallarni tahrirlaydi.")} <strong>{tr("Sex boshlig'i (usta)")}</strong> {tr("kunlik rejani tuzadi, faktni, xomashyo sarfini va izohni yozadi (jo'natish va kirimni o'zgartira olmaydi).")} <strong>{tr("Omborchi")}</strong> {tr("ombor kirim-chiqimini, sex va texnikani yuritadi.")} <strong>{tr("Kuzatuvchi")}</strong> {tr("va")} <strong>{tr("Kurator")}</strong> {tr(
-          "hamma bo'limni ko'radi va Excel qilib yuklab oladi, lekin hech narsani o'zgartira olmaydi. Bloklangan foydalanuvchi darhol tizimdan chiqariladi."
+          "o'ziga ochilgan bo'limlarni ko'radi va fayllarni yuklab oladi, lekin tahrirlamaydi. Kadrlar va oylik bo'limiga ruxsati yo'q."
         )}</p>
+      <p className="hint">{tr("Kadrlar mutaxassisi xodimlar va tabelni yuritadi; buxgalter oylikni hisoblaydi. Maoshlar faqat administrator, rahbar va buxgalterga ko‘rinadi.")}</p>
     </div>
   );
 }

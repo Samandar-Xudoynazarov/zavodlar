@@ -3,6 +3,7 @@
 //  ru — ruscha
 //  ruPatterns — ichida o'zgaruvchan qismi bo'lgan server xabarlari
 
+import { HR_RU } from './hr-dict';
 export const DICT = {
   kr: {
     "«Qo'shish» / «Add»": "«Қўшиш» / «Add»",
@@ -50,6 +51,34 @@ export const DICT = {
   },
 
   ru: {
+    ...HR_RU,
+    // Kunlik reja bildirishnomalari.
+    "Bildirishnomalar": "Уведомления",
+    "Bildirishnomalar: {n} ta o'qilmagan": "Уведомления: {n} непрочитанных",
+    "Kunlik reja kiritildi": "План на день внесён",
+    "Kunlik reja yangilandi": "План на день обновлён",
+    "Kunlik reja bekor qilindi": "План на день отменён",
+    "Kunlik rejalar va ularning o'zgarishlari": "Планы на день и их изменения",
+    "{n} ta o'qilmagan": "{n} непрочитанных",
+    "Hammasi o'qildi": "Отметить все прочитанными",
+    "Hozircha bildirishnoma yo'q": "Уведомлений пока нет",
+    "Kunlik reja saqlanganda xabar shu yerga keladi.": "После сохранения плана на день уведомление появится здесь.",
+    "O'qilmagan": "Не прочитано",
+    "Reja: {n} dona": "План: {n} шт",
+    "Kunlik hisobotni ochish": "Открыть ежедневный отчёт",
+    "Telegram xabarlari": "Уведомления в Telegram",
+    "Telegram ulangan — yangi rejalar shu yerga ham yuboriladi.": "Telegram подключён — новые планы будут отправляться и туда.",
+    "Ilova yopiq bo'lsa ham, reja xabarini Telegramda oling.": "Получайте планы в Telegram, даже когда приложение закрыто.",
+    "Telegram ulangan": "Telegram подключён",
+    "Telegramni uzish": "Отключить Telegram",
+    "Telegramni ulash": "Подключить Telegram",
+    "Ulash havolasini yangilash": "Обновить ссылку подключения",
+    "Telegramda ochish": "Открыть в Telegram",
+    "Botda Start tugmasini bosing. Havola 10 daqiqa amal qiladi.": "Нажмите Start в боте. Ссылка действует 10 минут.",
+    "Telegram botini administrator hali sozlamagan.": "Администратор пока не настроил Telegram-бота.",
+    "Telegram bot hali sozlanmagan. Administrator bot va webhook sozlamalarini kiritsin": "Telegram-бот пока не настроен. Администратору нужно настроить бота и webhook.",
+    "Telegram botga ulanib bo'lmadi. Administrator bot sozlamalarini tekshirsin": "Не удалось подключиться к Telegram-боту. Администратору нужно проверить настройки.",
+
     "Barcha zavodlar": "Все заводы",
     "Hisobotni to'ldirish": "Заполнение отчёта",
     "Hisobot tafsilotlari": "Подробности отчёта",
