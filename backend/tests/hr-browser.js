@@ -48,7 +48,7 @@ try {
       const request=route.request(),u=new URL(request.url());
       try{const response=await route.fetch({url:backend+u.pathname+u.search});await route.fulfill({response});}catch(e){errors.push(e.message);await route.abort();}
     });
-    const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
+    const page=await context.newPage();await page.clock.setFixedTime(new Date('2026-10-30T12:00:00+05:00'));page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
     await page.goto('http://127.0.0.1:3100');
     try{await page.locator('.hr-module').getByRole('tab',{name:'Xodimlar',exact:true}).waitFor();}
     catch(e){await page.screenshot({path:path.join(artifacts,'debug.png'),fullPage:true});console.log('UI DEBUG',await page.locator('body').innerText(),JSON.stringify(errors));throw e;}
@@ -64,7 +64,7 @@ try {
   assert.equal((await one('SELECT salary FROM hr_rates WHERE employee_id=$1',[employee.id])).salary,3480000);
   await page.locator('.hr-module').getByRole('tab',{name:'Tabel',exact:true}).click();
   await page.getByRole('button',{name:'Bugun',exact:true}).click();
-  assert.equal(await page.getByLabel('Sana',{exact:true}).inputValue(),String(new Date().getDate()));
+  assert.equal(await page.getByLabel('Sana',{exact:true}).inputValue(),'30');
   await page.getByLabel('Sana',{exact:true}).selectOption('1');
   const [tabelDownload]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'Oylik tabel · Excel',exact:true}).click()]);
   const tabelFile=path.join(root,'tmp/pdfs/hr-monthly-tabel.xlsx');await tabelDownload.saveAs(tabelFile);
