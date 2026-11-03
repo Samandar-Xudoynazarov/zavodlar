@@ -2,6 +2,32 @@
 
 Bo‘lim har bir zavod uchun alohida ishlaydi. Xodim kartochkasi dasturga kirish hisobidan mustaqil: barcha xodimlarga login yaratish shart emas.
 
+## Xodim kabineti va shaxsiy delo
+
+Menyuda **Kadrlar nazorati, Xodimlar, Tabel, Hisobotlar** qoldirilgan. Ta’til, smena, hujjat muddatlari, himoya vositalari, oylik va to‘lovlar ichki **Qo‘shimcha bo‘lim** ro‘yxatidan ochiladi; ro‘yxat foydalanuvchi vakolatiga mos.
+
+**Xodimlar → Ko‘rish** shaxsiy kabinetni ochadi. Bu kadrlar mutaxassisi ko‘radigan kartochka, my.gov bilan ulanish yoki xodim uchun yangi login emas. Unda odamcha avatar, pasport/ID, JShShIR, tug‘ilgan sana va joy, ikki telefon, doimiy va hozirgi manzil, ma’lumot, diplom, mutaxassislik, staj va yaqin kishisining aloqalari mavjud.
+
+**Shaxsiy delo** foydalanuvchi yuborgan ro‘yxatdagi to‘qqiz turdagi hujjatni, zarur hollarda harbiy hisob va JShShIR hujjatini, imzolangan shartnoma/buyruq nusxalarini saqlaydi. Holatlar: kutilmoqda, olindi, tatbiq etilmaydi. Barcha ma’lumotnomalar barcha lavozimlar uchun majburiy deb belgilanmagan. PDF, JPG va PNG, har biri 3 MB gacha; fayllar vaqtinchalik server diskida emas, bazada saqlanadi, oddiy havola bilan ochilmaydi. Kabinet va fayllarga admin, rahbar va kadrlar kiradi; buxgalter va ustaga bu API yopiq.
+
+## Shartnoma va buyruqlar
+
+Yangi xodim saqlanganda mehnat shartnomasi va unga bog‘langan qabul buyrug‘i qoralamalari avtomatik ochiladi. Oldin kiritilgan xodim uchun **Yangi shartnoma**, keyin **Ishga qabul buyrug‘i** tugmalaridan foydalaniladi. Har bir zavodning **Korxona rekvizitlari** bir marta kiritiladi; oldingi qoralamani yangilash uchun uni qayta saqlash kerak.
+
+1. Shartnoma raqami, sana, ish joyi, lavozim, ish rejimi, maosh, qo‘shimchalar va ta’til shartlarini kiriting. Muddatli shartnoma uchun muddati va huquqiy asosi alohida ko‘rsatiladi.
+2. PDFni tekshiring, tomonlar qog‘ozda imzolaydi. Rahbar yoki admin **Imzolanganini tasdiqlash** orqali imzolar va huquqiy asoslar tekshirilganini belgilaydi. Bu ERI emas va davlat tizimiga yubormaydi.
+3. Shartnoma tasdiqlangach qabul buyrug‘ini rasmiylashtiring. Buyruq aynan imzolangan shartnoma shartlarini oladi, maosh yozuvini tegishli sanadan yaratadi. Imzolangan shartnomadan keyin xodim kartochkasi o‘zgarsa, hujjat qayta rasmiylashtiriladi.
+4. **Lavozimini o‘zgartirish** yangi lavozim, bo‘lim, yozma rozilik, dastlabki shartnoma va qo‘shimcha kelishuv rekvizitlarini so‘raydi. Kelishuv va buyruq birgalikda qoralama yaratiladi. Avval kelishuv imzolangani tasdiqlanadi, so‘ng unga mos buyruq qo‘llanadi.
+5. **Ishdan bo‘shatish** shartnoma rekvizitlari, sabab, tasdiqlovchi hujjat va huquqiy asosni so‘raydi. Taraflar kelishuvi, muddat tugashi va xodim tashabbusi alohida variantlar; boshqa asos uchun aniq modda, qism va band qo‘lda kiritiladi. Ish beruvchi tashabbusi uchun asos tizim tomonidan taxmin qilinmaydi. Buyruq tasdiqlanganda oxirgi ish kuni kartochkaga yoziladi.
+
+Foydalanuvchi yuborgan bir sahifali buyruq va to‘rt sahifali shartnoma tuzilishi asos qilib olindi. Skanlardagi haqiqiy shaxsiy ma’lumotlar, imzo va muhr ko‘chirilmagan. PDFlar bosib chiqarish uchun; hajmli matn sahifalarni uzaytirishi mumkin. Ochiq litsenziyali Liberation Serif ishlatiladi, lotin va o‘zbek kirill harflari qo‘llanadi.
+
+Hujjatlar qoralama sifatida tayyorlanadi. Amaldagi sharoit, xodim toifasi, sinov cheklovlari, muddatli shartnoma asosi, ogohlantirish muddatlari va kompensatsiyalar imzolashdan oldin mas’ul tomonidan tekshiriladi. Tizim mehnat nizosi yoki yakuniy hisob-kitobni avtomatik hal qilmaydi. Rasmiylashtirilgan nusxa keyingi kartochka o‘zgarishlaridan mustaqil saqlanadi; yopilgan hisob davriga ta’sir qiladigan buyruq va kelajak sanasidagi kadrlar o‘zgarishi qo‘llanmaydi. Hujjat holati, xodim lavozimi va maosh o‘zgarishi bitta tranzaksiyada amalga oshadi.
+
+Huquqiy manba: [O‘zbekiston Respublikasi Mehnat kodeksi, Lex.uz](https://lex.uz/docs/-6257288), 2026-11-03 kuni tekshirildi: ishga qabulda 127-modda; doimiy o‘tkazishda 138, 140, 149-moddalar; bekor qilishda tegishli asos va 170–172-moddalar; ishga kirish hujjatlari uchun 124-modda. Namunadagi eski tasdiqlash yozuvi aynan ko‘chirilmagan.
+
+Zaxira nusxa `hr_employers`, `hr_employment_docs`, `hr_employee_files` jadvallarini ham oladi. Tiklashda uchtasi bir guruh sifatida tekshiriladi; eski zaxira nusxada butun guruh bo‘lmasa, mavjud kadrlar hujjatlari o‘chirilmaydi. Zaxirada shaxsiy hujjatlar borligi sababli uni faqat vakolatli shaxs saqlashi kerak.
+
 ## Boshlash
 
 1. **Boshqaruv → Foydalanuvchilar**da kadrlar mutaxassisi va buxgalterni kerakli zavodga biriktiring.

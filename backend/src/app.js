@@ -366,7 +366,7 @@ app.get("/api/audit", adminOnly, async (req, res) => {
 });
 
 /* ---------- Zaxira nusxa (bosh ofis admini: hamma zavod; zavod admini: o'z zavodi) ---------- */
-export const BACKUP_TABLES = ["factories", "settings", "materials", "products", "days", "orders", "targets", "inventories", "movements", "suppliers", "product_moves", "vehicle_logs", "acct_reports", "month_plans", "counters", "hr_employees", "hr_rates", "hr_months", "hr_payments", "hr_events", "hr_records", "hr_leave_allowances"];
+export const BACKUP_TABLES = ["factories", "settings", "materials", "products", "days", "orders", "targets", "inventories", "movements", "suppliers", "product_moves", "vehicle_logs", "acct_reports", "month_plans", "counters", "hr_employees", "hr_rates", "hr_months", "hr_payments", "hr_events", "hr_records", "hr_leave_allowances", "hr_employers", "hr_employment_docs", "hr_employee_files"];
 app.get("/api/backup", adminOnly, async (req, res) => {
   const fid = req.user.factoryId;
   const data = await tx(async (c) => {
@@ -402,6 +402,7 @@ app.use((err, _req, res, _next) => {
   if (err instanceof ValidationError) return res.status(400).json({ error: err.message });
   if (err instanceof ConflictError) return res.status(409).json({ error: err.message, code: "conflict" });
   if (err?.type === "entity.parse.failed") return res.status(400).json({ error: "JSON noto'g'ri" });
+  if (err?.type === "entity.too.large") return res.status(413).json({ error: "Fayl yoki so‘rov hajmi ruxsat etilgan chegaradan oshdi" });
   // PostgreSQL xatolari
   if (err?.code === "23505") return res.status(409).json({ error: "Bunday yozuv allaqachon bor" });
   if (err?.code === "23503") return res.status(409).json({ error: "Bog'langan yozuv bor yoki topilmadi" });

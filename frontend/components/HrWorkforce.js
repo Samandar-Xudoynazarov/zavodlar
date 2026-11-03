@@ -1,4 +1,5 @@
 "use client";
+import HrNavigation from './HrNavigation';
 import { useCallback,useEffect,useRef,useState } from 'react';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
@@ -75,7 +76,7 @@ export default function HrWorkforce({view,onViewChange,notify,openForm}) {
  }
  return <section className="sheet hr-workforce" aria-busy={loading}>
   <div className="hr-heading"><div><span className="hr-eyebrow">{t('Kadrlar bo‘limi')}</span><h2>{t(view==='overview'?'Kadrlar nazorati':TYPES[view]?.[1]||'Kadrlar nazorati')}</h2></div><button className="btn" disabled={busy||loading} onClick={load}>{t('Yangilash')}</button></div>
-  <div className="hr-tabs" role="tablist" aria-label={t('Kadrlar bo‘limi')}>{[['overview','Kadrlar nazorati'],['employees','Xodimlar'],['time','Tabel'],...Object.entries(TYPES).map(([key,[,label]])=>[key,label])].map(([key,label])=><button key={key} type="button" role="tab" aria-selected={view===key} onClick={()=>onViewChange(key)}>{t(label)}</button>)}</div>
+  <HrNavigation view={view} onChange={onViewChange} tabs={[["overview","Kadrlar nazorati"],["employees","Xodimlar"],["time","Tabel"],...Object.entries(TYPES).map(([key,[,label]])=>[key,label])]} />
   {error&&<p className="err" role="alert">{t(error)}</p>}
   {loading?<p className="loading">{t("Ma'lumotlar yuklanmoqda…")}</p>:data&&<>
    {view==='overview'?<>

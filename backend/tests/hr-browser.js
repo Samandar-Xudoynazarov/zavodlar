@@ -87,24 +87,24 @@ try {
   await page.getByRole('button',{name:'Saqlangan',exact:true}).waitFor();
   const saved=await one('SELECT attendance FROM hr_months WHERE factory_id=$1',[f.id]);assert.equal(saved.attendance[employee.id]['1'].hours,6);
   await page.screenshot({path:path.join(artifacts,'01-tabel-desktop.png'),fullPage:true});
-  await page.locator('.hr-module').getByRole('tab',{name:'Oylik hisoblash',exact:true}).click();
+  await page.getByLabel('Qo‘shimcha bo‘lim',{exact:true}).selectOption('payroll');
   await page.getByRole('button',{name:'Qo‘shimchalar',exact:true}).click();
   await page.getByRole('dialog').getByLabel('Qo‘shimcha haq',{exact:true}).fill('100000');
   await page.getByRole('dialog').getByRole('button',{name:'Saqlash',exact:true}).click();
   await page.getByRole('dialog').waitFor({state:'hidden'});
-  await page.locator('.hr-module').getByRole('tab',{name:"To'lovlar",exact:true}).click();
+  await page.getByLabel('Qo‘shimcha bo‘lim',{exact:true}).selectOption('payments');
   await page.getByRole('button',{name:'To‘lov yozish',exact:true}).click();
   await page.getByRole('dialog').getByLabel('Summa',{exact:true}).fill('10000');
   await page.getByRole('dialog').getByRole('button',{name:'Saqlash',exact:true}).click();
   await page.getByRole('dialog').waitFor({state:'hidden'});
   assert.equal((await one('SELECT count(*) AS n FROM hr_payments WHERE factory_id=$1',[f.id])).n,1);
-  await page.locator('.hr-module').getByRole('tab',{name:'Oylik hisoblash',exact:true}).click();
+  await page.getByLabel('Qo‘shimcha bo‘lim',{exact:true}).selectOption('payroll');
   await page.screenshot({path:path.join(artifacts,'02-payroll-desktop.png'),fullPage:true});
   await page.getByRole('button',{name:'RU',exact:true}).click();
-  await page.locator('.hr-module').getByRole('tab',{name:'Расчёт зарплаты',exact:true}).waitFor();
+  assert.equal(await page.locator('.hr-extra select option:checked').innerText(),'Расчёт зарплаты');
   await page.screenshot({path:path.join(artifacts,'03-payroll-ru.png'),fullPage:true});
   await page.getByRole('button',{name:'ЎЗ',exact:true}).click();
-  await page.locator('.hr-module').getByRole('tab',{name:'Ойлик ҳисоблаш',exact:true}).waitFor();
+  assert.equal(await page.locator('.hr-extra select option:checked').innerText(),'Ойлик ҳисоблаш');
   await page.screenshot({path:path.join(artifacts,'04-payroll-kr.png'),fullPage:true});
   await page.getByRole('button',{name:'UZ',exact:true}).click();
   const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'Excel',exact:true}).click()]);
@@ -129,8 +129,8 @@ try {
   await context.close();
   for(const role of ['kadrlar','usta','buxgalter']) {
     const mobile=await contextFor(role,{width:390,height:844});
-    assert.equal(await mobile.page.locator('.hr-module').getByRole('tab',{name:'Oylik hisoblash',exact:true}).count(),role==='buxgalter'?1:0);
-    assert.equal(await mobile.page.locator('.hr-module').getByRole('tab',{name:"To'lovlar",exact:true}).count(),role==='buxgalter'?1:0);
+    assert.equal(await mobile.page.locator('.hr-extra option[value=payroll]').count(),role==='buxgalter'?1:0);
+    assert.equal(await mobile.page.locator('.hr-extra option[value=payments]').count(),role==='buxgalter'?1:0);
     await mobile.page.locator('.hr-module').getByRole('tab',{name:'Tabel',exact:true}).click();
     await mobile.page.getByRole('button',{name:'Oylik kalendar',exact:true}).click();
     await mobile.page.locator('.hr-toolbar select').last().selectOption(employee.id);
@@ -139,7 +139,7 @@ try {
     await mobile.page.setViewportSize({width:320,height:780});
     assert.equal(await mobile.page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false,role+' 320px overflow');
     if(role==='buxgalter'){
-      await mobile.page.locator('.hr-module').getByRole('tab',{name:'Oylik hisoblash',exact:true}).click();
+      await mobile.page.getByLabel('Qo‘shimcha bo‘lim',{exact:true}).selectOption('payroll');
       await mobile.page.screenshot({path:path.join(artifacts,'07-payroll-mobile.png'),fullPage:false});
       await mobile.page.locator('.hr-pay-table').screenshot({path:path.join(artifacts,'08-payroll-mobile-card.png')});
       if(await mobile.page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth)){

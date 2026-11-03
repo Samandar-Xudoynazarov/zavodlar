@@ -3,12 +3,15 @@ import { one, rows, tx } from '../db.js';
 import { isId, validDate, validMonth, ValidationError, ConflictError } from '../valid.js';
 import { PAY_ROLES, HR_ROLES, TIME_ROLES, money, number, text, today, monthEnd, cleanDays, calculatePayroll, withPayments, inMonth } from '../payroll.js';
 import workforce from './workforce.js';
+import personnel from './personnel.js';
+import { cleanProfile,seedHiringDocs } from '../personnel.js';
 const r=Router();
 const actor=req=>({id:req.user.id,name:req.user.name||req.user.username});
 const guard=roles=>(req,res,next)=>roles.includes(req.user.role)?next():res.status(403).json({error:"Sizda bu amal uchun ruxsat yo'q"});
 r.use(guard(TIME_ROLES));
 r.use((_req,res,next)=>{res.set('Cache-Control','no-store');next();});
 r.use(workforce);
+r.use(personnel);
 const event=(c,req,action,id,detail={})=>c.query('INSERT INTO hr_events(factory_id,actor,action,entity_id,detail) VALUES($1,$2,$3,$4,$5)',[req.factoryId,actor(req),action,id,JSON.stringify(detail)]);
 const lock=(c,f)=>c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,8172))',[f]);
 const invalidateDrafts=(c,f)=>c.query("UPDATE hr_months SET version=version+1,updated_at=now() WHERE factory_id=$1 AND status='draft'",[f]);
@@ -51,14 +54,14 @@ function profile(b) {
   const out={code:text(b.code,40),name:text(b.name),position:text(b.position),department:text(b.department),phone:text(b.phone,40),hireDate:date(b.hireDate,'Ishga kirish'),endDate:date(b.endDate,'Ishdan chiqish',true),notes:text(b.notes,1500)};
   if (!out.code||!out.name) throw new ValidationError("Tabel raqami va F.I.Sh. majburiy");
   if (out.endDate && out.endDate<out.hireDate) throw new ValidationError("Ishdan chiqish sanasi ishga kirishdan oldin");
-  const p=b.profile||{};
-  out.profile={birthDate:date(p.birthDate,'Tug‘ilgan sana',true),address:text(p.address,300),emergencyName:text(p.emergencyName),emergencyPhone:text(p.emergencyPhone,40)};
+  out.profile=cleanProfile(b.profile||{});
   if(out.profile.birthDate&&out.profile.birthDate>out.hireDate)throw new ValidationError('Tug‘ilgan sana ishga kirishdan keyin bo‘lishi mumkin emas');
   return out;
 }
 r.post('/employees',guard(HR_ROLES),write(async(c,req)=>{
   const v=profile(req.body||{});
   const doc=await one('INSERT INTO hr_employees(factory_id,code,name,position,department,phone,hire_date,end_date,notes,profile) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *',[req.factoryId,...Object.values(v).map(x=>typeof x==='object'?JSON.stringify(x):x)],c);
+  await seedHiringDocs(c,req,doc);
   await invalidateDrafts(c,req.factoryId);await event(c,req,'employee.create',doc.id,v); return doc;
 }));
 r.put('/employees/:id',guard(HR_ROLES),write(async(c,req)=>{

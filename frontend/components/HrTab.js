@@ -8,6 +8,8 @@ import { setUnsaved, confirmLeave } from '@/lib/dirty';
 import { exportSheets } from '@/lib/xlsx-export';
 import Icon from './Icon';
 import HrWorkforce from './HrWorkforce';
+import HrNavigation from './HrNavigation';
+import HrEmployeeProfile from './HrEmployeeProfile';
 import { exportTimesheet } from '@/lib/hr-timesheet';
 
 const PAY=['admin','rahbar','buxgalter'];
@@ -26,6 +28,7 @@ export default function HrTab({notify,openForm,initialView,onViewChange}) {
   const [employees,setEmployees]=useState([]),[months,setMonths]=useState([]),[doc,setDoc]=useState(null);
   const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState('');
   const [query,setQuery]=useState(''),[selected,setSelected]=useState(''),[days,setDays]=useState({}),[dirty,setDirty]=useState(false);
+  const [profileId,setProfileId]=useState('');
   const [rates,setRates]=useState(null),[history,setHistory]=useState(null);
   useEffect(()=>{if(initialView){setView(initialView);setDirty(false);setListEdits({});setDays(doc?.attendance?.[selected]||{});}},[initialView]);
   useEffect(()=>{setListDay(day=>Math.min(day,endOf(month)));},[month]);
@@ -51,7 +54,7 @@ export default function HrTab({notify,openForm,initialView,onViewChange}) {
   const askLeave=()=>!dirty||confirmLeave(t("Saqlanmagan o'zgarishlar bor. Ularni tashlab ketasizmi?"));
   const run=async(fn)=>{if(busy)return;setBusy(true);setError('');try{await fn();}catch(e){setError(e.message);notify(e.message);}finally{setBusy(false);}};
   const refresh=()=>{if(askLeave())load();};
-  const changeView=v=>{if(askLeave()){if(onViewChange){onViewChange(v);return;}setView(v);setDirty(false);setDays(doc?.attendance?.[selected]||{});}};
+  const changeView=v=>{if(askLeave()){setProfileId('');if(onViewChange){onViewChange(v);return;}setView(v);setDirty(false);setDays(doc?.attendance?.[selected]||{});}};
   const choose=id=>{if(askLeave()){setSelected(id);setDirty(false);}};
   const visible=employees.filter(e=>`${e.name} ${e.code} ${e.position} ${e.department}`.toLowerCase().includes(query.toLowerCase()));
   const eligible=useMemo(()=>monthEmployees(employees,month),[employees,month]);
@@ -64,14 +67,15 @@ export default function HrTab({notify,openForm,initialView,onViewChange}) {
 
   function employeeForm(e) {
     if(!askLeave())return;
+    const fields=[['birthDate','Tug‘ilgan sana','date'],['passport','Pasport / ID raqami'],['pinfl','JShShIR'],['passportIssued','Berilgan sana','date'],['passportExpiry','Amal qilish muddati','date'],['passportIssuer','Kim tomonidan berilgan'],['phone2','Ikkinchi telefon'],['birthPlace','Tug‘ilgan joy'],['citizenship','Fuqaroligi'],['gender','Jinsi'],['maritalStatus','Oilaviy holati'],['address','Doimiy manzil'],['currentAddress','Hozirgi manzil'],['education','Ma’lumoti'],['specialty','Mutaxassisligi'],['diplomaNumber','Diplom raqami'],['previousEmployment','Avvalgi ish joyi va staji'],['emergencyName','Yaqin kishisi'],['emergencyPhone','Yaqin kishisining telefoni']];
     openForm({title:e?'Xodim kartochkasi':'Yangi xodim',values:e?{...e,...e.profile}:{hireDate:today()},fields:[
       {name:'code',label:'Tabel raqami',req:true},{name:'name',label:'F.I.Sh.',req:true},
-      {name:'position',label:'Lavozim'},{name:'department',label:'Sex / bo‘lim'},
-      {name:'phone',label:'Telefon'},{name:'birthDate',label:'Tug‘ilgan sana',type:'date'},{name:'address',label:'Yashash manzili',wide:true},{name:'emergencyName',label:'Yaqin kishisi'},{name:'emergencyPhone',label:'Yaqin kishisining telefoni'},{name:'hireDate',label:'Ishga kirish sanasi',type:'date',req:true},
-      {name:'endDate',label:'Oxirgi ish kuni',type:'date'},
-      {name:'notes',label:'Izoh',wide:true}],onSubmit:async v=>{
-        await api(e?`/hr/employees/${e.id}`:'/hr/employees',{method:e?'PUT':'POST',body:{...v,profile:{birthDate:v.birthDate,address:v.address,emergencyName:v.emergencyName,emergencyPhone:v.emergencyPhone},...(e?{version:e.version}:{})}});
-        await load();notify('Saqlandi');
+      ...(!e?[{name:'position',label:'Lavozim'},{name:'department',label:'Sex / bo‘lim'}]:[]),
+      {name:'phone',label:'Telefon'},...fields.map(([name,label,type])=>({name,label,type})),
+      {name:'hireDate',label:'Ishga kirish sanasi',type:'date',req:true},{name:'notes',label:'Izoh',wide:true}],onSubmit:async v=>{
+        const profile={...e?.profile,...Object.fromEntries(fields.map(([key])=>[key,v[key]]))};
+        const saved=await api(e?`/hr/employees/${e.id}`:'/hr/employees',{method:e?'PUT':'POST',body:{...v,...(e?{position:e.position,department:e.department,endDate:e.endDate,version:e.version}:{}),profile}});
+        await load();if(['admin','rahbar','kadrlar'].includes(user?.role))setProfileId(saved.id);notify('Saqlandi');
       }});
   }
   function newMonth() {
@@ -148,10 +152,11 @@ export default function HrTab({notify,openForm,initialView,onViewChange}) {
   }
   const labels={hours:'Ish soati',openingBalance:'Oldingi qarz',base:'Ishlangan vaqt haqi',coefficient:'Koeffitsiyent haqi',extra:'Qo‘shimcha haq',tripPay:'Xizmat safari haqi',gross:'Jami hisoblandi',tax:'Daromad solig‘i',deductions:'Boshqa ushlanmalar',net:'Sof hisoblangan',cash:'Naqd',card:'Bank kartasi',balance:'To‘lanishi lozim'};
 
+  if(view==='employees'&&profileId)return <HrEmployeeProfile employeeId={profileId} refreshKey={employees.find(e=>e.id===profileId)?.version} onBack={()=>setProfileId('')} onEdit={employeeForm} notify={notify} openForm={openForm}/>;
   if(manage&&['overview','leaves','shifts','orders','documents','equipment'].includes(view))return <HrWorkforce view={view} onViewChange={changeView} notify={notify} openForm={openForm}/>;
   return <section className="sheet hr-module" aria-busy={loading}>
     <div className="hr-heading hr-no-print"><div><span className="hr-eyebrow">{t('Xodimdan to‘lovgacha')}</span><h2>{t('Kadrlar bo‘limi')}</h2><p className="hint">{t('Xodimlar → tabel → hisoblash → to‘lov → oy yopish')}</p></div><button className="btn" disabled={busy} onClick={refresh}><Icon name="moves"/>{t('Qayta yuklash')}</button></div>
-    <div className="hr-tabs hr-no-print" role="tablist" aria-label={t('Kadrlar bo‘limi')}>{tabs.map(([v,label])=><button type="button" role="tab" id={`hr-tab-${v}`} aria-controls="hr-panel" aria-selected={view===v} key={v} onClick={()=>changeView(v)}>{t(label)}</button>)}</div>
+    <HrNavigation view={view} onChange={changeView} tabs={tabs}/>
     <div className="hr-toolbar hr-no-print"><label>{t('Hisob oyi')}<input type="month" min="2000-01" max="2100-12" value={month} onChange={e=>{if(/^\d{4}-(0[1-9]|1[0-2])$/.test(e.target.value)&&askLeave()){setDoc(null);setLoading(true);setMonth(e.target.value);setDirty(false);}}}/></label>
       {doc&&<span className={`hr-state ${doc.status}`}>{t(MONTH_STATUS[doc.status])}</span>}
       {manage&&!loading&&!doc&&!error&&<button className="btn primary" onClick={newMonth}>{t('Hisob oyini ochish')}</button>}
@@ -159,10 +164,10 @@ export default function HrTab({notify,openForm,initialView,onViewChange}) {
       {months.length>0&&<label>{t('Saqlangan oylar')}<select value={months.some(m=>m.month===month)?month:''} onChange={e=>{if(e.target.value&&e.target.value!==month&&askLeave()){setDoc(null);setLoading(true);setMonth(e.target.value);setDirty(false);}}}><option value="">{t('Tanlang')}</option>{months.map(m=><option key={m.month} value={m.month}>{m.month} · {t(MONTH_STATUS[m.status])}</option>)}</select></label>}
     </div>
     {error&&<p role="alert" className="err">{t(error)}</p>}
-    {loading?<div className="loading">{t("Ma'lumotlar yuklanmoqda…")}</div>:<div role="tabpanel" id="hr-panel" aria-labelledby={`hr-tab-${view}`}>
+    {loading?<div className="loading">{t("Ma'lumotlar yuklanmoqda…")}</div>:<div role="tabpanel" id="hr-panel" aria-label={t(tabs.find(([id])=>id===view)?.[1]||'Kadrlar bo‘limi')}>
       {view==='employees'&&<>
         <div className="hr-toolbar hr-no-print"><input type="search" aria-label={t('Xodim qidirish')} placeholder={t('Xodim qidirish')} value={query} onChange={e=>setQuery(e.target.value)}/>{manage&&<button className="btn primary" onClick={()=>employeeForm(null)}><Icon name="plus"/>{t('Yangi xodim')}</button>}</div>
-        <div className="tbl-wrap"><table><thead><tr>{['Tabel raqami','F.I.Sh.','Lavozim','Sex / bo‘lim','Ishga kirish sanasi','Holat','Amallar'].map(x=><th key={x}>{t(x)}</th>)}</tr></thead><tbody>{visible.map(e=><tr key={e.id}><td>{e.code}</td><td><strong>{e.name}</strong>{manage&&e.phone&&<div className="hint">{e.phone}</div>}</td><td>{e.position}</td><td>{e.department}</td><td>{e.hireDate}</td><td>{t(e.endDate&&e.endDate<today()?'Ishdan chiqqan':'Faol')}</td><td className="hr-no-print"><div className="acts">{manage&&<button className="btn sm" onClick={()=>employeeForm(e)}>{t('Kartochka')}</button>}<button className="btn sm" onClick={()=>{choose(e.id);changeView('time');}}>{t('Tabel')}</button>{pay&&<button className="btn sm" onClick={()=>showRates(e)}>{t('Maosh tarixi')}</button>}</div></td></tr>)}</tbody></table></div>
+        <div className="tbl-wrap"><table><thead><tr>{['Tabel raqami','F.I.Sh.','Lavozim','Sex / bo‘lim','Ishga kirish sanasi','Holat','Amallar'].map(x=><th key={x}>{t(x)}</th>)}</tr></thead><tbody>{visible.map(e=><tr key={e.id}><td>{e.code}</td><td><strong>{e.name}</strong>{manage&&e.phone&&<div className="hint">{e.phone}</div>}</td><td>{e.position}</td><td>{e.department}</td><td>{e.hireDate}</td><td>{t(e.endDate&&e.endDate<=today()?'Ishdan chiqqan':'Faol')}</td><td className="hr-no-print"><div className="acts">{['admin','rahbar','kadrlar'].includes(user?.role)&&<button className="btn sm" onClick={()=>setProfileId(e.id)}>{t('Ko‘rish')}</button>}{manage&&<button className="btn sm" onClick={()=>employeeForm(e)}>{t('Kartochka')}</button>}<button className="btn sm" onClick={()=>{choose(e.id);changeView('time');}}>{t('Tabel')}</button>{pay&&<button className="btn sm" onClick={()=>showRates(e)}>{t('Maosh tarixi')}</button>}</div></td></tr>)}</tbody></table></div>
         {!visible.length&&<div className="empty">{t('Xodimlar hali kiritilmagan')}</div>}
         {manage&&employee&&<div className="hr-card"><h3>{employee.name}</h3><p>{employee.position} · {employee.department}</p><p className="hint">{employee.notes}</p>{employee.endDate&&<p>{t('Oxirgi ish kuni')}: {employee.endDate}</p>}</div>}
         {pay&&rates&&employee&&<div className="hr-card"><div className="hr-heading"><h3>{t('Maosh tarixi')} · {employee.name}</h3><button className="btn primary" onClick={()=>rateForm(employee)}>{t('Maosh belgilash')}</button></div><p className="hint">{t('Har bir maosh o‘z sanasidan amal qiladi. Tasdiqlangan davr o‘zgarmaydi.')}</p><div className="tbl-wrap"><table><thead><tr>{['Amal qilish sanasi','Lavozim maoshi','Koeffitsiyent haqi','Razryad','Sabab','Amallar'].map(x=><th key={x}>{t(x)}</th>)}</tr></thead><tbody>{rates.map(r=><tr key={r.id}><td>{r.effectiveDate}</td><td>{fmtN(r.salary,2)}</td><td>{fmtN(r.coefficient,2)}</td><td>{r.grade}</td><td>{r.reason}</td><td><button className="btn sm" disabled={months.some(m=>m.status!=='draft'&&m.month>=r.effectiveDate.slice(0,7))} onClick={()=>rateForm(employee,r)}>{t('Tahrirlash')}</button></td></tr>)}</tbody></table></div>{!rates.length&&<p>{t('Maosh belgilanmagan')}</p>}</div>}

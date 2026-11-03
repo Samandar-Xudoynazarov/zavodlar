@@ -25,6 +25,9 @@ if (backup.app !== "zavodlar" || backup.format !== 2 || !backup.data) {
 const D = backup.data;
 const HR_TABLES = ['hr_employees', 'hr_rates', 'hr_months', 'hr_payments', 'hr_events'];
 const NEW_HR_TABLES=['hr_records','hr_leave_allowances'];
+const PERSONNEL_TABLES=['hr_employers','hr_employment_docs','hr_employee_files'];
+const hasPersonnel=PERSONNEL_TABLES.some(t=>Object.hasOwn(D,t));
+if(hasPersonnel&&PERSONNEL_TABLES.some(t=>!Array.isArray(D[t])))throw new Error('Shaxsiy delo zaxirasi to‘liq emas');
 const hasNewHr=NEW_HR_TABLES.some(t=>Object.hasOwn(D,t));
 if(hasNewHr&&NEW_HR_TABLES.some(t=>!Array.isArray(D[t])))throw new Error('Kadrlar boshqaruvi zaxirasi to‘liq emas');
 const hasHr = HR_TABLES.some(t => Object.hasOwn(D, t));
@@ -56,14 +59,17 @@ console.log(`Joriy holat saqlandi: ${autoName}`);
 // 2) almashtirish (bog'lanishlar tartibida: avval bolalar o'chiriladi, keyin ota-onalar qo'shiladi)
 const ORDER = ["factories", "settings", "materials", "products", "targets", "orders", "days", "inventories", "movements", "suppliers", "product_moves", "vehicle_logs", "acct_reports", "month_plans", "counters"];
 // Older backups have no personnel data: preserve existing personnel tables.
-if(hasNewHr&&!hasHr)throw new Error('Kadrlar zaxirasi to‘liq emas');
-if (hasHr) ORDER.push(...HR_TABLES,...NEW_HR_TABLES);
+if((hasNewHr||hasPersonnel)&&!hasHr)throw new Error('Kadrlar zaxirasi to‘liq emas');
+if (hasHr) ORDER.push(...HR_TABLES,...(hasNewHr?NEW_HR_TABLES:[]),...(hasPersonnel?PERSONNEL_TABLES:[]));
+// A legacy HR backup must not remove employees referenced by newer dossiers.
+const preserveEmployeeRows=hasHr&&(!hasNewHr||!hasPersonnel);
 const JSONB = new Set(["lines", "items", "rows", "customers", "extra_cols", "signers", "opening", "calc_template", "cost_schemes", "plan", "recipe", "writeoff", "norms", "calc", "notes", "production", "materials", "shipments", "created_by", "approved_by", "updated_by"]);
-for (const key of ['work_days','holidays','attendance','adjustments','snapshot','closed_by','voided_by','actor','detail','profile','decided_by']) JSONB.add(key);
+for (const key of ['work_days','holidays','attendance','adjustments','snapshot','closed_by','voided_by','actor','detail','profile','decided_by','payload','issued_by','uploaded_by']) JSONB.add(key);
 try {
   await tx(async (c) => {
     for (const t of [...ORDER].reverse()) {
       if (t === "factories") continue; // zavod qatorlari yangilanadi (foydalanuvchilar ularga bog'langan)
+      if (t === 'hr_employees' && preserveEmployeeRows) continue;
       await c.query(`DELETE FROM ${t} WHERE factory_id = ANY($1::uuid[])`, [fids]);
     }
     for (const t of ORDER) {
@@ -77,7 +83,7 @@ try {
         }
         const cols = Object.keys(row);
         const vals = cols.map((k) => (JSONB.has(k) && row[k] !== null && !(t === 'hr_employees' && k === 'notes') ? JSON.stringify(row[k]) : row[k]));
-        const upsert = t === "factories" ? ` ON CONFLICT (id) DO UPDATE SET ${cols.filter((k) => k !== "id").map((k) => `${k} = EXCLUDED.${k}`).join(", ")}` : "";
+        const upsert = t === "factories" || (t === 'hr_employees' && preserveEmployeeRows) ? ` ON CONFLICT (id) DO UPDATE SET ${cols.filter((k) => k !== "id").map((k) => `${k} = EXCLUDED.${k}`).join(", ")}` : "";
         await c.query(`INSERT INTO ${t} (${cols.join(", ")}) VALUES (${cols.map((_, i) => `$${i + 1}`).join(", ")})${upsert}`, vals);
       }
     }

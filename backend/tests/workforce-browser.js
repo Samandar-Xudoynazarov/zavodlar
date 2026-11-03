@@ -78,7 +78,7 @@ try {
   assert.equal((await one('SELECT attendance FROM hr_months WHERE factory_id=$1',[f.id])).attendance[employee.id]['5'].status,'leave');
   await page.screenshot({path:path.join(artifacts,'11-leave-balance.png'),fullPage:true});
   for(const title of ['Smena rejasi','Buyruqlar','Hujjat muddatlari','Himoya vositalari']){
-    await page.locator('.hr-workforce').getByRole('tab',{name:title,exact:true}).click();
+    await page.getByLabel('Qo‘shimcha bo‘lim',{exact:true}).selectOption({label:title});
     await page.locator('.hr-workforce h2').getByText(title,{exact:true}).waitFor();
     await page.getByRole('button',{name:'Yangi yozuv',exact:true}).click();
     await page.getByRole('dialog').getByLabel('Xodim',{exact:true}).selectOption(employee.id);

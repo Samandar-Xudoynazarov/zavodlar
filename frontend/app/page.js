@@ -425,7 +425,7 @@ function App() {
           <nav className="nav" aria-label={t("Bo'limlar")}>
             {NAV_GROUPS.map((group) => {
               const groupTabs = group.id === "personnel" ? group.keys.flatMap(key => tabs.filter(item => item[0] === key)) : tabs;
-              const visibleTabs = groupTabs.filter(([key, label]) => group.keys.includes(key) && (!navQuery.trim() || `${t(label)} ${t(group.label)}`.toLocaleLowerCase().includes(navQuery.trim().toLocaleLowerCase())));
+              const visibleTabs = groupTabs.filter(([key, label]) => (group.id !== "personnel" || ["hr-overview","hr","hr-time","hr-reports"].includes(key)) && group.keys.includes(key) && (!navQuery.trim() || `${t(label)} ${t(group.label)}`.toLocaleLowerCase().includes(navQuery.trim().toLocaleLowerCase())));
               if (!visibleTabs.length) return null;
               const expanded = Boolean(navQuery.trim()) || !collapsedGroups.includes(group.id);
               return (
