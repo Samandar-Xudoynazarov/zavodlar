@@ -56,36 +56,43 @@ try {
   }
   const {context,page}=await contextFor('admin');
   const dialog=page.getByRole('dialog');
+  const guide=await page.request.get('http://127.0.0.1:3100/help/kadrlar-qollanma.pdf');assert.equal(guide.status(),200);assert.equal((await guide.body()).subarray(0,5).toString(),'%PDF-');
   const fill=async(values)=>{for(const [name,value] of Object.entries(values))await dialog.getByLabel(name,{exact:true}).fill(String(value));};
   const save=async()=>{await dialog.getByRole('button',{name:'Saqlash',exact:true}).click();await dialog.waitFor({state:'hidden'});};
+  await page.screenshot({path:path.join(artifacts,'17-employees-list.png'),fullPage:true});
   await page.getByRole('button',{name:'Yangi xodim',exact:true}).click();
+  await dialog.screenshot({path:path.join(artifacts,'18-employee-form.png')});
   await fill({'Tabel raqami':'002','F.I.Sh.':'Yangi Sinov Xodimi','Lavozim':'Operator','Sex / bo‘lim':'Sinov sexi','Telefon':'+998901234567','Ikkinchi telefon':'+998911234567','Tug‘ilgan sana':'1990-03-02','Pasport / ID raqami':'AA1234567','JShShIR':'12345678901234','Doimiy manzil':'Sinov ko‘chasi, 15-uy','Ishga kirish sanasi':'2026-11-01','Berilgan sana':'2020-01-02','Kim tomonidan berilgan':'Sinov IIB','Ma’lumoti':'Oliy','Mutaxassisligi':'Muhandis'});await save();
   await page.locator('.hr-personnel').waitFor();assert.equal(await page.locator('.personnel-avatar').count(),1);
   const e=await one("SELECT * FROM hr_employees WHERE factory_id=$1 AND code='002'",[f.id]);
   assert.equal(e.profile.passport,'AA1234567');assert.equal(e.profile.phone2,'+998911234567');assert.equal((await one('SELECT count(*) n FROM hr_employment_docs WHERE employee_id=$1',[e.id])).n,2);
   await page.screenshot({path:path.join(artifacts,'13-employee-profile.png'),fullPage:true});
   await page.getByRole('tab',{name:'Shartnoma va buyruqlar',exact:true}).click();
-  await page.getByRole('button',{name:'Korxona rekvizitlari',exact:true}).click();
+  await page.locator('.onboarding-steps button').first().click();
   await fill({'Korxona nomi':'Sinov zavodi MChJ','Korxona qisqa nomi':'SZ','Direktor F.I.Sh.':'Sinov Rahbarov','Kadrlar bo‘yicha mas’ul':'Sinov Kadrov','Shahar / tuman':'Toshkent','Korxona manzili':'Sinov ko‘chasi, 15-uy','Korxona telefoni':'+998711234567','STIR':'123456789','Bank rekvizitlari':'Sinov banki, h/r 20208000000000000001'});await save();
   const contract=()=>page.locator('.personnel-documents article').filter({has:page.getByRole('heading',{name:'Mehnat shartnomasi',exact:true})});
   const hire=()=>page.locator('.personnel-documents article').filter({has:page.getByRole('heading',{name:'Ishga qabul qilish to‘g‘risida',exact:true})});
+  await page.screenshot({path:path.join(artifacts,'22-documents-draft.png'),fullPage:true});
   await contract().getByRole('button',{name:'Tahrirlash',exact:true}).click();
+  await dialog.screenshot({path:path.join(artifacts,'19-contract-form.png')});
   await fill({'Hujjat raqami':'S-002','Hujjat sanasi':'2026-11-01','Ish joyi':'Sinov zavodi','Ish rejimi':'Dushanba–juma, 09:00–18:00, tushlik 13:00–14:00','Lavozim maoshi':'3500000','Mehnat vazifalari':'Ishlab chiqarish uskunasini boshqarish'});await save();
   async function pdf(card,name){console.log('PDF',name);const [download]=await Promise.all([page.waitForEvent('download'),card.getByRole('button',{name:'PDF',exact:true}).click()]);await download.saveAs(path.join(root,'tmp/pdfs/'+name));}
   try{await pdf(contract(),'hr-contract.pdf');}catch(err){console.log('PDF DEBUG',await page.locator('.hr-personnel').innerText(),errors);throw err;}
   async function confirm(card){await card.getByRole('button',{name:'Imzolanganini tasdiqlash',exact:true}).click();await dialog.getByLabel('Qog‘ozdagi hujjat tomonlar tomonidan imzolanganmi?',{exact:true}).selectOption('yes');await dialog.getByLabel('Huquqiy asos va barcha rekvizitlar tekshirildimi?',{exact:true}).selectOption('yes');await dialog.getByRole('button',{name:'Tasdiqlash',exact:true}).click();await dialog.waitFor({state:'hidden'});}
   await confirm(contract());await hire().getByRole('button',{name:'Tahrirlash',exact:true}).click();await fill({'Hujjat raqami':'B-002','Hujjat sanasi':'2026-11-01'});await save();await pdf(hire(),'hr-hire.pdf');await confirm(hire());
   await page.getByRole('button',{name:'Lavozimini o‘zgartirish',exact:true}).click();
+  await dialog.screenshot({path:path.join(artifacts,'20-transfer-form.png')});
   await fill({'Hujjat raqami':'B-003','Hujjat sanasi':'2026-11-02','Amal qilish sanasi':'2026-11-02','Yangi lavozim':'Bosh operator','Yangi bo‘lim':'Ishlab chiqarish','Qo‘shimcha kelishuv raqami':'Q-002','Qo‘shimcha kelishuv sanasi':'2026-11-02','Xodimning yozma roziligi / asos':'02.11.2026 dagi yozma rozilik','Yangi lavozim maoshi':'4500000'});await save();
   const addendum=()=>page.locator('.personnel-documents article').filter({has:page.getByRole('heading',{name:'Mehnat shartnomasiga qo‘shimcha kelishuv',exact:true})});
   const transfer=()=>page.locator('.personnel-documents article').filter({has:page.getByRole('heading',{name:'Boshqa lavozimga o‘tkazish to‘g‘risida',exact:true})});
   await pdf(addendum(),'hr-addendum.pdf');await confirm(addendum());await pdf(transfer(),'hr-transfer.pdf');await confirm(transfer());assert.equal((await one('SELECT position FROM hr_employees WHERE id=$1',[e.id])).position,'Bosh operator');
-  await page.getByRole('button',{name:'Ishdan bo‘shatish',exact:true}).click();await fill({'Hujjat raqami':'B-004','Bekor qilish sababi':'Taraflarning o‘zaro kelishuvi','Ariza / kelishuv / tasdiqlovchi hujjat':'03.11.2026 dagi yozma kelishuv'});await dialog.getByLabel('Bekor qilish asosi',{exact:true}).selectOption('mutual');await save();
+  await page.getByRole('button',{name:'Ishdan bo‘shatish',exact:true}).click();await dialog.screenshot({path:path.join(artifacts,'21-termination-form.png')});await fill({'Hujjat raqami':'B-004','Bekor qilish sababi':'Taraflarning o‘zaro kelishuvi','Ariza / kelishuv / tasdiqlovchi hujjat':'03.11.2026 dagi yozma kelishuv'});await dialog.getByLabel('Bekor qilish asosi',{exact:true}).selectOption('mutual');await save();
   const termination=()=>page.locator('.personnel-documents article').filter({has:page.getByRole('heading',{name:'Mehnat shartnomasini bekor qilish to‘g‘risida',exact:true})});
   await pdf(termination(),'hr-termination.pdf');await confirm(termination());assert.equal((await one('SELECT end_date FROM hr_employees WHERE id=$1',[e.id])).endDate,'2026-11-03');await page.getByText('Ishdan chiqqan',{exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'Ishdan bo‘shatish',exact:true}).count(),0);
   await page.screenshot({path:path.join(artifacts,'14-employment-documents.png'),fullPage:true});
   await page.getByRole('tab',{name:'Shaxsiy delo',exact:true}).click();const passport=page.locator('.personnel-grid article').filter({has:page.getByRole('heading',{name:'Pasport nusxasi',exact:true})});
   await passport.locator('input[type=file]').setInputFiles({name:'Sinov.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\n% sinov nusxasi')});await passport.getByRole('button',{name:'Sinov.pdf',exact:true}).waitFor();
+  assert.equal(await passport.locator('input[type=file]').evaluate(el=>getComputedStyle(el).position),'absolute');
   await passport.getByRole('button',{name:'Holatni belgilash',exact:true}).click();await dialog.getByLabel('Holat',{exact:true}).selectOption('received');await save();assert.equal((await one('SELECT profile FROM hr_employees WHERE id=$1',[e.id])).profile.dossier.passport.status,'received');
   await page.screenshot({path:path.join(artifacts,'15-personal-dossier.png'),fullPage:true});
   await page.setViewportSize({width:390,height:844});await page.getByRole('tab',{name:'Ma’lumotlar',exact:true}).click();await page.screenshot({path:path.join(artifacts,'16-profile-mobile.png'),fullPage:true});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);

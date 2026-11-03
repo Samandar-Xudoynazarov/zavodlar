@@ -4,6 +4,8 @@ Bo‘lim har bir zavod uchun alohida ishlaydi. Xodim kartochkasi dasturga kirish
 
 ## Xodim kabineti va shaxsiy delo
 
+2026-11-03: kadrlar oynalari uchun izohli navigatsiya, xodimlar ro‘yxatida faol soni va boshlash yo‘li, kabinetda to‘rt qadamli rasmiylashtirish paneli qo‘shildi. Qoralama hujjatlar sariq, rasmiylashtirilganlari yashil; bog‘liq shartnoma yoki kelishuv tayyor bo‘lmasa buyruq tasdig‘i nofaol va sababi ko‘rsatiladi. Xodim va hujjat formalari mavzular bo‘yicha guruhlangan. Hisob oyi sozlamalari xodimlar ro‘yxatidan Tabel va hisob oynalariga ajratildi. `/help/kadrlar-qollanma.pdf` havolasi kadrlar oynalari va kabinetdan sakkiz sahifali, rasmli o‘zbekcha qo‘llanmani ochadi.
+
 Menyuda **Kadrlar nazorati, Xodimlar, Tabel, Hisobotlar** qoldirilgan. Ta’til, smena, hujjat muddatlari, himoya vositalari, oylik va to‘lovlar ichki **Qo‘shimcha bo‘lim** ro‘yxatidan ochiladi; ro‘yxat foydalanuvchi vakolatiga mos.
 
 **Xodimlar → Ko‘rish** shaxsiy kabinetni ochadi. Bu kadrlar mutaxassisi ko‘radigan kartochka, my.gov bilan ulanish yoki xodim uchun yangi login emas. Unda odamcha avatar, pasport/ID, JShShIR, tug‘ilgan sana va joy, ikki telefon, doimiy va hozirgi manzil, ma’lumot, diplom, mutaxassislik, staj va yaqin kishisining aloqalari mavjud.

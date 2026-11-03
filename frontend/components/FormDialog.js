@@ -1,6 +1,6 @@
 "use client";
 import { tr } from "@/lib/i18n";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 
 /**
  * Umumiy forma oynasi.
@@ -44,19 +44,20 @@ export default function FormDialog({ form, onClose }) {
 
   return (
     <dialog ref={ref} onClose={onClose}>
-      <form onSubmit={submit} key={form.key}>
+      <form onSubmit={submit} key={form.key} className={form.fields.some(f=>f.section)?'form-sectioned':undefined}>
         <h2>{tr(form.title)}</h2>
+        {form.description&&<p className="form-description">{tr(form.description)}</p>}
         <div className="form-grid">
-          {form.fields.map((f) => {
+          {form.fields.map((f,index) => {
             const id = `f-${f.name}`;
             const v = form.values?.[f.name] ?? f.def ?? "";
             return (
-              <div className="field" key={f.name} style={f.wide ? { gridColumn: "1/-1" } : undefined}>
+              <Fragment key={f.name}>{f.section&&f.section!==form.fields[index-1]?.section&&<h3 className="form-section-title">{tr(f.section)}</h3>}<div className="field" style={f.wide ? { gridColumn: "1/-1" } : undefined}>
                 <label htmlFor={id}>
-                  {tr(f.label)} {f.unit && <span className="u">({tr(f.unit)})</span>}
+                  {tr(f.label)} {f.req&&<span aria-hidden="true" className="form-required">*</span>} {f.unit && <span className="u">({tr(f.unit)})</span>}
                 </label>
                 {f.type === "select" ? (
-                  <select id={id} name={f.name} defaultValue={String(v ?? "")} required={f.req}>
+                  <select id={id} aria-label={tr(f.label)} name={f.name} defaultValue={String(v ?? "")} required={f.req}>
                     {f.options.map(([k, l]) => (
                       <option key={k} value={k}>
                         {f.raw ? l : tr(l)}
@@ -66,6 +67,7 @@ export default function FormDialog({ form, onClose }) {
                 ) : (
                   <input
                     id={id}
+                    aria-label={tr(f.label)}
                     name={f.name}
                     type={f.type || "text"}
                     defaultValue={v}
@@ -74,7 +76,8 @@ export default function FormDialog({ form, onClose }) {
                     step={f.step}
                   />
                 )}
-              </div>
+                {f.hint&&<small className="hint">{tr(f.hint)}</small>}
+              </div></Fragment>
             );
           })}
         </div>

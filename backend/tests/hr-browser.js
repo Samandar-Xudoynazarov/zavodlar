@@ -126,6 +126,7 @@ try {
   await page.getByRole('dialog').getByRole('button',{name:'Saqlash',exact:true}).click();
   await page.getByRole('dialog').waitFor({state:'hidden'});
   assert.equal((await one('SELECT count(*) AS n FROM hr_employees WHERE factory_id=$1',[f.id])).n,2);
+  await page.locator('.personnel-title').getByRole('heading',{name:'Yangi Sinov Xodimi',exact:true}).waitFor();
   await context.close();
   for(const role of ['kadrlar','usta','buxgalter']) {
     const mobile=await contextFor(role,{width:390,height:844});
