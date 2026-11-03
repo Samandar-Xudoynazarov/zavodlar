@@ -14,10 +14,11 @@
     "restore": "node --env-file-if-exists=.env scripts/restore.js",
     "import-mongo": "node --env-file-if-exists=.env scripts/import-mongo.js",
     "import-products": "node --env-file-if-exists=.env scripts/import-products.js",
-    "test": "node --env-file-if-exists=.env tests/regression.js && node --env-file-if-exists=.env tests/notifications.js && node --env-file-if-exists=.env tests/telegram.js && node --env-file-if-exists=.env tests/payroll.js",
+    "test": "node --env-file-if-exists=.env tests/regression.js && node --env-file-if-exists=.env tests/notifications.js && node --env-file-if-exists=.env tests/telegram.js && node --env-file-if-exists=.env tests/payroll.js && node --env-file-if-exists=.env tests/workforce.js",
     "test:payroll": "node --env-file-if-exists=.env tests/payroll.js",
     "test:notifications": "node --env-file-if-exists=.env tests/notifications.js",
-    "test:telegram": "node --env-file-if-exists=.env tests/telegram.js"
+    "test:telegram": "node --env-file-if-exists=.env tests/telegram.js",
+    "test:workforce": "node --env-file-if-exists=.env tests/workforce.js"
   },
   "engines": {
     "node": ">=20.12"

@@ -62,8 +62,11 @@ const TABS = [
   ["hr", "Xodimlar", "Xodimlar, tabel, oylik hisoblash va to'lovlar", ["admin", "rahbar", "buxgalter", "kadrlar", "usta"]],
 ];
 TABS.push(["hr-time", "Tabel", "Davomat va ish soati", ["admin","rahbar","buxgalter","kadrlar","usta"]], ["hr-payroll", "Oylik hisoblash", "Oylik hisoblash", ["admin","rahbar","buxgalter"]], ["hr-payments", "To'lovlar", "Avans va oylik", ["admin","rahbar","buxgalter"]], ["hr-reports", "Hisobotlar", "Kadrlar hisobotlari", ["admin","rahbar","buxgalter","kadrlar","usta"]]);
+
+TABS.push(...[['overview','Kadrlar nazorati'],['leaves','Ta’tillar'],['shifts','Smena rejasi'],['orders','Buyruqlar'],['documents','Hujjat muddatlari'],['equipment','Himoya vositalari']].map(([key,label])=>[`hr-${key}`,label,label,['admin','rahbar','buxgalter','kadrlar']]));
+
 const NAV_GROUPS = [
-  { id: "personnel", label: "Kadrlar bo‘limi", keys: ["hr", "hr-time", "hr-payroll", "hr-payments", "hr-reports"] },
+  { id: "personnel", label: "Kadrlar bo‘limi", keys: ["hr-overview", "hr", "hr-time", "hr-leaves", "hr-shifts", "hr-orders", "hr-documents", "hr-equipment", "hr-payroll", "hr-payments", "hr-reports"] },
   { id: "overview", label: "Ish stoli", keys: ["all", "dash"] },
   { id: "production", label: "Ishlab chiqarish", keys: ["day", "fg", "cat"] },
   { id: "warehouse", label: "Ombor va ta'minot", keys: ["wh", "moves", "inv", "sup", "stock", "mat"] },
@@ -75,7 +78,7 @@ const groupFor = (key) => NAV_GROUPS.find((group) => group.keys.includes(key));
 const tabsFor = (user) => TABS.filter((t) => (user?.role !== "kadrlar" || t[0].startsWith("hr")) && (!t[3] || t[3].includes(user?.role)) && (t[4] !== "hq" || (user && !user.factoryId && (user.factories?.length || 0) > 1)));
 // Telefondagi pastki menyu: rol bo'yicha 4 ta asosiy bo'lim (+ o'rtada «+» tugmasi)
 const BOTTOM = {
-  kadrlar: ["hr"],
+  kadrlar: ["hr-overview", "hr", "hr-time"],
   omborchi: ["wh", "moves", "targets"],
   buxgalter: ["hr", "acct", "month", "cost"],
   usta: ["day", "plan", "hr"],
@@ -85,11 +88,11 @@ const BOTTOM = {
   kuzatuvchi: ["all", "dash", "day", "plan", "wh"],
   kurator: ["all", "dash", "day", "plan", "wh"],
 };
-const DEFAULT_TAB = { kadrlar: "hr", buxgalter: "acct", omborchi: "wh", rahbar: "dash", kuzatuvchi: "dash", kurator: "dash" };
+const DEFAULT_TAB = { kadrlar: "hr-overview", buxgalter: "acct", omborchi: "wh", rahbar: "dash", kuzatuvchi: "dash", kurator: "dash" };
 // bosh ofis rahbari tizimga kirganda — umumiy panel
 const HQ_DEFAULT = { rahbar: "all", kuzatuvchi: "all", kurator: "all" };
 // pastki menyuda sig'adigan qisqa nomlar
-const SHORT = { all: "Umumiy", day: "Kunlik", month: "Oylik", moves: "Tarix", targets: "Sex/texnika", stock: "Qoldiq", ord: "Buyurtma", plan: "Reja", inv: "Sanash", sup: "Ta'minot", fg: "Tayyor", veh: "Texnika", dash: "Grafik", acct: "Hisobot", cost: "Tannarx" };
+const SHORT = { "hr-overview":"Nazorat", hr:"Xodimlar", "hr-time":"Tabel", all: "Umumiy", day: "Kunlik", month: "Oylik", moves: "Tarix", targets: "Sex/texnika", stock: "Qoldiq", ord: "Buyurtma", plan: "Reja", inv: "Sanash", sup: "Ta'minot", fg: "Tayyor", veh: "Texnika", dash: "Grafik", acct: "Hisobot", cost: "Tannarx" };
 
 function LangSwitch({ dark }) {
   const { lang, setLang } = useI18n();
@@ -421,7 +424,8 @@ function App() {
           </label>
           <nav className="nav" aria-label={t("Bo'limlar")}>
             {NAV_GROUPS.map((group) => {
-              const visibleTabs = tabs.filter(([key, label]) => group.keys.includes(key) && (!navQuery.trim() || `${t(label)} ${t(group.label)}`.toLocaleLowerCase().includes(navQuery.trim().toLocaleLowerCase())));
+              const groupTabs = group.id === "personnel" ? group.keys.flatMap(key => tabs.filter(item => item[0] === key)) : tabs;
+              const visibleTabs = groupTabs.filter(([key, label]) => group.keys.includes(key) && (!navQuery.trim() || `${t(label)} ${t(group.label)}`.toLocaleLowerCase().includes(navQuery.trim().toLocaleLowerCase())));
               if (!visibleTabs.length) return null;
               const expanded = Boolean(navQuery.trim()) || !collapsedGroups.includes(group.id);
               return (

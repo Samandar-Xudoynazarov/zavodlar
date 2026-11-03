@@ -24,6 +24,9 @@ if (backup.app !== "zavodlar" || backup.format !== 2 || !backup.data) {
 }
 const D = backup.data;
 const HR_TABLES = ['hr_employees', 'hr_rates', 'hr_months', 'hr_payments', 'hr_events'];
+const NEW_HR_TABLES=['hr_records','hr_leave_allowances'];
+const hasNewHr=NEW_HR_TABLES.some(t=>Object.hasOwn(D,t));
+if(hasNewHr&&NEW_HR_TABLES.some(t=>!Array.isArray(D[t])))throw new Error('Kadrlar boshqaruvi zaxirasi to‘liq emas');
 const hasHr = HR_TABLES.some(t => Object.hasOwn(D, t));
 if (hasHr && HR_TABLES.some(t => !Array.isArray(D[t]))) throw new Error('Kadrlar zaxirasi to‘liq emas');
 const fids = (D.factories || []).map((f) => f.id);
@@ -53,9 +56,10 @@ console.log(`Joriy holat saqlandi: ${autoName}`);
 // 2) almashtirish (bog'lanishlar tartibida: avval bolalar o'chiriladi, keyin ota-onalar qo'shiladi)
 const ORDER = ["factories", "settings", "materials", "products", "targets", "orders", "days", "inventories", "movements", "suppliers", "product_moves", "vehicle_logs", "acct_reports", "month_plans", "counters"];
 // Older backups have no personnel data: preserve existing personnel tables.
-if (hasHr) ORDER.push(...HR_TABLES);
+if(hasNewHr&&!hasHr)throw new Error('Kadrlar zaxirasi to‘liq emas');
+if (hasHr) ORDER.push(...HR_TABLES,...NEW_HR_TABLES);
 const JSONB = new Set(["lines", "items", "rows", "customers", "extra_cols", "signers", "opening", "calc_template", "cost_schemes", "plan", "recipe", "writeoff", "norms", "calc", "notes", "production", "materials", "shipments", "created_by", "approved_by", "updated_by"]);
-for (const key of ['work_days','holidays','attendance','adjustments','snapshot','closed_by','voided_by','actor','detail']) JSONB.add(key);
+for (const key of ['work_days','holidays','attendance','adjustments','snapshot','closed_by','voided_by','actor','detail','profile','decided_by']) JSONB.add(key);
 try {
   await tx(async (c) => {
     for (const t of [...ORDER].reverse()) {

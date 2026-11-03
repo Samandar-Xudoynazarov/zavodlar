@@ -86,3 +86,25 @@ Tabelning ikki ko‘rinishi mavjud:
 Ikkala ko‘rinish bitta tabel ma’lumotidan foydalanadi. Tasdiqlangan va yopilgan oylar tahrirlanmaydi.
 
 Kunlik tabeldagi **Bugun** tugmasi joriy oy va bugungi sanani tanlaydi. **Oylik tabel · Excel** tanlangan oyning barcha xodimlarini yuklab beradi. Excel faylida chop etish A4, albom va eni bir sahifa qilib sozlangan. Faylni ochib Chop etish orqali chiqarish mumkin. Xodimlar ko‘p bo‘lsa sahifalar pastga davom etadi. Har xodimning yuqori qatori holatni, pastki qatori ish soatini bildiradi; belgilar izohi jadval ostida berilgan.
+
+
+## Kadrlar rahbari ish joyi
+
+**Kadrlar nazorati** oynasida bugungi faol xodimlar, ishda bo‘lganlar, davomat belgilanganlar, ta’tildagilar va tasdiq kutayotgan yozuvlar ko‘rsatiladi. Muddati o‘tgan hamda yaqin 30 kunda tugaydigan hujjat va himoya vositalari yozuvlari alohida ro‘yxatda turadi. Oxirgi amallar kim va qachon bajargani bilan saqlanadi.
+
+- **Ta’tillar:** har xodim va yil uchun kalendar kunlardagi limit va dasturdan oldin ishlatilgan kunlarni kiriting. Qoldiqdan tasdiqlangan kelajak ta’tillari ham ayriladi. Yil chegarasidan o‘tgan ta’til tegishli yillarga ajratiladi. Limit avtomatik huquqiy norma emas; kompaniya tasdiqlagan qiymatni kiriting.
+- **Smena rejasi:** xodim, davr, hafta kunlari, kunduzgi/tungi smena va soatlar belgilanadi. Bu reja haqiqiy davomatdan alohida saqlanadi.
+- **Buyruqlar:** ishga qabul, o‘tkazish, maosh o‘zgarishi va mehnat shartnomasini bekor qilish buyruqlari uchun reyestr. Tasdiqlash xodimning lavozimi yoki maoshini o‘z-o‘zidan o‘zgartirmaydi; tegishli kartochkada o‘zgarishni qayd eting.
+- **Hujjat muddatlari:** mehnat shartnomasi, tibbiy ko‘rik, xavfsizlik yo‘riqnomasi va malaka hujjatining raqami hamda muddatini qayd eting. Asl fayl yuklash funksiyasi bu reyestrga kirmaydi.
+- **Himoya vositalari:** berilgan buyum, miqdor, berish va qaytarish/almashtirish muddatini yuriting. Qaytarilganda yozuvni yakunlang.
+- **Xodim kartochkasi:** tug‘ilgan sana, yashash manzili va favqulodda bog‘lanish uchun yaqin kishisi ma’lumotlari qo‘shilgan. Usta bu shaxsiy ma’lumotlarni ko‘rmaydi.
+
+Ish tartibi: **Yangi yozuv → Qoralama → Tasdiqlash → Tabelga qo‘llash** (faqat ta’til va smena). Tasdiqlashni administrator, zavod rahbari va kadrlar xodimi bajaradi. Buxgalter qoralama tayyorlashi mumkin. Boshqa zavod ma’lumotlari ochilmaydi.
+
+Tabelga qo‘llash barcha tegishli oylar ochiq va qoralama bo‘lganda amalga oshadi. Mavjud boshqa davomat ustiga yozilmaydi. Bir oyda xato chiqsa, boshqa oydagi o‘zgarish ham saqlanmaydi. Smena namunasini haqiqiy ishlangan soatlar bilan tekshirib boring. Ta’til pulini hisoblash va oylik qo‘shimchalari avvalgidek buxgalter nazoratida qoladi.
+
+Qo‘llangan ta’til yoki smenani bekor qilishdan oldin tegishli tabel kunlarini qo‘lda tekshirib tuzating. Tasdiqlangan/yopilgan davr bekor qilinmaydi. Hujjat, buyruq va himoya vositasi yakunlanishi mumkin. Bekor qilishda sabab majburiy.
+
+Yangi jadvallar zaxira nusxaga kiritiladi. Eski, kadrlar bo‘limisiz zaxira mavjud kadrlar ma’lumotlarini saqlaydi. Kadrlar bo‘limi bor, ammo yangi reyestrlarsiz eski zaxirani tiklash yangi reyestrlarni bo‘sh holatga qaytaradi. Chala yangi reyestr zaxirasi rad etiladi; tiklashdan oldin avtomatik nusxa olinadi.
+
+Tekshiruvlar: `npm run test:workforce`, `node --env-file-if-exists=.env tests/workforce-browser.js`. Brauzer sinovi alohida vaqtinchalik bazada ishlaydi. Muddati yaqin yozuvlar ilova oynasida ko‘rinadi; Telegram orqali avtomatik kadrlar xabarlari hozircha yuborilmaydi.

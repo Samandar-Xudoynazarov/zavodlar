@@ -7,6 +7,7 @@ import { today, fmtN } from '@/lib/calc';
 import { setUnsaved, confirmLeave } from '@/lib/dirty';
 import { exportSheets } from '@/lib/xlsx-export';
 import Icon from './Icon';
+import HrWorkforce from './HrWorkforce';
 import { exportTimesheet } from '@/lib/hr-timesheet';
 
 const PAY=['admin','rahbar','buxgalter'];
@@ -58,18 +59,18 @@ export default function HrTab({notify,openForm,initialView,onViewChange}) {
   const payroll=doc?.payroll||[];const person=payroll.find(p=>p.employeeId===selected);
   const editable=doc?.status==='draft'&&!loading&&!busy;
   const dayList=Array.from({length:endOf(month)},(_,i)=>i+1);
-  const tabs=[['employees','Xodimlar'],['time','Tabel'],...(pay?[['payroll','Oylik hisoblash'],['payments',"To'lovlar"]]:[]),['reports','Hisobotlar']];
+  const tabs=[...(manage?[['overview','Kadrlar nazorati'],['leaves','Ta’tillar'],['shifts','Smena rejasi'],['orders','Buyruqlar'],['documents','Hujjat muddatlari'],['equipment','Himoya vositalari']]:[]),['employees','Xodimlar'],['time','Tabel'],...(pay?[['payroll','Oylik hisoblash'],['payments',"To'lovlar"]]:[]),['reports','Hisobotlar']];
   const checkReady=()=>{if(loading||error)throw new Error(t("Avval ma'lumotlarni qayta yuklang"));};
 
   function employeeForm(e) {
     if(!askLeave())return;
-    openForm({title:e?'Xodim kartochkasi':'Yangi xodim',values:e||{hireDate:today()},fields:[
+    openForm({title:e?'Xodim kartochkasi':'Yangi xodim',values:e?{...e,...e.profile}:{hireDate:today()},fields:[
       {name:'code',label:'Tabel raqami',req:true},{name:'name',label:'F.I.Sh.',req:true},
       {name:'position',label:'Lavozim'},{name:'department',label:'Sex / bo‘lim'},
-      {name:'phone',label:'Telefon'},{name:'hireDate',label:'Ishga kirish sanasi',type:'date',req:true},
+      {name:'phone',label:'Telefon'},{name:'birthDate',label:'Tug‘ilgan sana',type:'date'},{name:'address',label:'Yashash manzili',wide:true},{name:'emergencyName',label:'Yaqin kishisi'},{name:'emergencyPhone',label:'Yaqin kishisining telefoni'},{name:'hireDate',label:'Ishga kirish sanasi',type:'date',req:true},
       {name:'endDate',label:'Oxirgi ish kuni',type:'date'},
       {name:'notes',label:'Izoh',wide:true}],onSubmit:async v=>{
-        await api(e?`/hr/employees/${e.id}`:'/hr/employees',{method:e?'PUT':'POST',body:{...v,...(e?{version:e.version}:{})}});
+        await api(e?`/hr/employees/${e.id}`:'/hr/employees',{method:e?'PUT':'POST',body:{...v,profile:{birthDate:v.birthDate,address:v.address,emergencyName:v.emergencyName,emergencyPhone:v.emergencyPhone},...(e?{version:e.version}:{})}});
         await load();notify('Saqlandi');
       }});
   }
@@ -147,6 +148,7 @@ export default function HrTab({notify,openForm,initialView,onViewChange}) {
   }
   const labels={hours:'Ish soati',openingBalance:'Oldingi qarz',base:'Ishlangan vaqt haqi',coefficient:'Koeffitsiyent haqi',extra:'Qo‘shimcha haq',tripPay:'Xizmat safari haqi',gross:'Jami hisoblandi',tax:'Daromad solig‘i',deductions:'Boshqa ushlanmalar',net:'Sof hisoblangan',cash:'Naqd',card:'Bank kartasi',balance:'To‘lanishi lozim'};
 
+  if(manage&&['overview','leaves','shifts','orders','documents','equipment'].includes(view))return <HrWorkforce view={view} onViewChange={changeView} notify={notify} openForm={openForm}/>;
   return <section className="sheet hr-module" aria-busy={loading}>
     <div className="hr-heading hr-no-print"><div><span className="hr-eyebrow">{t('Xodimdan to‘lovgacha')}</span><h2>{t('Kadrlar bo‘limi')}</h2><p className="hint">{t('Xodimlar → tabel → hisoblash → to‘lov → oy yopish')}</p></div><button className="btn" disabled={busy} onClick={refresh}><Icon name="moves"/>{t('Qayta yuklash')}</button></div>
     <div className="hr-tabs hr-no-print" role="tablist" aria-label={t('Kadrlar bo‘limi')}>{tabs.map(([v,label])=><button type="button" role="tab" id={`hr-tab-${v}`} aria-controls="hr-panel" aria-selected={view===v} key={v} onClick={()=>changeView(v)}>{t(label)}</button>)}</div>
@@ -209,4 +211,4 @@ export default function HrTab({notify,openForm,initialView,onViewChange}) {
     </div>}
   </section>;
 }
-const eventLabel={'employee.create':'Xodim qo‘shildi','employee.update':'Xodim kartochkasi o‘zgardi','rate.create':'Maosh belgilandi','rate.update':'Maosh o‘zgartirildi','month.create':'Hisob oyi ochildi','month.settings':'Oy sozlamalari o‘zgardi','attendance.save':'Tabel saqlandi','payroll.adjust':'Oylik qo‘shimchalari o‘zgardi','payroll.approve':'Oylik tasdiqlandi','payroll.close':'Oy yopildi','payment.create':'To‘lov yozildi','payment.void':'To‘lov bekor qilindi'};
+const eventLabel={'employee.create':'Xodim qo‘shildi','employee.update':'Xodim kartochkasi o‘zgardi','rate.create':'Maosh belgilandi','rate.update':'Maosh o‘zgartirildi','month.create':'Hisob oyi ochildi','month.settings':'Oy sozlamalari o‘zgardi','attendance.save':'Tabel saqlandi','payroll.adjust':'Oylik qo‘shimchalari o‘zgardi','payroll.approve':'Oylik tasdiqlandi','payroll.close':'Oy yopildi','payment.create':'To‘lov yozildi','payment.void':'To‘lov bekor qilindi','workforce.create':'Kadrlar yozuvi yaratildi','workforce.update':'Kadrlar yozuvi o‘zgardi','workforce.decision':'Kadrlar yozuvi holati o‘zgardi','workforce.apply':'Reja tabelga qo‘llandi','workforce.allowance':'Ta’til limiti o‘zgardi'};

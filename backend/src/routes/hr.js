@@ -2,11 +2,13 @@ import { Router } from 'express';
 import { one, rows, tx } from '../db.js';
 import { isId, validDate, validMonth, ValidationError, ConflictError } from '../valid.js';
 import { PAY_ROLES, HR_ROLES, TIME_ROLES, money, number, text, today, monthEnd, cleanDays, calculatePayroll, withPayments, inMonth } from '../payroll.js';
+import workforce from './workforce.js';
 const r=Router();
 const actor=req=>({id:req.user.id,name:req.user.name||req.user.username});
 const guard=roles=>(req,res,next)=>roles.includes(req.user.role)?next():res.status(403).json({error:"Sizda bu amal uchun ruxsat yo'q"});
 r.use(guard(TIME_ROLES));
 r.use((_req,res,next)=>{res.set('Cache-Control','no-store');next();});
+r.use(workforce);
 const event=(c,req,action,id,detail={})=>c.query('INSERT INTO hr_events(factory_id,actor,action,entity_id,detail) VALUES($1,$2,$3,$4,$5)',[req.factoryId,actor(req),action,id,JSON.stringify(detail)]);
 const lock=(c,f)=>c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,8172))',[f]);
 const invalidateDrafts=(c,f)=>c.query("UPDATE hr_months SET version=version+1,updated_at=now() WHERE factory_id=$1 AND status='draft'",[f]);
@@ -49,21 +51,26 @@ function profile(b) {
   const out={code:text(b.code,40),name:text(b.name),position:text(b.position),department:text(b.department),phone:text(b.phone,40),hireDate:date(b.hireDate,'Ishga kirish'),endDate:date(b.endDate,'Ishdan chiqish',true),notes:text(b.notes,1500)};
   if (!out.code||!out.name) throw new ValidationError("Tabel raqami va F.I.Sh. majburiy");
   if (out.endDate && out.endDate<out.hireDate) throw new ValidationError("Ishdan chiqish sanasi ishga kirishdan oldin");
+  const p=b.profile||{};
+  out.profile={birthDate:date(p.birthDate,'Tug‘ilgan sana',true),address:text(p.address,300),emergencyName:text(p.emergencyName),emergencyPhone:text(p.emergencyPhone,40)};
+  if(out.profile.birthDate&&out.profile.birthDate>out.hireDate)throw new ValidationError('Tug‘ilgan sana ishga kirishdan keyin bo‘lishi mumkin emas');
   return out;
 }
 r.post('/employees',guard(HR_ROLES),write(async(c,req)=>{
   const v=profile(req.body||{});
-  const doc=await one('INSERT INTO hr_employees(factory_id,code,name,position,department,phone,hire_date,end_date,notes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',[req.factoryId,...Object.values(v)],c);
+  const doc=await one('INSERT INTO hr_employees(factory_id,code,name,position,department,phone,hire_date,end_date,notes,profile) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *',[req.factoryId,...Object.values(v).map(x=>typeof x==='object'?JSON.stringify(x):x)],c);
   await invalidateDrafts(c,req.factoryId);await event(c,req,'employee.create',doc.id,v); return doc;
 }));
 r.put('/employees/:id',guard(HR_ROLES),write(async(c,req)=>{
-  const e=await employee(c,req.factoryId,req.params.id); version(e,req.body||{}); const v=profile(req.body||{});
+  const e=await employee(c,req.factoryId,req.params.id); version(e,req.body||{}); const v=profile({...req.body,profile:req.body?.profile??e.profile});
   const months=await rows('SELECT month,attendance FROM hr_months WHERE factory_id=$1',[req.factoryId],c);
   for (const m of months) if (m.attendance[e.id]) cleanDays(m.attendance[e.id],m.month,v);
+  const outside=await one("SELECT id FROM hr_records WHERE factory_id=$1 AND employee_id=$2 AND kind IN ('leave','shift') AND status='approved' AND (start_date<$3 OR ($4<>'' AND end_date>$4))",[req.factoryId,e.id,v.hireDate,v.endDate],c);
+  if(outside)throw new ConflictError('Tasdiqlangan ta’til yoki smena ish davridan tashqarida qolmoqda');
   const frozen=await frozenThrough(c,req.factoryId);
   if ((v.hireDate!==e.hireDate && (v.hireDate<=frozen||e.hireDate<=frozen)) || (v.endDate!==e.endDate && [v.endDate,e.endDate].filter(Boolean).some(d=>d<=frozen)))
     throw new ConflictError("Tasdiqlangan davrdagi ish sanalarini o'zgartirib bo'lmaydi");
-  const doc=await one('UPDATE hr_employees SET code=$3,name=$4,position=$5,department=$6,phone=$7,hire_date=$8,end_date=$9,notes=$10,version=version+1,updated_at=now() WHERE factory_id=$1 AND id=$2 RETURNING *',[req.factoryId,e.id,...Object.values(v)],c);
+  const doc=await one('UPDATE hr_employees SET code=$3,name=$4,position=$5,department=$6,phone=$7,hire_date=$8,end_date=$9,notes=$10,profile=$11,version=version+1,updated_at=now() WHERE factory_id=$1 AND id=$2 RETURNING *',[req.factoryId,e.id,...Object.values(v).map(x=>typeof x==='object'?JSON.stringify(x):x)],c);
   await invalidateDrafts(c,req.factoryId);await event(c,req,'employee.update',e.id,{before:e,after:doc}); return doc;
 }));
 r.get('/rates/:id',guard(PAY_ROLES),async(req,res)=>{

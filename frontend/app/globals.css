@@ -1356,3 +1356,16 @@ dialog.share-ready h2{margin:0}
 @media print{.hr-no-print{display:none!important}.hr-payslip{max-width:none;border:0;padding:0}.hr-module{padding:0!important}.hr-payslip tr{break-inside:avoid}}
 
 .hr-view-switch{display:flex;gap:8px;padding:12px 0 20px;flex-wrap:wrap}.hr-daily select,.hr-daily input{width:100%;min-width:0}.hr-daily input{max-width:110px}.hr-daily td{padding:14px 12px}.hr-daily tbody tr:hover{background:var(--bg)}
+
+/* Personnel manager workspace */
+.hr-workforce .hr-summary{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+.hr-workforce-links,.hr-pending-list{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}
+.hr-pending-list .btn{white-space:normal;text-align:left}
+.hr-workforce h3{margin-top:24px}
+.hr-workforce .hr-records-table td{vertical-align:top}
+.hr-workforce .hr-records-table .acts{flex-wrap:wrap;min-width:130px}
+.hr-workforce .tbl-wrap{margin-top:16px}
+.hr-workforce .hint{overflow-wrap:anywhere}
+.hr-workforce .hr-toolbar input[type=search]{min-width:0;flex:1}
+.hr-workforce>label input{width:110px}
+@media(max-width:600px){.hr-workforce .hr-heading{align-items:flex-start}.hr-workforce-links .btn{flex:1 1 130px}.hr-workforce .hr-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.hr-workforce .hr-toolbar{flex-wrap:wrap}.hr-workforce .hr-toolbar input[type=search]{width:100%;flex:1 0 100%}}
