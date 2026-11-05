@@ -4,6 +4,7 @@ import { isId, validDate, validMonth, ValidationError, ConflictError } from '../
 import { PAY_ROLES, HR_ROLES, TIME_ROLES, money, number, text, today, monthEnd, cleanDays, calculatePayroll, withPayments, inMonth } from '../payroll.js';
 import workforce from './workforce.js';
 import personnel from './personnel.js';
+import documents from './hr-documents.js';
 import { cleanProfile,seedHiringDocs } from '../personnel.js';
 const r=Router();
 const actor=req=>({id:req.user.id,name:req.user.name||req.user.username});
@@ -12,6 +13,7 @@ r.use(guard(TIME_ROLES));
 r.use((_req,res,next)=>{res.set('Cache-Control','no-store');next();});
 r.use(workforce);
 r.use(personnel);
+r.use(documents);
 const event=(c,req,action,id,detail={})=>c.query('INSERT INTO hr_events(factory_id,actor,action,entity_id,detail) VALUES($1,$2,$3,$4,$5)',[req.factoryId,actor(req),action,id,JSON.stringify(detail)]);
 const lock=(c,f)=>c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,8172))',[f]);
 const invalidateDrafts=(c,f)=>c.query("UPDATE hr_months SET version=version+1,updated_at=now() WHERE factory_id=$1 AND status='draft'",[f]);

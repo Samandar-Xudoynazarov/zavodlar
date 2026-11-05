@@ -8,3 +8,5 @@ node_modules
 *backup*.json
 *zaxira*.json
 _eski_nusxa_*/
+# Hujjatlar markazi brauzer sinovida yaratilgan fayllar
+tmp/pdfs/hr-center-*

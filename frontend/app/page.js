@@ -65,8 +65,10 @@ TABS.push(["hr-time", "Tabel", "Davomat va ish soati", ["admin","rahbar","buxgal
 
 TABS.push(...[['overview','Kadrlar nazorati'],['leaves','Ta’tillar'],['shifts','Smena rejasi'],['orders','Buyruqlar'],['documents','Hujjat muddatlari'],['equipment','Himoya vositalari']].map(([key,label])=>[`hr-${key}`,label,label,['admin','rahbar','buxgalter','kadrlar']]));
 
+TABS.push(["hr-archive","Hujjatlar","Tabel, shartnomalar, buyruqlar va hujjatlar arxivi",["admin","rahbar","kadrlar"]]);
+
 const NAV_GROUPS = [
-  { id: "personnel", label: "Kadrlar bo‘limi", keys: ["hr-overview", "hr", "hr-time", "hr-leaves", "hr-shifts", "hr-orders", "hr-documents", "hr-equipment", "hr-payroll", "hr-payments", "hr-reports"] },
+  { id: "personnel", label: "Kadrlar bo‘limi", keys: ["hr-overview", "hr", "hr-time", "hr-archive", "hr-leaves", "hr-shifts", "hr-orders", "hr-documents", "hr-equipment", "hr-payroll", "hr-payments", "hr-reports"] },
   { id: "overview", label: "Ish stoli", keys: ["all", "dash"] },
   { id: "production", label: "Ishlab chiqarish", keys: ["day", "fg", "cat"] },
   { id: "warehouse", label: "Ombor va ta'minot", keys: ["wh", "moves", "inv", "sup", "stock", "mat"] },
@@ -425,7 +427,7 @@ function App() {
           <nav className="nav" aria-label={t("Bo'limlar")}>
             {NAV_GROUPS.map((group) => {
               const groupTabs = group.id === "personnel" ? group.keys.flatMap(key => tabs.filter(item => item[0] === key)) : tabs;
-              const visibleTabs = groupTabs.filter(([key, label]) => (group.id !== "personnel" || ["hr-overview","hr","hr-time","hr-reports"].includes(key)) && group.keys.includes(key) && (!navQuery.trim() || `${t(label)} ${t(group.label)}`.toLocaleLowerCase().includes(navQuery.trim().toLocaleLowerCase())));
+              const visibleTabs = groupTabs.filter(([key, label]) => (group.id !== "personnel" || ["hr-overview","hr","hr-time",...(tabs.some(([k])=>k==="hr-archive")?["hr-archive"]:["hr-reports"])].includes(key)) && group.keys.includes(key) && (!navQuery.trim() || `${t(label)} ${t(group.label)}`.toLocaleLowerCase().includes(navQuery.trim().toLocaleLowerCase())));
               if (!visibleTabs.length) return null;
               const expanded = Boolean(navQuery.trim()) || !collapsedGroups.includes(group.id);
               return (

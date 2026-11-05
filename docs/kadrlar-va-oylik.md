@@ -4,9 +4,9 @@ Bo‘lim har bir zavod uchun alohida ishlaydi. Xodim kartochkasi dasturga kirish
 
 ## Xodim kabineti va shaxsiy delo
 
-2026-11-03: kadrlar oynalari uchun izohli navigatsiya, xodimlar ro‘yxatida faol soni va boshlash yo‘li, kabinetda to‘rt qadamli rasmiylashtirish paneli qo‘shildi. Qoralama hujjatlar sariq, rasmiylashtirilganlari yashil; bog‘liq shartnoma yoki kelishuv tayyor bo‘lmasa buyruq tasdig‘i nofaol va sababi ko‘rsatiladi. Xodim va hujjat formalari mavzular bo‘yicha guruhlangan. Hisob oyi sozlamalari xodimlar ro‘yxatidan Tabel va hisob oynalariga ajratildi. `/help/kadrlar-qollanma.pdf` havolasi kadrlar oynalari va kabinetdan sakkiz sahifali, rasmli o‘zbekcha qo‘llanmani ochadi.
+2026-11-03: kadrlar oynalari uchun izohli navigatsiya, xodimlar ro‘yxatida faol soni va boshlash yo‘li, kabinetda to‘rt qadamli rasmiylashtirish paneli qo‘shildi. Qoralama hujjatlar sariq, rasmiylashtirilganlari yashil; bog‘liq shartnoma yoki kelishuv tayyor bo‘lmasa buyruq tasdig‘i nofaol va sababi ko‘rsatiladi. Xodim va hujjat formalari mavzular bo‘yicha guruhlangan. Hisob oyi sozlamalari xodimlar ro‘yxatidan Tabel va hisob oynalariga ajratildi. `/help/kadrlar-qollanma.pdf` havolasi kadrlar oynalari va kabinetdan to‘qqiz sahifali, rasmli o‘zbekcha qo‘llanmani ochadi.
 
-Menyuda **Kadrlar nazorati, Xodimlar, Tabel, Hisobotlar** qoldirilgan. Ta’til, smena, hujjat muddatlari, himoya vositalari, oylik va to‘lovlar ichki **Qo‘shimcha bo‘lim** ro‘yxatidan ochiladi; ro‘yxat foydalanuvchi vakolatiga mos.
+Menyuda **Kadrlar nazorati, Xodimlar, Tabel, Hujjatlar** qoldirilgan. Markazga ruxsati bo‘lmagan buxgalter va ustaga mavjud Hisobotlar yo‘li saqlanadi. Ta’til, smena, hujjat muddatlari, himoya vositalari, oylik va to‘lovlar ichki **Qo‘shimcha bo‘lim** ro‘yxatidan ochiladi; ro‘yxat foydalanuvchi vakolatiga mos.
 
 **Xodimlar → Ko‘rish** shaxsiy kabinetni ochadi. Bu kadrlar mutaxassisi ko‘radigan kartochka, my.gov bilan ulanish yoki xodim uchun yangi login emas. Unda odamcha avatar, pasport/ID, JShShIR, tug‘ilgan sana va joy, ikki telefon, doimiy va hozirgi manzil, ma’lumot, diplom, mutaxassislik, staj va yaqin kishisining aloqalari mavjud.
 
@@ -91,6 +91,21 @@ Zavodga biriktirilgan hisob boshqa zavodning ma’lumotiga o‘ta olmaydi. Bosh 
 **Hisobotlar**da tabel va oylik vedomostini Excelda olish mumkin. Vakolatli foydalanuvchi xodimni tanlab, alohida hisob varaqasini Excelda oladi yoki chop etadi. Chop etish oynasidan PDF sifatida saqlash mumkin. Kadrlar xodimi va ustaning faylida moliyaviy varaq bo‘lmaydi.
 
 Kadrlar jadvallari asosiy zaxira nusxaga kiradi. Yangi zaxirani tiklashda xodim, maosh tarixi, oylar, to‘lovlar va voqealar birga tiklanadi. Kadrlar bo‘limi bo‘lmagan eski zaxirani tiklash mavjud kadrlar ma’lumotlarini saqlab qoladi; chala kadrlar zaxirasi qabul qilinmaydi.
+
+
+## Hujjatlar markazi (2026-11-05)
+
+**Kadrlar bo‘limi → Hujjatlar** yoki xodim kabinetidagi **Hujjatlar markazi** tugmasi barcha mavjud kadrlar hujjatlarini bitta oynada ochadi. Xodim, bo‘lim, yil, holat, hujjat turi, ism, raqam va fayl nomi bilan qidiriladi. Shartnoma va buyruqlar PDF, shaxsiy delo fayllari esa asl yuklangan shaklda olinadi. Xodim nomi bosilganda kabinet ochiladi. Davlat My Mehnat tizimi bilan integratsiya qilinmagan.
+
+- **Tabelni yuklab olish · Excel:** saqlangan oy, tanlangan bo‘lim yoki xodim uchun A4 albom jadvali. Har kunning yuqori qatori holat, pastki qatori soat. F.I.Sh. bilan lavozim, bo‘lim, ish kuni, umumiy soat va ikki yarim oy soatlari, izoh va imzo joylari bor. Excelda soatlar o‘zgartirilsa, yakun formulalari qayta hisoblanadi. Bayram va ish haftasi soyasi saqlangan oy sozlamalaridan olinadi.
+- **Bo‘sh tabel · Excel:** xodimlar va oy kunlari bilan to‘ldirilmagan blank; haqiqiy davomat sifatida ko‘rsatilmaydi. 28/29/30/31 kunlik oylar moslashadi.
+- **Ma’lumotnoma / delo ro‘yxati · PDF:** tanlangan xodim uchun ma’lumotnoma qoralamasi yoki hujjatlar ro‘yxati. Ma’lumotnoma rekvizitlari va imzosi mas’ul tomonidan tekshiriladi.
+- **Ta’til, smena va reyestrlar:** mavjud yozuvlardan PDF kartochka yoki ko‘chirma. Ular imzolangan huquqiy buyruqning o‘rnini bosmaydi. Ishga qabul, o‘tkazish va bo‘shatish buyruqlari alohida shartnoma/kelishuvga bog‘langan tartibda yuritiladi.
+- **Hujjatlar reyestri · Excel:** ekranda filtrlangan natijalar ro‘yxati.
+- **Tanlanganlarni yuklash · ZIP:** belgilangan fayllar bir arxivga yig‘iladi. Bir safar 30 tagacha hujjat, jami 30 MB gacha. Biror fayl olinmasa, chala arxiv berilmaydi.
+- **Korxona hujjatini qo‘shish:** ichki nizom, lavozim yo‘riqnomasi, ariza, ma’lumotnoma yoki boshqa hujjat nusxasi. PDF/JPG/PNG, har biri 3 MB gacha. `hr_company_files` bazada saqlanadi; admin, rahbar va kadrlar uchun ochiq. Faylni yuklash davlat ro‘yxati yoki imzo tasdig‘i hisoblanmaydi.
+
+Hujjatlar ro‘yxatida fayl tanasi va shaxsiy kartochkaning to‘liq nusxasi qaytarilmaydi. Yuklashda joriy huquq va zavod qayta tekshiriladi. Yangi korxona fayllari zaxira/tiklashga kiradi; eski zaxirada bu jadval bo‘lmasa, mavjud fayllar saqlanadi. Migratsiya: `008_hr_document_center.sql`. Tekshiruv: `tests/personnel.js`, `tests/hr-documents-browser.js`, frontend build.
 
 ## Texnik tekshiruv
 

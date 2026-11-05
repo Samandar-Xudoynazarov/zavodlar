@@ -26,6 +26,8 @@ const D = backup.data;
 const HR_TABLES = ['hr_employees', 'hr_rates', 'hr_months', 'hr_payments', 'hr_events'];
 const NEW_HR_TABLES=['hr_records','hr_leave_allowances'];
 const PERSONNEL_TABLES=['hr_employers','hr_employment_docs','hr_employee_files'];
+const hasCompany=Object.hasOwn(D,'hr_company_files');
+if(hasCompany&&!Array.isArray(D.hr_company_files))throw new Error('Korxona hujjatlari zaxirasi noto‘g‘ri');
 const hasPersonnel=PERSONNEL_TABLES.some(t=>Object.hasOwn(D,t));
 if(hasPersonnel&&PERSONNEL_TABLES.some(t=>!Array.isArray(D[t])))throw new Error('Shaxsiy delo zaxirasi to‘liq emas');
 const hasNewHr=NEW_HR_TABLES.some(t=>Object.hasOwn(D,t));
@@ -59,8 +61,8 @@ console.log(`Joriy holat saqlandi: ${autoName}`);
 // 2) almashtirish (bog'lanishlar tartibida: avval bolalar o'chiriladi, keyin ota-onalar qo'shiladi)
 const ORDER = ["factories", "settings", "materials", "products", "targets", "orders", "days", "inventories", "movements", "suppliers", "product_moves", "vehicle_logs", "acct_reports", "month_plans", "counters"];
 // Older backups have no personnel data: preserve existing personnel tables.
-if((hasNewHr||hasPersonnel)&&!hasHr)throw new Error('Kadrlar zaxirasi to‘liq emas');
-if (hasHr) ORDER.push(...HR_TABLES,...(hasNewHr?NEW_HR_TABLES:[]),...(hasPersonnel?PERSONNEL_TABLES:[]));
+if((hasNewHr||hasPersonnel||hasCompany)&&!hasHr)throw new Error('Kadrlar zaxirasi to‘liq emas');
+if (hasHr) ORDER.push(...HR_TABLES,...(hasNewHr?NEW_HR_TABLES:[]),...(hasPersonnel?PERSONNEL_TABLES:[]),...(hasCompany?['hr_company_files']:[]));
 // A legacy HR backup must not remove employees referenced by newer dossiers.
 const preserveEmployeeRows=hasHr&&(!hasNewHr||!hasPersonnel);
 const JSONB = new Set(["lines", "items", "rows", "customers", "extra_cols", "signers", "opening", "calc_template", "cost_schemes", "plan", "recipe", "writeoff", "norms", "calc", "notes", "production", "materials", "shipments", "created_by", "approved_by", "updated_by"]);

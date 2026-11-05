@@ -10,6 +10,7 @@ import Icon from './Icon';
 import HrWorkforce from './HrWorkforce';
 import HrNavigation from './HrNavigation';
 import HrEmployeeProfile from './HrEmployeeProfile';
+import HrDocuments from './HrDocuments';
 import { exportTimesheet } from '@/lib/hr-timesheet';
 
 const PAY=['admin','rahbar','buxgalter'];
@@ -62,7 +63,7 @@ export default function HrTab({notify,openForm,initialView,onViewChange}) {
   const payroll=doc?.payroll||[];const person=payroll.find(p=>p.employeeId===selected);
   const editable=doc?.status==='draft'&&!loading&&!busy;
   const dayList=Array.from({length:endOf(month)},(_,i)=>i+1);
-  const tabs=[...(manage?[['overview','Kadrlar nazorati'],['leaves','Ta’tillar'],['shifts','Smena rejasi'],['orders','Buyruqlar'],['documents','Hujjat muddatlari'],['equipment','Himoya vositalari']]:[]),['employees','Xodimlar'],['time','Tabel'],...(pay?[['payroll','Oylik hisoblash'],['payments',"To'lovlar"]]:[]),['reports','Hisobotlar']];
+  const tabs=[...(manage?[['overview','Kadrlar nazorati'],['leaves','Ta’tillar'],['shifts','Smena rejasi'],['orders','Buyruqlar'],['documents','Hujjat muddatlari'],['equipment','Himoya vositalari']]:[]),['employees','Xodimlar'],['time','Tabel'],...(['admin','rahbar','kadrlar'].includes(user?.role)?[['archive','Hujjatlar']]:[]),...(pay?[['payroll','Oylik hisoblash'],['payments',"To'lovlar"]]:[]),['reports','Hisobotlar']];
   const checkReady=()=>{if(loading||error)throw new Error(t("Avval ma'lumotlarni qayta yuklang"));};
 
   function employeeForm(e) {
@@ -152,7 +153,8 @@ export default function HrTab({notify,openForm,initialView,onViewChange}) {
   }
   const labels={hours:'Ish soati',openingBalance:'Oldingi qarz',base:'Ishlangan vaqt haqi',coefficient:'Koeffitsiyent haqi',extra:'Qo‘shimcha haq',tripPay:'Xizmat safari haqi',gross:'Jami hisoblandi',tax:'Daromad solig‘i',deductions:'Boshqa ushlanmalar',net:'Sof hisoblangan',cash:'Naqd',card:'Bank kartasi',balance:'To‘lanishi lozim'};
 
-  if(view==='employees'&&profileId)return <HrEmployeeProfile employeeId={profileId} refreshKey={employees.find(e=>e.id===profileId)?.version} onBack={()=>setProfileId('')} onEdit={employeeForm} notify={notify} openForm={openForm}/>;
+  if(view==='employees'&&profileId)return <HrEmployeeProfile employeeId={profileId} refreshKey={employees.find(e=>e.id===profileId)?.version} onBack={()=>setProfileId('')} onEdit={employeeForm} onOpenArchive={()=>changeView('archive')} notify={notify} openForm={openForm}/>;
+  if(view==='archive'&&['admin','rahbar','kadrlar'].includes(user?.role))return <HrDocuments notify={notify} openForm={openForm} onViewChange={changeView} tabs={tabs} onOpenEmployee={id=>{changeView('employees');setProfileId(id);}}/>;
   if(manage&&['overview','leaves','shifts','orders','documents','equipment'].includes(view))return <HrWorkforce view={view} onViewChange={changeView} notify={notify} openForm={openForm}/>;
   return <section className="sheet hr-module" aria-busy={loading}>
     <div className="hr-heading hr-no-print"><div><span className="hr-eyebrow">{t('Xodimdan to‘lovgacha')}</span><h2>{t('Kadrlar bo‘limi')}</h2><p className="hint">{t('Xodimlar → tabel → hisoblash → to‘lov → oy yopish')}</p></div><button className="btn" disabled={busy} onClick={refresh}><Icon name="moves"/>{t('Qayta yuklash')}</button></div>
@@ -168,7 +170,7 @@ export default function HrTab({notify,openForm,initialView,onViewChange}) {
       {view==='employees'&&<>
         <div className="hr-list-intro"><div><span className="hr-eyebrow">{t('Xodimlar ro‘yxati')}</span><h3>{t('Har bir xodimning ma’lumoti bir joyda')}</h3><p>{t('Kabinet uchun Ko‘rish tugmasini bosing. Shartnoma, buyruq va shaxsiy delo shu yerda.')}</p></div><div className="hr-list-total"><strong>{employees.filter(e=>!e.endDate||e.endDate>today()).length}</strong><span>{t('faol xodim')}</span></div></div>
         <div className="hr-list-guide"><Icon name="inv" size={21}/><p><strong>{t('Yangi xodim olasizmi?')}</strong> {t('Yangi xodim → Ma’lumotlar → Shartnoma → Qabul buyrug‘i')}</p></div>
-        <div className="hr-toolbar hr-no-print"><input type="search" aria-label={t('Xodim qidirish')} placeholder={t('Xodim qidirish')} value={query} onChange={e=>setQuery(e.target.value)}/>{manage&&<button className="btn primary" onClick={()=>employeeForm(null)}><Icon name="plus"/>{t('Yangi xodim')}</button>}</div>
+        <div className="hr-toolbar hr-no-print">{['admin','rahbar','kadrlar'].includes(user?.role)&&<button className="btn" onClick={()=>changeView('archive')}><Icon name="acct"/>{t('Hujjatlar markazi')}</button>}<input type="search" aria-label={t('Xodim qidirish')} placeholder={t('Xodim qidirish')} value={query} onChange={e=>setQuery(e.target.value)}/>{manage&&<button className="btn primary" onClick={()=>employeeForm(null)}><Icon name="plus"/>{t('Yangi xodim')}</button>}</div>
         <div className="tbl-wrap"><table><thead><tr>{['Tabel raqami','F.I.Sh.','Lavozim','Sex / bo‘lim','Ishga kirish sanasi','Holat','Amallar'].map(x=><th key={x}>{t(x)}</th>)}</tr></thead><tbody>{visible.map(e=><tr key={e.id}><td>{e.code}</td><td><strong>{e.name}</strong>{manage&&e.phone&&<div className="hint">{e.phone}</div>}</td><td>{e.position}</td><td>{e.department}</td><td>{e.hireDate}</td><td><span className={`hr-state ${e.endDate&&e.endDate<=today()?'personnel-inactive':'personnel-active'}`}>{t(e.endDate&&e.endDate<=today()?'Ishdan chiqqan':'Faol')}</span></td><td className="hr-no-print"><div className="acts">{['admin','rahbar','kadrlar'].includes(user?.role)&&<button className="btn sm primary" onClick={()=>setProfileId(e.id)}>{t('Ko‘rish')}</button>}{manage&&<button className="btn sm" onClick={()=>employeeForm(e)}>{t('Kartochka')}</button>}<button className="btn sm" onClick={()=>{choose(e.id);changeView('time');}}>{t('Tabel')}</button>{pay&&<button className="btn sm" onClick={()=>showRates(e)}>{t('Maosh tarixi')}</button>}</div></td></tr>)}</tbody></table></div>
         {!visible.length&&<div className="empty">{t('Xodimlar hali kiritilmagan')}</div>}
         {manage&&employee&&<div className="hr-card"><h3>{employee.name}</h3><p>{employee.position} · {employee.department}</p><p className="hint">{employee.notes}</p>{employee.endDate&&<p>{t('Oxirgi ish kuni')}: {employee.endDate}</p>}</div>}

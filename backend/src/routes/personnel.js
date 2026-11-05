@@ -61,6 +61,9 @@ async function document(c,req){
  if(!isId(req.params.docId))throw new ValidationError('Hujjat topilmadi');
  const d=await one('SELECT * FROM hr_employment_docs WHERE factory_id=$1 AND employee_id=$2 AND id=$3',[req.factoryId,req.params.id,req.params.docId],c);if(!d)throw new ValidationError('Hujjat topilmadi');return d;
 }
+r.get('/personnel/:id/documents/:docId',async(req,res)=>{
+ await employee(null,req);res.json(await document(null,req));
+});
 r.put('/personnel/:id/documents/:docId',write(async(c,req)=>{
  const e=await employee(c,req),old=await document(c,req),b=req.body||{};version(old,b);if(old.status!=='draft')throw new ConflictError('Faqat qoralama tahrirlanadi');
  const em=employerProfile((await employer(c,req)).profile),terms=cleanTerms(b.terms),d=date(b.date,'Hujjat'),effective=date(b.effectiveDate||terms.startDate||d,'Amal qilish');
