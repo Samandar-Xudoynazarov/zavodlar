@@ -6,6 +6,7 @@ import { getFactory } from "@/lib/api";
 import { buildPlanPdf, deliverPdf } from "@/lib/plan-pdf";
 import { cyr, money, nakladnoyDefinition, nextNo } from "@/lib/nakladnoy-pdf";
 import Icon from "./Icon";
+import { fileBase64 } from "@/lib/finance-files";
 
 const KEY = () => `pto.nakl:${getFactory()}`; // har zavod uchun alohida — { lastNo, sender, sentBy, signature, drivers: { mashina: FIO }, copies, showSum }
 const num = (v) => +String(v ?? "").replace(/\s/g, "").replace(",", ".") || 0;
@@ -118,7 +119,7 @@ export default function NakladnoyDialog({ ships, date, data, notify, onClose, on
       if (r === "downloaded-fallback") notify("Bu qurilmada ulashish yo'q — fayl yuklab olindi");
       lsSet(KEY(), { ...lsGet(KEY(), {}), toShip: f.toShip });
       // ulashish bekor qilinsa (накладная yuborilmadi) — jo'natishga ham yozilmaydi
-      if (onApply && f.toShip && r !== "cancelled") await addToShipments();
+      if (onApply && f.toShip && r !== "cancelled") await addToShipments(blob);
     } catch (e) {
       notify(e.message || "PDF tayyorlab bo'lmadi");
     } finally {
@@ -127,7 +128,8 @@ export default function NakladnoyDialog({ ships, date, data, notify, onClose, on
   }
 
   // накладнаяdagi mahsulotlarni kunlik hisobotdagi jo'natishga yozish
-  async function addToShipments() {
+  async function addToShipments(blob) {
+    const dispatchId = crypto.randomUUID();
     if (f.date !== date) return notify(tr("Накладная sanasi ({a}) hisobot kunidan ({b}) farq qiladi — jo'natishga qo'shilmadi. O'sha kunning hisobotidan oching.", { a: fmtDate(f.date), b: fmtDate(date) }));
     const rows = [];
     const skipped = [];
@@ -140,11 +142,11 @@ export default function NakladnoyDialog({ ships, date, data, notify, onClose, on
       }
       // buyurtma — shartnomada shu mahsulot bo'lsa
       const orderId = order && order.items.some((x) => x.productId === pid) ? order.id : "";
-      rows.push({ productId: pid, qty: String(num(it.qty)), customer: f.receiver || f.place || "", vehicle: f.car || "", orderId });
+      rows.push({ productId: pid, qty: String(num(it.qty)), customer: f.receiver || f.place || "", vehicle: f.car || "", orderId, dispatchId, dispatchNo: f.num });
     }
     if (!rows.length) return notify("Jo'natishga qo'shiladigan mahsulot yo'q (katalogdagi marka tanlanmagan)");
     const g = groups.find((x) => x.key === gk);
-    await onApply(rows, g ? g.lines.map((l) => l.idx) : []);
+    await onApply(rows, g ? g.lines.map((l) => l.idx) : [], { id: dispatchId, number: f.num, date: f.date, receiver: f.receiver || f.place || '', vehicle: f.car || '', name: 'Nakladnaya_' + f.num.replace(/[^\w-]+/g,'_') + '.pdf', contentBase64: await fileBase64(blob) });
     if (skipped.length) notify(tr("Katalogda topilmadi, jo'natishga qo'shilmadi: {l}", { l: skipped.join(", ") }));
     ref.current?.close();
   }

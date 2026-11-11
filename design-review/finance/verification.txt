@@ -1,0 +1,17 @@
+Verification completed 2026-11-11
+
+PASS frontend production build (Next.js)
+PASS full backend npm test suite: regression, notifications, Telegram, payroll, workforce, personnel and finance
+PASS final targeted finance API test after identifier normalization
+PASS full finance and PDF backup/restore round trip in an isolated schema
+PASS Chrome desktop and 390px mobile browser flow
+  All employees on one payroll page; compact and detailed views
+  Salary payment and customer receipt persistence
+  Real nakladnaya generation and atomic PDF archive persistence
+  Invoice PDF upload, opening and downloading
+  Order product shipment modal and archived PDF opening
+  Ready quantity persistence
+  Finance navigation hidden for PTO; server permissions tested for every role
+  No horizontal page overflow on mobile
+
+Only temporary schemas and synthetic test data were used.

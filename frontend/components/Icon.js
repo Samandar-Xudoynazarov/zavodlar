@@ -1,5 +1,7 @@
 // Oddiy chiziqli ikonkalar (24×24, stroke = joriy rang)
 const P = {
+  "finance-payroll": "M4 5h16v14H4zM4 10h16M10 5v14M14 14h3",
+  "finance-orders": "M3 7h18v13H3zM7 7V4h10v3M3 12h18M10 12v3h4v-3",
   hr: "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21v-2c0-4 3-6 7-6s7 2 7 6v2M17 4a3 3 0 0 1 0 6M19 14c2 1 3 3 3 5v2",
   bell: "M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4",
   day: "M9 4h6M9 4a1 1 0 0 0-1 1v1h8V5a1 1 0 0 0-1-1M8 6H6a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-2M9 12h6M9 16h4",

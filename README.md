@@ -230,3 +230,7 @@ Qolgan yo'llar (`/materials`, `/products`, `/days`, `/stock`, `/movements`, `/or
 ## Kunlik reja bildirishnomalari
 
 Kunlik reja saqlanganda faol kuzatuvchilarga ilova ichida xabar chiqadi. Telegram xabarlari uchun bot va har bir kuzatuvchining ulanishi kerak. Sozlash: [README-notifications.md](README-notifications.md).
+
+## Finansiviy va jo‘natish tafsilotlari
+
+Oylik vedomosti, material hisoboti, buyurtmalar realizatsiyasi, faktura PDF va to‘lovlar: [qo‘llanma](docs/finansiviy.md). Migratsiya: `009_finance_dispatch.sql`.

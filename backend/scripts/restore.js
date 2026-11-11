@@ -34,6 +34,11 @@ const hasNewHr=NEW_HR_TABLES.some(t=>Object.hasOwn(D,t));
 if(hasNewHr&&NEW_HR_TABLES.some(t=>!Array.isArray(D[t])))throw new Error('Kadrlar boshqaruvi zaxirasi to‘liq emas');
 const hasHr = HR_TABLES.some(t => Object.hasOwn(D, t));
 if (hasHr && HR_TABLES.some(t => !Array.isArray(D[t]))) throw new Error('Kadrlar zaxirasi to‘liq emas');
+const FINANCE_TABLES=['finance_order_progress','finance_invoices','finance_receipts'];
+const hasFinance=FINANCE_TABLES.some(t=>Object.hasOwn(D,t));
+if(hasFinance&&FINANCE_TABLES.some(t=>!Array.isArray(D[t])))throw new Error('Moliyaviy zaxira to‘liq emas');
+const hasDispatch=Object.hasOwn(D,'dispatch_documents');
+if(hasDispatch&&!Array.isArray(D.dispatch_documents))throw new Error('Накладная arxivi noto‘g‘ri');
 const fids = (D.factories || []).map((f) => f.id);
 console.log(`Zaxira: ${backup.createdAt} (${backup.createdBy}), zavodlar: ${(D.factories || []).map((f) => f.name).join(", ")}`);
 console.log(backup.counts);
@@ -65,10 +70,15 @@ if((hasNewHr||hasPersonnel||hasCompany)&&!hasHr)throw new Error('Kadrlar zaxiras
 if (hasHr) ORDER.push(...HR_TABLES,...(hasNewHr?NEW_HR_TABLES:[]),...(hasPersonnel?PERSONNEL_TABLES:[]),...(hasCompany?['hr_company_files']:[]));
 // A legacy HR backup must not remove employees referenced by newer dossiers.
 const preserveEmployeeRows=hasHr&&(!hasNewHr||!hasPersonnel);
+if(hasDispatch)ORDER.push('dispatch_documents');
+if(hasFinance)ORDER.push(...FINANCE_TABLES);
 const JSONB = new Set(["lines", "items", "rows", "customers", "extra_cols", "signers", "opening", "calc_template", "cost_schemes", "plan", "recipe", "writeoff", "norms", "calc", "notes", "production", "materials", "shipments", "created_by", "approved_by", "updated_by"]);
 for (const key of ['work_days','holidays','attendance','adjustments','snapshot','closed_by','voided_by','actor','detail','profile','decided_by','payload','issued_by','uploaded_by']) JSONB.add(key);
 try {
   await tx(async (c) => {
+    if(!hasFinance){
+      for(const table of FINANCE_TABLES){const existing=await c.query('SELECT 1 FROM '+table+' WHERE factory_id=ANY($1::uuid[]) LIMIT 1',[fids]);if(existing.rowCount)throw new Error('Bu eski zaxirada moliyaviy ma’lumotlar yo‘q. Faktura va to‘lovlar saqlanishi uchun yangi to‘liq zaxiradan foydalaning.');}
+    }
     for (const t of [...ORDER].reverse()) {
       if (t === "factories") continue; // zavod qatorlari yangilanadi (foydalanuvchilar ularga bog'langan)
       if (t === 'hr_employees' && preserveEmployeeRows) continue;

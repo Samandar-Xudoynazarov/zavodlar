@@ -1,0 +1,77 @@
+import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
+import pg from 'pg';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
+import {fileURLToPath} from 'node:url';
+const source=process.env.DATABASE_URL||process.env.POSTGRES_URL;
+if(!source)throw new Error('DATABASE_URL is required');
+const schema='finance_test_'+crypto.randomBytes(8).toString('hex');
+const management=new pg.Pool({connectionString:source,connectionTimeoutMillis:10000});
+await management.query('CREATE SCHEMA '+schema);
+const url=new URL(source);url.searchParams.set('options','-c search_path='+schema+',public');process.env.DATABASE_URL=url.toString();process.env.AUTH_SECRET=crypto.randomBytes(32).toString('hex');
+const {one,q,getPool,migrate}=await import('../src/db.js');
+const {issueToken,hashPassword}=await import('../src/auth.js');
+const {default:app,BACKUP_TABLES}=await import('../src/app.js');
+let server;
+try {
+ await migrate();
+ const f=await one("INSERT INTO factories(code,name) VALUES('finance-a','Finance A') RETURNING *"),other=await one("INSERT INTO factories(code,name) VALUES('finance-b','Finance B') RETURNING *");
+ const product=await one("INSERT INTO products(factory_id,code) VALUES($1,'F5') RETURNING *",[f.id]);
+ const hash=await hashPassword('FinanceTest123!');
+ const users={};for(const role of ['admin','rahbar','buxgalter','pto','usta','omborchi','kadrlar','kurator','kuzatuvchi'])users[role]=await one('INSERT INTO users(username,role,factory_id,password_hash) VALUES($1,$1,$2,$3) RETURNING *',[role,f.id,hash]);
+ const otherAdmin=await one("INSERT INTO users(username,role,factory_id,password_hash) VALUES('other','admin',$1,$2) RETURNING *",[other.id,hash]);
+ const order=await one("INSERT INTO orders(factory_id,no,customer,items) VALUES($1,1,'UzKEK',$2) RETURNING *",[f.id,JSON.stringify([{productId:product.id,qty:10,price:100,shippedBefore:2}])]);
+ server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));const base='http://127.0.0.1:'+server.address().port+'/api';
+ const call=async(path,method='GET',body,user=users.admin)=>{const r=await fetch(base+path,{method,headers:{Authorization:'Bearer '+issueToken(user),'Content-Type':'application/json','X-Factory':other.id},body:body===undefined?undefined:JSON.stringify(body)});const ct=r.headers.get('content-type');return {status:r.status,body:ct?.includes('application/json')?await r.json():await r.text()};};
+ const date='2026-11-11',pdf=Buffer.from('%PDF-1.4\nfinance test\n%%EOF').toString('base64'),id=crypto.randomUUID();
+ const ship={productId:product.id,qty:5,orderId:order.id,customer:'Uzun obyekt',vehicle:'75 A 123 AA',dispatchId:id,dispatchNo:'12'};
+ const dispatchDocument={id,date,number:'12',receiver:ship.customer,vehicle:ship.vehicle,name:'Nakladnaya_12.pdf',contentBase64:pdf};
+ assert.equal((await call('/days/'+date,'PUT',{shipments:[ship],dispatchDocument,baseUpdatedAt:null})).status,200);
+ let history=await call('/orders/'+order.id+'/products/'+product.id+'/shipments');assert.equal(history.status,200);assert.equal(history.body.shippedBefore,2);assert.equal(history.body.shipments[0].dispatchId,id);assert.equal(history.body.shipments[0].customer,ship.customer);assert.equal(history.body.shipments[0].vehicle,ship.vehicle);
+ assert.equal((await call('/dispatch-documents/'+id+'/pdf')).body,Buffer.from(pdf,'base64').toString());
+ assert.equal((await call('/dispatch-documents/'+id+'/pdf','GET',undefined,otherAdmin)).status,404);
+ assert.equal((await call('/orders/'+order.id+'/products/'+product.id+'/shipments','GET',undefined,otherAdmin)).status,404);
+ const badId=crypto.randomUUID();assert.equal((await call('/days/2026-11-12','PUT',{shipments:[{...ship,dispatchId:badId}],dispatchDocument:{...dispatchDocument,id:badId,date:'2026-11-12',contentBase64:'aGVsbG8='}})).status,400);
+ assert.equal((await one('SELECT count(*) AS n FROM dispatch_documents')).n,1);assert.equal(await one("SELECT * FROM days WHERE date='2026-11-12'"),null);
+ assert.equal((await call('/days/'+date,'PUT',{shipments:[{...ship,qty:4}]})).status,400);
+ console.log('PASS: dispatch PDF archive, exact shipment history, factory isolation, atomic rollback and immutable PDF links');
+ for(const role of ['admin','rahbar','buxgalter'])assert.equal((await call('/finance/orders','GET',undefined,users[role])).status,200);
+ for(const role of ['pto','usta','omborchi','kadrlar','kurator','kuzatuvchi']){assert.equal((await call('/finance/orders','GET',undefined,users[role])).status,403);assert.equal((await call('/finance/orders/'+order.id+'/receipts','POST',{},users[role])).status,403);assert.equal((await call('/acct-reports/2026-11','GET',undefined,users[role])).status,403);}
+ assert.equal((await call('/finance/orders/'+order.id+'/progress','PUT',{items:[{productId:product.id,readyQty:6}]})).status,400);
+ assert.equal((await call('/finance/orders/'+order.id+'/progress','PUT',{items:[{productId:product.id,readyQty:10}]})).status,200);
+ const invoiceBody={requestId:crypto.randomUUID(),number:'F-01',date,name:'Faktura.pdf',contentBase64:pdf,items:[{productId:product.id,qty:4,price:100}]};
+ const inv=await call('/finance/orders/'+order.id+'/invoices','POST',invoiceBody,users.buxgalter);assert.equal(inv.status,200);assert.equal(inv.body.amount,400);
+ assert.equal((await call('/finance/orders/'+order.id+'/invoices','POST',invoiceBody)).body.id,inv.body.id);
+ assert.equal((await call('/finance/orders/'+order.id+'/invoices','POST',{...invoiceBody,requestId:crypto.randomUUID(),number:'too-many',items:[{productId:product.id,qty:4,price:100}]})).status,400);
+ const requests=await Promise.all([1,2].map(i=>call('/finance/orders/'+order.id+'/invoices','POST',{...invoiceBody,requestId:crypto.randomUUID(),number:'race-'+i,items:[{productId:product.id,qty:3,price:100}]})));assert.deepEqual(requests.map(r=>r.status).sort(),[200,400]);
+ assert.equal((await call('/days/'+date,'DELETE')).status,409);
+ assert.equal((await call('/days/'+date,'PUT',{shipments:[]})).status,409);
+ assert.equal((await call('/orders/'+order.id,'PUT',{items:[{productId:product.id,qty:10,price:100,shippedBefore:0}]})).status,409);
+ assert.equal((await call('/finance/invoices/'+inv.body.id+'/pdf')).body,Buffer.from(pdf,'base64').toString());assert.equal((await call('/finance/invoices/'+inv.body.id+'/pdf','GET',undefined,otherAdmin)).status,404);
+ const receiptBody={requestId:crypto.randomUUID(),invoiceId:inv.body.id,date,amount:250,note:'Bank'};
+ const receipt=await call('/finance/orders/'+order.id+'/receipts','POST',receiptBody,users.buxgalter);assert.equal(receipt.status,200);assert.equal((await call('/finance/orders/'+order.id+'/receipts','POST',receiptBody)).body.id,receipt.body.id);
+ assert.equal((await call('/finance/orders/'+order.id+'/invoices/'+inv.body.id+'/void','POST',{reason:'x'})).status,409);
+ assert.equal((await call('/finance/orders/'+order.id+'/receipts/'+receipt.body.id+'/void','POST',{reason:'Xato to‘lov'})).status,200);
+ assert.equal((await call('/finance/orders/'+order.id+'/invoices/'+inv.body.id+'/void','POST',{reason:'Xato faktura'})).status,200);
+ assert.equal((await call('/finance/orders/'+order.id+'/receipts','POST',{...receiptBody,requestId:crypto.randomUUID()})).status,400);
+ assert.equal((await call('/orders/'+order.id,'DELETE')).status,409);
+ const ledger=await call('/finance/orders');assert.equal(ledger.body.orders[0].shipped,7);assert.equal(ledger.body.progress[0].readyQty,10);assert.ok(ledger.body.invoices.every(i=>!Object.hasOwn(i,'contentBase64')));
+ for(const table of ['dispatch_documents','finance_order_progress','finance_invoices','finance_receipts'])assert.ok(BACKUP_TABLES.includes(table));
+ const backup=await call('/backup');assert.equal(backup.status,200);assert.equal(backup.body.data.dispatch_documents.length,1);assert.equal(backup.body.data.finance_invoices.length,2);
+ console.log('PASS: finance permissions, invoice quantities and concurrency, idempotency, receipts, voiding and backup');
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'zavodlar-finance-restore-'));
+ try {
+  const file=path.join(dir,'backup.json');await fs.writeFile(file,JSON.stringify(backup.body));
+  await promisify(execFile)(process.execPath,[fileURLToPath(new URL('../scripts/restore.js',import.meta.url)),file,'--yes'],{cwd:dir,env:{...process.env,DATABASE_URL:url.toString()},windowsHide:true,timeout:60000});
+  assert.equal((await one('SELECT content_base64 FROM dispatch_documents WHERE id=$1',[id])).contentBase64,pdf);
+  assert.equal((await one('SELECT count(*) AS n FROM finance_invoices')).n,2);
+  assert.equal((await one('SELECT items FROM finance_invoices WHERE id=$1',[inv.body.id])).items[0].qty,4);
+  assert.equal((await one('SELECT invoice_id FROM finance_receipts WHERE id=$1',[receipt.body.id])).invoiceId,inv.body.id);
+  console.log('PASS: full financial/PDF backup restore round trip');
+ } finally {const resolved=path.resolve(dir);if(path.dirname(resolved)===path.resolve(os.tmpdir())&&path.basename(resolved).startsWith('zavodlar-finance-restore-'))await fs.rm(resolved,{recursive:true,force:true});}
+
+} finally {if(server)await new Promise(resolve=>server.close(resolve));await getPool().end();await management.query('DROP SCHEMA '+schema+' CASCADE');await management.end();}

@@ -166,6 +166,8 @@ export const shipLines = sub({
   qty: t.num({ required: true, min: 1, minMsg: "Soni kamida 1", label: "Soni" }),
   customer: t.str(160, { default: "" }),
   vehicle: t.str(40, { default: "" }),
+  dispatchId: t.id({ nullable: true, default: null }),
+  dispatchNo: t.str(80, { default: "" }),
   orderId: t.id({ nullable: true, default: null }),
 });
 // buyurtma qatorlari: bitta buyurtmada bir nechta mahsulot — [{ productId, qty, price, shippedBefore }]

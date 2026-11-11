@@ -107,7 +107,7 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
   };
 
   const setProdRow = touch((i, patch) => setProd((rows) => rows.map((r, j) => (j === i ? { ...r, ...patch } : r))));
-  const setShipRow = touch((i, patch) => setShips((rows) => rows.map((r, j) => (j === i ? { ...r, ...patch } : r))));
+  const setShipRow = touch((i, patch) => setShips((rows) => rows.map((r, j) => (j === i ? { ...r, ...patch, dispatchId: null, dispatchNo: "" } : r))));
   const setMat = touch((id, k, v) => setMatIn((m) => ({ ...m, [id]: { ...m[id], [k]: v } })));
 
   // «Buyurtmalar rejasi»dagi taklifdan shu kunning rejasini to'ldirish (faktga tegmaydi)
@@ -189,7 +189,7 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
   // jadval aynan shu sana uchun yuklangan bo'lsagina saqlash, eksport va o'chirish mumkin
   const ready = !loading && loaded?.date === date;
 
-  async function save(shipRows) {
+  async function save(shipRows, dispatchDocument) {
     if (!ready) return notify("Kun ma'lumoti yuklanmagan — avval qayta yuklang");
     if (!Array.isArray(shipRows)) shipRows = ships;
     setSaving(true);
@@ -202,8 +202,9 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
         materials: Object.entries(matIn).map(([materialId, v]) => ({ materialId, sarf: num(v?.sarf), kirim: num(v?.kirim) })),
         shipments: shipRows
           .filter((r) => r.productId && num(r.qty) > 0)
-          .map((r) => ({ productId: r.productId, qty: num(r.qty), customer: r.customer || "", vehicle: r.vehicle || "", orderId: r.orderId || null })),
+          .map((r) => ({ productId: r.productId, qty: num(r.qty), customer: r.customer || "", vehicle: r.vehicle || "", orderId: r.orderId || null, dispatchId: r.dispatchId || null, dispatchNo: r.dispatchNo || "" })),
       };
+      if (dispatchDocument) body.dispatchDocument = dispatchDocument;
       body.baseUpdatedAt = loaded.ver; // server boshqa xodim keyin saqlaganini shu bilan aniqlaydi
       const doc = await api(`/days/${date}`, { method: "PUT", body });
       notify(tr("{d} saqlandi", { d: fmtDate(date) }));
@@ -212,6 +213,7 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
       setConflict(false);
       setLoaded({ date, ver: doc?.updatedAt || null });
       onSaved();
+      return doc;
     } catch (e) {
       if (e.status === 409) setConflict(true);
       notify(e.message);
@@ -222,12 +224,13 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
 
   // Накладнаяdagi mahsulotlar → shu kunning jo'natishi. replaceIdx — накладная qaysi jo'natish qatorlaridan
   // to'ldirilgan bo'lsa, o'shalar yangilanadi (ikki marta qo'shilmaydi), qolganlari joyida qoladi. Kun saqlanadi.
-  async function applyNakladnoy(rows, replaceIdx = []) {
+  async function applyNakladnoy(rows, replaceIdx = [], dispatchDocument) {
     const drop = new Set(replaceIdx);
     const next = [...ships.filter((_, i) => !drop.has(i)), ...rows];
     setShips(next);
     setDirty(true);
-    await save(next);
+    const saved = await save(next, dispatchDocument);
+    if (!saved) throw new Error("Накладная bazaga saqlanmadi. Xatoni tuzatib qayta urinib ko‘ring.");
   }
 
   // ekrandagi (hali saqlanmagan bo'lsa ham) holat bo'yicha Excel

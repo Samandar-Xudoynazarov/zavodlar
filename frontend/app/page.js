@@ -32,6 +32,8 @@ import DashTab from "@/components/DashTab";
 import OverviewTab from "@/components/OverviewTab";
 import AcctTab from "@/components/AcctTab";
 import HrTab from "@/components/HrTab";
+import FinancePayroll from "@/components/FinancePayroll";
+import FinanceOrders from "@/components/FinanceOrders";
 import ShareReady from "@/components/ShareReady";
 import NotificationCenter from "@/components/NotificationCenter";
 
@@ -43,7 +45,7 @@ const TABS = [
   ["all", "Umumiy panel", "Barcha zavodlar: bugun, oylik natija, solishtirish, ombor va buyurtmalar", NO_STORE, "hq"],
   ["day", "Kunlik hisobot", "Reja / fakt, xomashyo sarfi, jo'natish", WITH_USTA],
   ["month", "Oylik hisobot", "Reja bajarilishi, haqiqiy sarf va norma farqi", WITH_USTA],
-  ["acct", "Material hisoboti", "Oyda quyilgan mahsulotlar ro'yxati — Word (DOCX) shaklida", NO_STORE],
+  ["acct", "Material hisoboti", "Oyda quyilgan mahsulotlar ro'yxati — Word (DOCX) shaklida", ["admin","rahbar","buxgalter"]],
   ["dash", "Grafiklar", "Oyma-oy asosiy ko'rsatkichlar", NO_STORE],
   ["wh", "Ombor", "Materiallar qoldig'i, kirim va chiqim"],
   ["moves", "Kirim-chiqim tarixi", "Ombordagi barcha harakatlar", [...NO_STORE, "omborchi"]],
@@ -67,13 +69,15 @@ TABS.push(...[['overview','Kadrlar nazorati'],['leaves','Ta’tillar'],['shifts'
 
 TABS.push(["hr-archive","Hujjatlar","Tabel, shartnomalar, buyruqlar va hujjatlar arxivi",["admin","rahbar","kadrlar"]]);
 
+TABS.push(['finance-payroll','Oylik vedomosti','Barcha xodimlarning maoshi, to‘lovlari va qoldig‘i',['admin','rahbar','buxgalter']],['finance-orders','Buyurtmalar moliyasi','Jo‘natish, faktura PDF, tushum va qoldiq',['admin','rahbar','buxgalter']]);
 const NAV_GROUPS = [
-  { id: "personnel", label: "Kadrlar bo‘limi", keys: ["hr-overview", "hr", "hr-time", "hr-archive", "hr-leaves", "hr-shifts", "hr-orders", "hr-documents", "hr-equipment", "hr-payroll", "hr-payments", "hr-reports"] },
+  { id:'finance',label:'Finansiviy',keys:['finance-payroll','finance-orders','hr-payroll','hr-payments','acct'] },
+  { id: "personnel", label: "Kadrlar bo‘limi", keys: ["hr-overview", "hr", "hr-time", "hr-archive", "hr-leaves", "hr-shifts", "hr-orders", "hr-documents", "hr-equipment", "hr-reports"] },
   { id: "overview", label: "Ish stoli", keys: ["all", "dash"] },
   { id: "production", label: "Ishlab chiqarish", keys: ["day", "fg", "cat"] },
   { id: "warehouse", label: "Ombor va ta'minot", keys: ["wh", "moves", "inv", "sup", "stock", "mat"] },
   { id: "orders", label: "Buyurtmalar", keys: ["ord", "plan", "cost"] },
-  { id: "reports", label: "Hisobotlar", keys: ["month", "acct"] },
+  { id: "reports", label: "Hisobotlar", keys: ["month"] },
   { id: "management", label: "Boshqaruv", keys: ["veh", "targets", "admin"] },
 ];
 const groupFor = (key) => NAV_GROUPS.find((group) => group.keys.includes(key));
@@ -82,7 +86,7 @@ const tabsFor = (user) => TABS.filter((t) => (user?.role !== "kadrlar" || t[0].s
 const BOTTOM = {
   kadrlar: ["hr-overview", "hr", "hr-time"],
   omborchi: ["wh", "moves", "targets"],
-  buxgalter: ["hr", "acct", "month", "cost"],
+  buxgalter: ["finance-payroll", "finance-orders", "acct", "hr"],
   usta: ["day", "plan", "hr"],
   admin: ["all", "day", "wh", "moves"],
   pto: ["day", "wh", "moves"],
@@ -90,11 +94,11 @@ const BOTTOM = {
   kuzatuvchi: ["all", "dash", "day", "plan", "wh"],
   kurator: ["all", "dash", "day", "plan", "wh"],
 };
-const DEFAULT_TAB = { kadrlar: "hr-overview", buxgalter: "acct", omborchi: "wh", rahbar: "dash", kuzatuvchi: "dash", kurator: "dash" };
+const DEFAULT_TAB = { kadrlar: "hr-overview", buxgalter: "finance-payroll", omborchi: "wh", rahbar: "dash", kuzatuvchi: "dash", kurator: "dash" };
 // bosh ofis rahbari tizimga kirganda — umumiy panel
 const HQ_DEFAULT = { rahbar: "all", kuzatuvchi: "all", kurator: "all" };
 // pastki menyuda sig'adigan qisqa nomlar
-const SHORT = { "hr-overview":"Nazorat", hr:"Xodimlar", "hr-time":"Tabel", all: "Umumiy", day: "Kunlik", month: "Oylik", moves: "Tarix", targets: "Sex/texnika", stock: "Qoldiq", ord: "Buyurtma", plan: "Reja", inv: "Sanash", sup: "Ta'minot", fg: "Tayyor", veh: "Texnika", dash: "Grafik", acct: "Hisobot", cost: "Tannarx" };
+const SHORT = { "finance-payroll":"Oylik", "finance-orders":"Moliya", "hr-overview":"Nazorat", hr:"Xodimlar", "hr-time":"Tabel", all: "Umumiy", day: "Kunlik", month: "Oylik", moves: "Tarix", targets: "Sex/texnika", stock: "Qoldiq", ord: "Buyurtma", plan: "Reja", inv: "Sanash", sup: "Ta'minot", fg: "Tayyor", veh: "Texnika", dash: "Grafik", acct: "Hisobot", cost: "Tannarx" };
 
 function LangSwitch({ dark }) {
   const { lang, setLang } = useI18n();
@@ -426,7 +430,7 @@ function App() {
           </label>
           <nav className="nav" aria-label={t("Bo'limlar")}>
             {NAV_GROUPS.map((group) => {
-              const groupTabs = group.id === "personnel" ? group.keys.flatMap(key => tabs.filter(item => item[0] === key)) : tabs;
+              const groupTabs = ["personnel","finance"].includes(group.id) ? group.keys.flatMap(key => tabs.filter(item => item[0] === key)) : tabs;
               const visibleTabs = groupTabs.filter(([key, label]) => (group.id !== "personnel" || ["hr-overview","hr","hr-time",...(tabs.some(([k])=>k==="hr-archive")?["hr-archive"]:["hr-reports"])].includes(key)) && group.keys.includes(key) && (!navQuery.trim() || `${t(label)} ${t(group.label)}`.toLocaleLowerCase().includes(navQuery.trim().toLocaleLowerCase())));
               if (!visibleTabs.length) return null;
               const expanded = Boolean(navQuery.trim()) || !collapsedGroups.includes(group.id);
@@ -438,7 +442,7 @@ function App() {
                   <div id={`nav-group-${group.id}`} className="nav-group-items" role="tablist" aria-label={t(group.label)} hidden={!expanded}>
                     {visibleTabs.map(([key, label]) => (
                       <button key={key} id={`nav-tab-${key}`} type="button" role="tab" aria-selected={active === key} onClick={() => chooseTab(key)}>
-                        <Icon name={key.startsWith("hr") ? "hr" : key} size={19} /><span>{t(label)}</span>
+                        <Icon name={key.startsWith("finance") ? "cost" : key.startsWith("hr") ? "hr" : key} size={19} /><span>{t(label)}</span>
                       </button>
                     ))}
                   </div>
@@ -518,6 +522,8 @@ function App() {
             <Fragment key={factory?.id || "-"}>
               {active === "day" && <DayTab key={dayFocus} data={data} notify={notify} onSaved={reloadOrders} onDirtyChange={onDirtyChange} version={version} />}
               {active === "month" && <MonthTab data={data} notify={notify} />}
+              {active === "finance-payroll" && <FinancePayroll data={data} notify={notify} openForm={openForm} onManage={()=>chooseTab('hr-payroll')}/>}
+              {active === "finance-orders" && <FinanceOrders data={data} notify={notify} openForm={openForm}/>}
               {active === "acct" && <AcctTab data={data} notify={notify} />}
               {active.startsWith("hr") && <HrTab initialView={active === "hr" ? "employees" : active.slice(3)} onViewChange={v=>chooseTab(v === "employees" ? "hr" : `hr-${v}`)} notify={notify} openForm={openForm} />}
               {active === "wh" && <WarehouseTab data={data} notify={notify} version={version} openMove={setMove} reloadMaterials={reloadMaterials} />}

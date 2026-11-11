@@ -11,6 +11,8 @@ import { itemsOf, orderView, planLines, shipKey } from "../orders.js";
 import { createDailyPlanNotification } from "../notifications.js";
 import { deliverTelegramNotification } from "../telegram.js";
 
+import { assertInvoiceCoverage, financeLock } from "../finance-integrity.js";
+import { archiveDispatch, sendPdf } from "../dispatch.js";
 const r = Router();
 const OPEN0 = "0000-00-00";
 
@@ -48,6 +50,7 @@ r.put("/days/:date", async (req, res) => {
   const checkVer = Object.prototype.hasOwnProperty.call(b, "baseUpdatedAt");
   const base = checkVer && b.baseUpdatedAt ? new Date(b.baseUpdatedAt).getTime() : null;
   const { before, doc, notificationId } = await tx(async (c) => {
+  await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,9473))", [req.factoryId]);
   await c.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`day:${req.factoryId}:${date}`]);
   const before = await one("SELECT * FROM days WHERE factory_id = $1 AND date = $2", [req.factoryId, date], c);
   if (checkVer && before && new Date(before.updatedAt).getTime() !== base)
@@ -80,6 +83,7 @@ r.put("/days/:date", async (req, res) => {
       data.shipments.filter((l) => l.productId && +l.qty > 0).map((l) => ({ ...l, orderId: isId(l.orderId) ? l.orderId : null })),
       "shipments"
     );
+  for(const s of data.shipments||[]){if(s.orderId)s.orderId=s.orderId.toLowerCase();if(s.dispatchId)s.dispatchId=s.dispatchId.toLowerCase();}
   // JSONB ichidagi IDlar ham shu zavod katalogiga tegishli bo'lishi shart.
   for (const [table, key, lines, label] of [
     ["products", "productId", [...(data.production || []), ...(data.shipments || [])], "Mahsulot"],
@@ -97,6 +101,8 @@ r.put("/days/:date", async (req, res) => {
     const has = new Map((await rows("SELECT id, items FROM orders WHERE factory_id = $1 AND id = ANY($2::uuid[])", [req.factoryId, ids], c)).map((o) => [o.id, new Set(itemsOf(o).map((i) => String(i.productId)))]));
     for (const l of data.shipments) if (l.orderId && !has.get(l.orderId)?.has(String(l.productId))) l.orderId = null;
   }
+  if(data.shipments) await assertInvoiceCoverage(c,req.factoryId,{date,shipments:data.shipments});
+  if (data.shipments) await archiveDispatch(c, req, date, data.shipments, b.dispatchDocument);
   const cols = Object.keys(data);
   const vals = cols.map((k) => (typeof data[k] === "string" ? data[k] : JSON.stringify(data[k])));
   const doc = await one(
@@ -121,7 +127,7 @@ r.put("/days/:date", async (req, res) => {
   res.json(doc);
 });
 r.delete("/days/:date", async (req, res) => {
-  const doc = await one("DELETE FROM days WHERE factory_id = $1 AND date = $2 RETURNING *", [req.factoryId, String(req.params.date)]);
+  const doc = await tx(async c=>{await financeLock(c,req.factoryId);await assertInvoiceCoverage(c,req.factoryId,{date:String(req.params.date),shipments:[]});return one("DELETE FROM days WHERE factory_id = $1 AND date = $2 RETURNING *", [req.factoryId, String(req.params.date)],c);});
   if (!doc) return notFound(res);
   await audit(req, { action: "delete", entity: "day", entityId: doc.date, label: doc.date, before: doc });
   res.json({ ok: true });
@@ -311,6 +317,21 @@ r.get("/orders", async (req, res) => {
   const [orders, shipped] = await Promise.all([rows("SELECT * FROM orders WHERE factory_id = $1 ORDER BY no", [req.factoryId]), shippedByOrder(req.factoryId)]);
   res.json(orders.map((o) => orderView(o, shipped)));
 });
+r.get('/orders/:id/products/:productId/shipments', async(req,res)=>{
+ if(!isId(req.params.id)||!isId(req.params.productId))return notFound(res);
+ const order=await one('SELECT * FROM orders WHERE factory_id=$1 AND id=$2',[req.factoryId,req.params.id]);
+ if(!order||!itemsOf(order).some(i=>i.productId===req.params.productId))return notFound(res);
+ const days=await rows(`SELECT d.date,s.line AS shipment,doc.number AS dispatch_no,doc.id AS document_id
+ FROM days d CROSS JOIN LATERAL jsonb_array_elements(d.shipments) WITH ORDINALITY s(line,idx)
+ LEFT JOIN dispatch_documents doc ON doc.id::text=s.line->>'dispatchId' AND doc.factory_id=d.factory_id
+ WHERE d.factory_id=$1 AND s.line->>'orderId'=$2 AND s.line->>'productId'=$3 ORDER BY d.date DESC,s.idx DESC`,[req.factoryId,order.id,req.params.productId]);
+ res.json({shippedBefore:+itemsOf(order).find(i=>i.productId===req.params.productId).shippedBefore||0,shipments:days.map(d=>({date:d.date,...d.shipment,dispatchId:d.documentId||null,dispatchNo:d.dispatchNo||d.shipment.dispatchNo||''}))});
+});
+r.get('/dispatch-documents/:id/pdf',async(req,res)=>{
+ if(!isId(req.params.id))return notFound(res);
+ const doc=await one('SELECT * FROM dispatch_documents WHERE factory_id=$1 AND id=$2',[req.factoryId,req.params.id]);
+ if(!doc)return notFound(res);sendPdf(res,doc);
+});
 r.post("/orders", async (req, res) => {
   const data = clean(SPEC.order, orderBody(req.body));
   await checkProducts(req.factoryId, data.items);
@@ -324,8 +345,10 @@ r.post("/orders", async (req, res) => {
 r.put("/orders/:id", async (req, res) => {
   if (!isId(req.params.id)) return notFound(res);
   const f = req.factoryId;
-  const before = await one("SELECT * FROM orders WHERE id = $1 AND factory_id = $2", [req.params.id, f]);
-  if (!before) return notFound(res);
+  const result = await tx(async c=>{
+  await financeLock(c,f);
+  const before = await one("SELECT * FROM orders WHERE id = $1 AND factory_id = $2", [req.params.id, f],c);
+  if (!before) return null;
   const data = clean(SPEC.order, orderBody(req.body), { partial: true });
   if (data.items) {
     await checkProducts(f, data.items);
@@ -335,14 +358,19 @@ r.put("/orders/:id", async (req, res) => {
     if (gone.length) {
       const used = await q(
         `SELECT 1 FROM days, jsonb_array_elements(shipments) s WHERE factory_id = $1 AND s->>'orderId' = $2 AND s->>'productId' = ANY($3::text[]) LIMIT 1`,
-        [f, before.id, gone]
+        [f, before.id, gone],c
       );
       if (used.rowCount) throw new ValidationError("Olib tashlanayotgan mahsulot kunlik hisobotda shu buyurtma bo'yicha jo'natilgan — avval o'sha jo'natishni boshqa buyurtmaga bog'lang");
     }
   }
-  if (!Object.keys(data).length) return res.json(await orderOut(f, before));
+  if (!Object.keys(data).length) return {before,doc:before};
+  if(data.items)await assertInvoiceCoverage(c,f,{order:{...before,...data}});
   const s = updateSql("orders", req.params.id, f, data);
-  const doc = await one(s.text, s.values);
+  const doc = await one(s.text, s.values,c);
+  return {before,doc};
+  });
+  if(!result)return notFound(res);
+  const {before,doc}=result;
   await audit(req, { action: "update", entity: "order", entityId: doc.id, label: orderLabel(doc), before, after: doc });
   res.json(await orderOut(f, doc));
 });
@@ -350,6 +378,9 @@ r.delete("/orders/:id", async (req, res) => {
   if (!isId(req.params.id)) return notFound(res);
   const f = req.factoryId;
   const doc = await tx(async (c) => {
+    await financeLock(c,f);
+    if((await c.query('SELECT 1 FROM finance_invoices WHERE factory_id=$1 AND order_id=$2 UNION ALL SELECT 1 FROM finance_receipts WHERE factory_id=$1 AND order_id=$2 LIMIT 1',[f,req.params.id])).rowCount)throw new ConflictError('Faktura yoki to‘lovlari bor buyurtmani o‘chirib bo‘lmaydi');
+    await c.query('DELETE FROM finance_order_progress WHERE factory_id=$1 AND order_id=$2',[f,req.params.id]);
     const d = await one("DELETE FROM orders WHERE id = $1 AND factory_id = $2 RETURNING *", [req.params.id, f], c);
     if (!d) return null;
     // jo'natishlardagi bog'lanish uziladi (jo'natishning o'zi qoladi)

@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { STATUSES, costCard, fmt, fmtDate, lsGet, lsSet, productLabel, today } from "@/lib/calc";
 import DeleteButton from "./DeleteButton";
 import ExportButtons from "./ExportButtons";
+import OrderShipmentsDialog from "./OrderShipmentsDialog";
 import { fileDate } from "@/lib/xlsx-export";
 
 const CLOSED = ["tayyor", "topshirildi"];
@@ -23,6 +24,7 @@ export default function OrdersTab({ data, notify, reload }) {
   const { products, orders, mats, prods: byId } = data;
   const [filter, setFilter] = useState(() => lsGet("pto.ordFilter", "faol"));
   const [q, setQ] = useState("");
+  const [shipment, setShipment] = useState(null);
   const [edit, setEdit] = useState(null); // null — yopiq, {} — yangi, order — tahrirlash
 
   const counts = useMemo(() => {
@@ -101,7 +103,7 @@ export default function OrdersTab({ data, notify, reload }) {
         <>
           <div className="ord-list">
             {list.map((o) => (
-              <OrderCard key={o.id} o={o} td={td} byId={byId} summa={summaOf(o)} canEdit={canEdit} onEdit={() => setEdit(o)} onDelete={() => del(o.id)} onStatus={(st) => setStatus(o, st)} />
+              <OrderCard onProduct={(item)=>setShipment({order:o,item})} key={o.id} o={o} td={td} byId={byId} summa={summaOf(o)} canEdit={canEdit} onEdit={() => setEdit(o)} onDelete={() => del(o.id)} onStatus={(st) => setStatus(o, st)} />
             ))}
           </div>
           <div className="ord-total">
@@ -119,6 +121,7 @@ export default function OrdersTab({ data, notify, reload }) {
         "Bitta buyurtmada bir nechta mahsulot bo'lishi mumkin. «Jo'natildi» = tizimdan oldin jo'natilgan (buyurtmada qo'lda kiritiladi) + kunlik hisobotda shu buyurtmaga bog'langan jo'natishlar. Narx 0 bo'lsa, kalkulyatsiyadagi QQS bilan narx olinadi."
       )}</p>
 
+      {shipment && <OrderShipmentsDialog {...shipment} product={byId.get(shipment.item.productId)} onClose={()=>setShipment(null)} notify={notify}/>}
       <OrderDialog
         order={edit}
         data={data}
@@ -136,7 +139,7 @@ const SHOW_ITEMS = 8; // shundan ko'p mahsulot bo'lsa — «yana N ta»
 const contractText = (c) => String(c || "").replace(/^№\s*/, "");
 
 /** Bitta buyurtma kartasi: sarlavha, ko'rsatkichlar va mahsulotlar (ixcham to'r) */
-function OrderCard({ o, td, byId, summa, canEdit, onEdit, onDelete, onStatus }) {
+function OrderCard({ o, td, byId, summa, canEdit, onEdit, onDelete, onStatus, onProduct }) {
   const [open, setOpen] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const late = o.deadline && o.deadline < td && !CLOSED.includes(o.status);
@@ -213,7 +216,7 @@ function OrderCard({ o, td, byId, summa, canEdit, onEdit, onDelete, onStatus }) 
         {shown.map((it) => {
           const ip = pct(it.shipped, it.qty);
           return (
-            <div key={it.productId} className={`ord-chip${it.left === 0 ? " done" : ""}`} title={it.shippedBefore ? tr("Tizimdan oldin jo'natilgan: {n}", { n: fmt(it.shippedBefore) }) : undefined}>
+            <div role="button" tabIndex={0} onClick={()=>onProduct(it)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();onProduct(it);}}} aria-label={`${byId.get(it.productId)?.code || "Mahsulot"}: jo‘natish tarixi`} key={it.productId} className={`ord-chip${it.left === 0 ? " done" : ""}`} title={it.shippedBefore ? tr("Tizimdan oldin jo'natilgan: {n}", { n: fmt(it.shippedBefore) }) : undefined}>
               <div className="ord-chip-top">
                 <span className="code">{byId.get(it.productId)?.code || tr("— o'chirilgan —")}</span>
                 <span className="num">
