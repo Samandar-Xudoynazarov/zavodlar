@@ -33,6 +33,7 @@ import OverviewTab from "@/components/OverviewTab";
 import AcctTab from "@/components/AcctTab";
 import HrTab from "@/components/HrTab";
 import FinancePayroll from "@/components/FinancePayroll";
+import MaterialInvoices from "@/components/MaterialInvoices";
 import FinanceOrders from "@/components/FinanceOrders";
 import ShareReady from "@/components/ShareReady";
 import NotificationCenter from "@/components/NotificationCenter";
@@ -70,8 +71,9 @@ TABS.push(...[['overview','Kadrlar nazorati'],['leaves','Ta’tillar'],['shifts'
 TABS.push(["hr-archive","Hujjatlar","Tabel, shartnomalar, buyruqlar va hujjatlar arxivi",["admin","rahbar","kadrlar"]]);
 
 TABS.push(['finance-payroll','Oylik vedomosti','Barcha xodimlarning maoshi, to‘lovlari va qoldig‘i',['admin','rahbar','buxgalter']],['finance-orders','Buyurtmalar moliyasi','Jo‘natish, faktura PDF, tushum va qoldiq',['admin','rahbar','buxgalter']]);
+TABS.push(['finance-materials','Material fakturalari','Materiallar kirim-chiqimi, faktura PDF va oylik Excel',['admin','rahbar','buxgalter']]);
 const NAV_GROUPS = [
-  { id:'finance',label:'Finansiviy',keys:['finance-payroll','finance-orders','hr-payroll','hr-payments','acct'] },
+  { id:'finance',label:'Finansiviy',keys:['finance-materials','finance-payroll','finance-orders','hr-payroll','hr-payments','acct'] },
   { id: "personnel", label: "Kadrlar bo‘limi", keys: ["hr-overview", "hr", "hr-time", "hr-archive", "hr-leaves", "hr-shifts", "hr-orders", "hr-documents", "hr-equipment", "hr-reports"] },
   { id: "overview", label: "Ish stoli", keys: ["all", "dash"] },
   { id: "production", label: "Ishlab chiqarish", keys: ["day", "fg", "cat"] },
@@ -523,6 +525,7 @@ function App() {
               {active === "day" && <DayTab key={dayFocus} data={data} notify={notify} onSaved={reloadOrders} onDirtyChange={onDirtyChange} version={version} />}
               {active === "month" && <MonthTab data={data} notify={notify} />}
               {active === "finance-payroll" && <FinancePayroll data={data} notify={notify} openForm={openForm} onManage={()=>chooseTab('hr-payroll')}/>}
+              {active === "finance-materials" && <MaterialInvoices data={data} notify={notify} openForm={openForm} onSaved={bump}/>}
               {active === "finance-orders" && <FinanceOrders data={data} notify={notify} openForm={openForm}/>}
               {active === "acct" && <AcctTab data={data} notify={notify} />}
               {active.startsWith("hr") && <HrTab initialView={active === "hr" ? "employees" : active.slice(3)} onViewChange={v=>chooseTab(v === "employees" ? "hr" : `hr-${v}`)} notify={notify} openForm={openForm} />}

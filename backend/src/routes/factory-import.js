@@ -11,7 +11,7 @@ const hash=value=>crypto.createHash('sha256').update(JSON.stringify(value)).dige
 const metadata='id,factory_id,source_name,source_created_at,counts,replaced,created_by,created_at';
 async function target(c,id){if(!isId(id))throw new ValidationError('Maqsad zavodni tanlang');const f=await one('SELECT * FROM factories WHERE id=$1',[id],c);if(!f||f.archived)throw new ValidationError('Faol zavod topilmadi');return f;}
 async function snapshot(c,f){const out={};for(const table of OPERATION_TABLES){const order=table==='settings'?'factory_id':table==='counters'?'name':'id';out[table]=(await c.query('SELECT * FROM '+table+' WHERE factory_id=$1 ORDER BY '+order,[f])).rows;}return out;}
-async function blocked(c,f){return !!(await c.query('SELECT 1 FROM finance_invoices WHERE factory_id=$1 UNION ALL SELECT 1 FROM finance_receipts WHERE factory_id=$1 UNION ALL SELECT 1 FROM finance_order_progress WHERE factory_id=$1 LIMIT 1',[f])).rowCount;}
+async function blocked(c,f){return !!(await c.query('SELECT 1 FROM material_invoices WHERE factory_id=$1 UNION ALL SELECT 1 FROM finance_invoices WHERE factory_id=$1 UNION ALL SELECT 1 FROM finance_receipts WHERE factory_id=$1 UNION ALL SELECT 1 FROM finance_order_progress WHERE factory_id=$1 LIMIT 1',[f])).rowCount;}
 const hasData=state=>Object.entries(state).some(([key,rs])=>!['settings','counters'].includes(key)&&rs.length>0);
 async function plan(b){let info,records;try{info=validateLegacyBackup(b.backup);records=await prepareLegacyImport(b.backup);}catch(e){if(e instanceof ValidationError)throw e;throw new ValidationError('JSON tarkibi noto‘g‘ri: '+String(e.message).slice(0,200));}return {...info,records,sourceHash:hash(b.backup)};}
 r.post('/preview',async(req,res)=>{

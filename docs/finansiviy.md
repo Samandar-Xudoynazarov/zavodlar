@@ -39,3 +39,21 @@ Avval serverda saqlanmagan PDFlar qayta tiklanmaydi: eski jo‘natishda PDF saql
 009_finance_dispatch.sql migratsiyasi backend ishga tushganda avtomatik qo‘llanadi. PDFlar va moliyaviy yozuvlar zaxira nusxaga kiradi. Moliyaviy ma’lumotlari bor zavodga eski, moliyaviy jadvallarsiz zaxira tiklash bloklanadi, shunda yangi faktura va tushumlar yo‘qolmaydi.
 
 Tekshirish: npm test; alohida npm run test:finance. Brauzer testi: node --env-file-if-exists=.env tests/finance-browser.js (Chrome, Playwright va frontend production build kerak). Testlar alohida vaqtinchalik schema ichida ishlaydi.
+
+## Material fakturalari
+
+Finansiviy → Material fakturalari bo‘limida kirim va chiqim fakturalari yuritiladi. Admin, rahbar va buxgalter foydalanadi. Sana, raqam, kontragent, material, miqdor, QQSsiz birlik narxi va QQS foizi kiritiladi. QQS qiymati foydalanuvchi tomonidan hujjatga qarab belgilanadi; dastur standart soliq stavkasini taxmin qilmaydi. Birlik katalogdagi birlikdir (masalan kg yoki m³); metrdan aylantirish bu oynada yo‘q.
+
+Saqlash faktura va barcha materiallar ombor harakatlarini bitta tranzaksiyada yozadi. Bitta material fakturada bir marta kiritiladi. Takror yuborilgan so‘rov qayta ombor harakati yaratmaydi. Omborda yetishmovchilik, noto‘g‘ri material yoki yaroqsiz PDF bo‘lsa, hech qaysi qator saqlanmaydi. Chiqim orqa sana bilan ham keyingi kunlarni minusga tushirmaydi. Boshlang‘ich qoldiqdan oldingi sana va kelajakdagi sana qabul qilinmaydi.
+
+Asl PDF ixtiyoriy, 8 MB gacha. PDF avtomatik o‘qilmaydi; foydalanuvchi hujjatdagi qiymatlarni kiritadi. Saqlangan PDFni ochish va yuklab olish mumkin. Bu bo‘lim Didox bilan ulanmagan va elektron imzo/yuborish xizmatini bajarmaydi.
+
+Faktura oynasida saqlaganingizda boshqa joyda ayni kirimni yana qo‘lda kiritmang: ombor harakati allaqachon yoziladi. Omborda oldindan kiritilgan harakatni avtomatik tanish yoki bog‘lash hozircha yo‘q.
+
+Faktura saqlangach tahrirlanmaydi; xatoni sabab ko‘rsatib bekor qiling va to‘g‘risini kiriting. Bekor qilish barcha bog‘langan harakatlarni birga olib tashlaydi; faktura va PDF tarixda qoladi. Material sarflangan bo‘lsa, kirimni bekor qilib bo‘lmaydi. Fakturaga bog‘langan harakatni ombor tarixidan alohida o‘chirib bo‘lmaydi.
+
+Oy va qidiruv filtri bo‘yicha jurnal ko‘rinadi. Oylik Excel jurnalni saqlangan fakturalardan avtomatik yig‘adi: Kirim va Chiqim alohida varaqlar, har material alohida qator, QQSsiz summa, QQS va umumiy summa hamda jami formulalari bilan. Bekor qilingan hujjatlar jamiga kirmaydi. Qidiruv va harakat filtri Excelga ham qo‘llanadi. Bu fakturalar jurnali; ishlab chiqarish sarfi va boshqa ombor harakatlari ombor hisobotida qoladi. Eksport hozir standart jurnal shaklida, oldin yuborilgan «Расход» blankining aynan nusxasi emas.
+
+Migratsiya: 011_material_invoices.sql avtomatik qo‘llanadi. Fakturalar va PDFlar umumiy zaxiraga kiradi. Material fakturalari bor zavodga ularni o‘z ichiga olmagan eski zaxirani tiklash va eski JSON importini bajarish bloklanadi.
+
+Tekshirish: npm run test:material-invoices; node --env-file-if-exists=.env tests/material-invoices-browser.js (Chrome va frontend production build kerak). Testlar alohida vaqtinchalik sxemalarda ishlaydi.

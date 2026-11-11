@@ -37,6 +37,8 @@ if (hasHr && HR_TABLES.some(t => !Array.isArray(D[t]))) throw new Error('Kadrlar
 const FINANCE_TABLES=['finance_order_progress','finance_invoices','finance_receipts'];
 const hasFinance=FINANCE_TABLES.some(t=>Object.hasOwn(D,t));
 if(hasFinance&&FINANCE_TABLES.some(t=>!Array.isArray(D[t])))throw new Error('Moliyaviy zaxira to‘liq emas');
+const hasMaterialInvoices=Object.hasOwn(D,'material_invoices');
+if(hasMaterialInvoices&&!Array.isArray(D.material_invoices))throw new Error('Material fakturalari zaxirasi noto‘g‘ri');
 const hasDispatch=Object.hasOwn(D,'dispatch_documents');
 if(hasDispatch&&!Array.isArray(D.dispatch_documents))throw new Error('Накладная arxivi noto‘g‘ri');
 const fids = (D.factories || []).map((f) => f.id);
@@ -72,11 +74,13 @@ if (hasHr) ORDER.push(...HR_TABLES,...(hasNewHr?NEW_HR_TABLES:[]),...(hasPersonn
 const preserveEmployeeRows=hasHr&&(!hasNewHr||!hasPersonnel);
 if(hasDispatch)ORDER.push('dispatch_documents');
 if(hasFinance)ORDER.push(...FINANCE_TABLES);
+if(hasMaterialInvoices)ORDER.push('material_invoices');
 if(Object.hasOwn(D,'factory_imports')){if(!Array.isArray(D.factory_imports))throw new Error('Import arxivi noto‘g‘ri');ORDER.push('factory_imports');}
 const JSONB = new Set(["lines", "items", "rows", "customers", "extra_cols", "signers", "opening", "calc_template", "cost_schemes", "plan", "recipe", "writeoff", "norms", "calc", "notes", "production", "materials", "shipments", "created_by", "approved_by", "updated_by"]);
 for (const key of ['history','source_data','previous_data','counts','work_days','holidays','attendance','adjustments','snapshot','closed_by','voided_by','actor','detail','profile','decided_by','payload','issued_by','uploaded_by']) JSONB.add(key);
 try {
   await tx(async (c) => {
+    if(!hasMaterialInvoices&&(await c.query('SELECT 1 FROM material_invoices WHERE factory_id=ANY($1::uuid[]) LIMIT 1',[fids])).rowCount)throw new Error('Eski zaxirada material fakturalari yo‘q. Yangi to‘liq zaxiradan foydalaning.');
     if(!hasFinance){
       for(const table of FINANCE_TABLES){const existing=await c.query('SELECT 1 FROM '+table+' WHERE factory_id=ANY($1::uuid[]) LIMIT 1',[fids]);if(existing.rowCount)throw new Error('Bu eski zaxirada moliyaviy ma’lumotlar yo‘q. Faktura va to‘lovlar saqlanishi uchun yangi to‘liq zaxiradan foydalaning.');}
     }

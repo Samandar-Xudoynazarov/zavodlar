@@ -60,6 +60,7 @@ r.delete("/materials/:id", async (req, res) => {
          OR EXISTS (SELECT 1 FROM materials WHERE factory_id = $1 AND (recipe @> $2::jsonb OR writeoff @> $2::jsonb))
          OR EXISTS (SELECT 1 FROM days WHERE factory_id = $1 AND materials @> $2::jsonb)
          OR EXISTS (SELECT 1 FROM movements WHERE material_id = $3)
+         OR EXISTS (SELECT 1 FROM material_invoices WHERE factory_id=$1 AND items @> $2::jsonb)
          OR EXISTS (SELECT 1 FROM inventories WHERE factory_id = $1 AND lines @> $2::jsonb)
          OR EXISTS (SELECT 1 FROM settings WHERE factory_id = $1 AND opening->'materials' ? $3::text) AS used`,
     [f, c, id]

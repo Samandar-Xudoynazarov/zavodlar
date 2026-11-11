@@ -19,7 +19,7 @@ const normName = (s) => String(s ?? "").trim().replace(/\s+/g, " ");
  * Materialning `date` kunidan boshlab (kelajakdagi yozuvlar ham) har bir kun oxiridagi eng kichik qoldig'i.
  * Chiqim (yoki kirimni bekor qilish) shu kundan keyingi birorta kunni ham minusga tushirmasligi kerak.
  */
-async function minBalanceFrom(f, materialId, date, client) {
+export async function minBalanceFrom(f, materialId, date, client) {
   const opening = await openingOf(f, client);
   const start = opening.date || OPEN0;
   const [days, moves] = await Promise.all([
@@ -43,7 +43,7 @@ async function minBalanceFrom(f, materialId, date, client) {
   return round6(min === null ? bal : Math.min(min, bal));
 }
 // bir material bo'yicha yozuvlar navbat bilan (parallel ikki chiqim qoldiqdan o'tib ketmasin)
-const lockMaterial = (c, id) => c.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`mat:${id}`]);
+export const lockMaterial = (c, id) => c.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`mat:${id}`]);
 
 /* ---------- Sex va texnika ---------- */
 r.get("/targets", async (req, res) => {
@@ -175,6 +175,7 @@ r.delete("/movements/:id", async (req, res) => {
   const f = req.factoryId;
   const doc = await one("SELECT * FROM movements WHERE id = $1 AND factory_id = $2", [req.params.id, f]);
   if (!doc) return notFound(res);
+  if (await one("SELECT id FROM material_invoices WHERE factory_id=$1 AND voided_at IS NULL AND items @> $2::jsonb", [f, JSON.stringify([{movementId:doc.id}])])) return res.status(409).json({error:'Bu harakat fakturaga bog‘langan. Uni Finansiviy → Material fakturalari bo‘limida bekor qiling'});
   const u = req.user;
   if (doc.reason === "inventar") return res.status(400).json({ error: "Bu inventarizatsiya to'g'rilashi — uni inventarizatsiya bo'limida bekor qiling" });
   if (!WRITE_ROLES.includes(u.role)) {

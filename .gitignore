@@ -10,3 +10,6 @@ node_modules
 _eski_nusxa_*/
 # Hujjatlar markazi brauzer sinovida yaratilgan fayllar
 tmp/pdfs/hr-center-*
+
+# Material fakturalari sinovlarining vaqtinchalik fayllari
+tmp/material-invoices/
