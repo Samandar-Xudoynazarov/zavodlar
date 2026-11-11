@@ -6,6 +6,7 @@ import { HQ_ROLES, ROLES, roleLabel, useUser } from "@/lib/role";
 import { fmtN } from "@/lib/calc";
 import DeleteButton from "./DeleteButton";
 import Icon from "./Icon";
+import FactoryImport from "./FactoryImport";
 
 /* ================= yordamchilar ================= */
 const TZ = "Asia/Tashkent";
@@ -15,6 +16,7 @@ export const fmtDateTime = (s) =>
     : "—";
 
 const FIELD = {
+  counts: "Yozuvlar soni",
   production: "Ishlab chiqarish", materials: "Materiallar", shipments: "Jo'natish", products: "Mahsulotlar",
   plan: "reja", fact: "fakt", note: "izoh", sarf: "sarf", kirim: "kirim", qty: "soni", customer: "buyurtmachi",
   vehicle: "mashina", orderId: "buyurtma", productId: "mahsulot", materialId: "material", name: "nomi", unit: "birlik",
@@ -28,6 +30,7 @@ const FIELD = {
   departmentId: "bo'lim / sex", vehicleId: "texnika", person: "mas'ul shaxs", supplier: "yetkazib beruvchi", docNumber: "nakladnoy",
 };
 const ENTITY = {
+  factoryImport: "JSON import",
   day: "Kunlik hisobot", material: "Material", product: "Mahsulot", order: "Buyurtma", settings: "Sozlamalar", user: "Foydalanuvchi", backup: "Zaxira nusxa",
   movement: "Ombor harakati", target: "Sex / texnika", acct: "Material hisoboti",
   inventory: "Inventarizatsiya", mplan: "Tasdiqlangan reja", productMove: "Tayyor mahsulot (brak / marka)", supplier: "Ta'minotchi", vehicleLog: "Texnika jurnali", factory: "Zavod",
@@ -499,7 +502,7 @@ function Factories({ openForm, notify, factories, reload }) {
 }
 
 /* ================= bo'lim ================= */
-export default function AdminTab({ data, openForm, notify }) {
+export default function AdminTab({ data, openForm, notify, onImported }) {
   const { isHQAdmin } = useUser();
   const [users, setUsers] = useState(null);
   const [factories, setFactories] = useState([]);
@@ -519,6 +522,7 @@ export default function AdminTab({ data, openForm, notify }) {
   return (
     <section className="sheet">
       {isHQAdmin && <Factories openForm={openForm} notify={notify} factories={factories} reload={loadFactories} />}
+      {isHQAdmin && <FactoryImport factories={factories} notify={notify} onImported={onImported}/>}
       <Users openForm={openForm} notify={notify} factories={factories} />
       <Backup notify={notify} />
       <Audit data={data} notify={notify} users={users} />

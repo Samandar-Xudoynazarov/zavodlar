@@ -559,7 +559,7 @@ function App() {
               {active === "cat" && <CatalogTab data={data} notify={notify} reload={reloadProducts} onEdit={(p) => setEditProduct(p)} />}
               {active === "mat" && <MaterialsTab data={data} notify={notify} reload={reloadMaterials} reloadSettings={reloadSettings} />}
               {active === "targets" && <TargetsTab data={data} notify={notify} reload={reloadTargets} />}
-              {active === "admin" && <AdminTab data={data} openForm={openForm} notify={notify} />}
+              {active === "admin" && <AdminTab data={data} openForm={openForm} notify={notify} onImported={async()=>{await Promise.all([reloadMaterials(),reloadProducts(),reloadOrders(),reloadTargets(),reloadSettings()]);bump();}} />}
               <ProductEditor
                 product={editProduct || null}
                 open={editProduct !== undefined}

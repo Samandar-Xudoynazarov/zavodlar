@@ -72,8 +72,9 @@ if (hasHr) ORDER.push(...HR_TABLES,...(hasNewHr?NEW_HR_TABLES:[]),...(hasPersonn
 const preserveEmployeeRows=hasHr&&(!hasNewHr||!hasPersonnel);
 if(hasDispatch)ORDER.push('dispatch_documents');
 if(hasFinance)ORDER.push(...FINANCE_TABLES);
+if(Object.hasOwn(D,'factory_imports')){if(!Array.isArray(D.factory_imports))throw new Error('Import arxivi noto‘g‘ri');ORDER.push('factory_imports');}
 const JSONB = new Set(["lines", "items", "rows", "customers", "extra_cols", "signers", "opening", "calc_template", "cost_schemes", "plan", "recipe", "writeoff", "norms", "calc", "notes", "production", "materials", "shipments", "created_by", "approved_by", "updated_by"]);
-for (const key of ['work_days','holidays','attendance','adjustments','snapshot','closed_by','voided_by','actor','detail','profile','decided_by','payload','issued_by','uploaded_by']) JSONB.add(key);
+for (const key of ['history','source_data','previous_data','counts','work_days','holidays','attendance','adjustments','snapshot','closed_by','voided_by','actor','detail','profile','decided_by','payload','issued_by','uploaded_by']) JSONB.add(key);
 try {
   await tx(async (c) => {
     if(!hasFinance){

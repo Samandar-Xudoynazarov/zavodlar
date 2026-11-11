@@ -234,3 +234,7 @@ Kunlik reja saqlanganda faol kuzatuvchilarga ilova ichida xabar chiqadi. Telegra
 ## Finansiviy va jo‘natish tafsilotlari
 
 Oylik vedomosti, material hisoboti, buyurtmalar realizatsiyasi, faktura PDF va to‘lovlar: [qo‘llanma](docs/finansiviy.md). Migratsiya: `009_finance_dispatch.sql`.
+
+## Bosh administrator uchun JSON import
+
+Boshqaruv → JSON import: eski ПТО/demo JSONini tanlangan zavodga yuklash, tekshiruv va avtomatik oldingi zaxira. [Qo‘llanma](docs/json-import.md).

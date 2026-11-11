@@ -1,0 +1,13 @@
+PASS production frontend build
+PASS full backend npm test suite with factory import tests
+PASS supplied PTO JSON in an isolated temporary schema: 51 materials, 56 products, 40 daily reports, 4 orders, 82 warehouse movements, 2 accounting reports, 3 monthly plans
+PASS original reference links and material price history preserved
+PASS HQ-only preview, import, history and snapshot download permissions
+PASS explicit target factory independent of current factory header
+PASS concurrent/idempotent import, stale preview rejection, explicit replacement
+PASS late failure rolls back both data changes and import archive
+PASS downloaded pre-import backup restores original operational data exactly
+PASS financial links protected; user accounts and HR data unaffected
+PASS desktop and 390px mobile browser flows and factory-admin button hidden
+
+All database mutations were restricted to temporary test schemas.
