@@ -13,3 +13,6 @@ tmp/pdfs/hr-center-*
 
 # Material fakturalari sinovlarining vaqtinchalik fayllari
 tmp/material-invoices/
+
+# Xodimlar importi uchun vaqtinchalik shaxsiy fayllar
+tmp/employee-json/

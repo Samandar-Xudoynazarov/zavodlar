@@ -3,7 +3,7 @@ import {useRef,useState} from 'react';
 import {api,download} from '@/lib/api';
 import {useUser} from '@/lib/role';
 import Icon from './Icon';
-const LABELS={settings:'Sozlamalar',materials:'Materiallar',products:'Mahsulotlar',targets:'Sex / texnika',orders:'Buyurtmalar',days:'Kunlik hisobotlar',suppliers:'Ta’minotchilar',inventories:'Inventarizatsiya',movements:'Ombor harakatlari',productMoves:'Tayyor mahsulot harakatlari',acctReports:'Material hisobotlari',monthPlans:'Tasdiqlangan rejalar',vehicleLogs:'Texnika jurnali'};
+const LABELS={hrEmployees:'Xodimlar',settings:'Sozlamalar',materials:'Materiallar',products:'Mahsulotlar',targets:'Sex / texnika',orders:'Buyurtmalar',days:'Kunlik hisobotlar',suppliers:'Ta’minotchilar',inventories:'Inventarizatsiya',movements:'Ombor harakatlari',productMoves:'Tayyor mahsulot harakatlari',acctReports:'Material hisobotlari',monthPlans:'Tasdiqlangan rejalar',vehicleLogs:'Texnika jurnali'};
 export default function FactoryImport({factories,notify,onImported}) {
  const {user}=useUser();const allowed=user?.role==='admin'&&!user?.factoryId;
  const ref=useRef(null);const [open,setOpen]=useState(false),[factoryId,setFactoryId]=useState(''),[fileName,setFileName]=useState(''),[backup,setBackup]=useState(null),[preview,setPreview]=useState(null),[replace,setReplace]=useState(false),[result,setResult]=useState(null),[busy,setBusy]=useState(''),[error,setError]=useState(''),[history,setHistory]=useState([]);const request=useRef(0);const [requestId,setRequestId]=useState(()=>crypto.randomUUID());

@@ -27,8 +27,8 @@ export function number(v,label,min=0,max=1e10) {
   return money(+v);
 }
 export function text(v,max=120) { return String(v??'').trim().slice(0,max); }
-export function employment(e,date) { return e.hireDate<=date && (!e.endDate || e.endDate>=date); }
-export function inMonth(e,month) { return e.hireDate<=monthEnd(month) && (!e.endDate || e.endDate>=`${month}-01`); }
+export function employment(e,date) { return validDate(e.hireDate) && e.hireDate<=date && (!e.endDate || e.endDate>=date); }
+export function inMonth(e,month) { return validDate(e.hireDate) && e.hireDate<=monthEnd(month) && (!e.endDate || e.endDate>=`${month}-01`); }
 export function cleanDays(days,month,e) {
   if (!days || typeof days!=='object' || Array.isArray(days)) throw new ValidationError("Tabel noto'g'ri");
   const out={};

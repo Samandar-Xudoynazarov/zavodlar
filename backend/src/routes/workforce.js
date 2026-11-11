@@ -24,7 +24,7 @@ async function record(c,req) {
 function clean(b,e) {
  if(!KINDS.includes(b.kind))throw new ValidationError('Yozuv turi noto‘g‘ri');
  if(!validDate(b.startDate)||!validDate(b.endDate)||b.startDate>b.endDate||(['leave','shift'].includes(b.kind)&&+b.endDate.slice(0,4)-+b.startDate.slice(0,4)>2))throw new ValidationError('Sana oralig‘i noto‘g‘ri yoki juda uzun');
- if(['leave','shift'].includes(b.kind)&&(b.startDate<e.hireDate||(e.endDate&&b.endDate>e.endDate)))throw new ValidationError('Sana xodimning ish davriga mos emas');
+ if(['leave','shift'].includes(b.kind)&&(!validDate(e.hireDate)||b.startDate<e.hireDate||(e.endDate&&b.endDate>e.endDate)))throw new ValidationError('Sana xodimning ish davriga mos emas');
  const title=text(b.title,160);if(!title)throw new ValidationError('Nomi majburiy');
  const d=b.detail||{};const detail={note:text(d.note,1500),number:text(d.number,100)};
  if(b.kind==='leave'){
@@ -67,7 +67,7 @@ r.get('/workforce',guard(HR_ROLES),async(req,res)=>{
   const allowances=await rows('SELECT * FROM hr_leave_allowances WHERE factory_id=$1 ORDER BY year DESC',[req.factoryId],c);
   const events=await rows("SELECT id,actor,action,entity_id,created_at FROM hr_events WHERE factory_id=$1 AND action LIKE 'workforce.%' ORDER BY created_at DESC,id DESC LIMIT 50",[req.factoryId],c);
   const date=today(),month=await one('SELECT attendance FROM hr_months WHERE factory_id=$1 AND month=$2',[req.factoryId,date.slice(0,7)],c);
-  const day=String(+date.slice(8)),active=employees.filter(e=>e.hireDate<=date&&(!e.endDate||e.endDate>=date));
+  const day=String(+date.slice(8)),active=employees.filter(e=>validDate(e.hireDate)&&e.hireDate<=date&&(!e.endDate||e.endDate>=date));
   return {date,employees,records,allowances,events,summary:{active:active.length,marked:active.filter(e=>month?.attendance[e.id]?.[day]).length,atWork:active.filter(e=>['work','trip'].includes(month?.attendance[e.id]?.[day]?.status)).length,pending:records.filter(x=>x.status==='draft').length,onLeave:records.filter(x=>x.kind==='leave'&&x.status==='approved'&&x.startDate<=date&&x.endDate>=date).length}};
  });res.json(data);
 });

@@ -43,6 +43,7 @@ export default function HrDocuments({notify,openForm,onViewChange,onOpenEmployee
    const path=row.source==='file'?`/hr/personnel/${row.employeeId}/files/${row.id}`:`/hr/personnel-documents/company-files/${row.id}`;
    const response=await api(path,{raw:true});return {blob:await response.blob(),name:row.name};
   }
+  if(row.source==='document'&&row.hasSignedPdf){const response=await api(`/hr/personnel/${row.employeeId}/documents/${row.id}/signed-pdf`,{raw:true});return {blob:await response.blob(),name:`Imzolangan_${safe(row.title)}_${safe(row.number||'hujjat')}.pdf`};}
   if(row.source==='document'){const d=await fetchPersonnelDocument(row.employeeId,row.id);return {blob:await personnelPdfBlob(d),name:`${safe(row.title)}_${safe(row.number||'qoralama')}.pdf`};}
   const employee=byId.get(row.employeeId);return {blob:await centerPdfBlob({kind:row.recordKind,employee,employer:data.employer,record:row,today:today()}),name:`${safe(RECORDS[row.recordKind])}_${safe(employee.code)}_${row.date}.pdf`};
  }

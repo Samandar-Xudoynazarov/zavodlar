@@ -25,18 +25,24 @@ try{
  const em={company:'Sinov zavodi MChJ',director:'Sinov Rahbarov',address:'Sinov manzili',city:'Toshkent',phone:'123',hrName:'Sinov Kadrov',shortName:'SZ'};
  const employer=await ok('/hr/personnel-employer','PUT',{version:0,profile:em});assert.equal((await call('/hr/personnel-employer','PUT',{version:0,profile:em})).status,409);
  let contract=card.documents.find(d=>d.kind==='contract'),hire=card.documents.find(d=>d.kind==='hire');
- const issue=(d,u=users.admin)=>call(`${p}/documents/${d.id}/issue`,'POST',{version:d.version,signedConfirmed:true,basisChecked:true},u);
+ const signedPdf={name:'Imzolangan.pdf',contentBase64:Buffer.from('%PDF-1.4\nSigned personnel original\n%%EOF').toString('base64')};
+ const issue=(d,u=d.kind==='termination'?users.kadrlar:users.admin)=>call(`${p}/documents/${d.id}/issue`,'POST',{version:d.version,signedConfirmed:true,basisChecked:true},u);
  assert.equal((await issue(contract)).status,400);assert.equal((await issue(hire)).status,409);
  const terms={position:'Operator',department:'Sex',workplace:'Zavod',employmentType:'main',termType:'indefinite',startDate:e.hireDate,workSchedule:'09:00–18:00',daysWeek:5,hoursWeek:40,salary:3000000,coefficient:0,leaveDays:21,extraLeave:0};
- async function edit(d,changes={}){return ok(`${p}/documents/${d.id}`,'PUT',{number:d.number||'1',date:'2026-10-01',effectiveDate:e.hireDate,terms:d.payload.terms,...changes,version:d.version});}
+ async function edit(d,changes={}){return ok(`${p}/documents/${d.id}`,'PUT',{number:d.number||'1',date:'2026-10-01',effectiveDate:e.hireDate,terms:d.payload.terms,signedPdf,...changes,version:d.version});}
+ assert.equal((await call(`${p}/documents/${contract.id}`,'PUT',{number:'S-001',date:'2026-10-01',effectiveDate:e.hireDate,terms,version:contract.version})).status,400);
+ assert.equal((await call(`${p}/documents/${contract.id}`,'PUT',{number:'S-001',date:'2026-10-01',effectiveDate:e.hireDate,terms,version:contract.version,signedPdf:{name:'fake.pdf',contentBase64:Buffer.from('fake').toString('base64')}})).status,400);
  contract=await edit(contract,{number:'S-001',terms});assert.equal((await issue(contract,users.kadrlar)).status,403);
+ assert.ok(contract.signedPdf);assert.ok(!Object.hasOwn(contract.signedPdf,'contentBase64'));
+ const originalPdf=await fetch(base+p+'/documents/'+contract.id+'/signed-pdf',{headers:{Authorization:'Bearer '+issueToken(users.kadrlar)}});assert.equal(originalPdf.status,200);assert.equal(Buffer.from(await originalPdf.arrayBuffer()).toString('base64'),signedPdf.contentBase64);
+ assert.equal((await call(p+'/documents/'+contract.id+'/signed-pdf','GET',undefined,alien)).status,400);
  const signed=await issue(contract);assert.equal(signed.status,200,JSON.stringify(signed));contract=signed.body;
  assert.equal((await call(`${p}/documents/${contract.id}`,'PUT',{...contract,version:contract.version})).status,409);
  hire=await edit(hire,{number:'B-001'});const hires=await Promise.all([issue(hire),issue(hire)]);assert.deepEqual(hires.map(r=>r.status).sort(),[200,409]);hire=hires.find(r=>r.status===200).body;
  assert.equal(hire.payload.terms.sourceContractNumber,'S-001');assert.equal((await one('SELECT salary FROM hr_rates WHERE employee_id=$1',[e.id])).salary,3000000);
  e=(await ok(p)).employee;assert.equal(e.version,2);
  const transferTerms={position:'Usta',department:'Yangi sex',agreementNumber:'Q-001',agreementDate:'2026-10-15',sourceContractNumber:'S-001',sourceContractDate:'2026-10-01',evidence:'Xodimning 15.10.2026 dagi yozma roziligi',salary:4000000,coefficient:100000};
- let transfer=await ok(p+'/documents','POST',{kind:'transfer',number:'B-002',date:'2026-10-15',effectiveDate:'2026-10-15',terms:transferTerms});
+ let transfer=await ok(p+'/documents','POST',{kind:'transfer',signedPdf,agreementPdf:signedPdf,number:'B-002',date:'2026-10-15',effectiveDate:'2026-10-15',terms:transferTerms});
  assert.equal((await issue(transfer)).status,409);card=await ok(p);let addendum=card.documents.find(d=>d.id===transfer.relatedId);assert.equal((await issue(addendum)).status,200);assert.equal((await issue(transfer)).status,200);
  card=await ok(p);assert.equal(card.employee.position,'Usta');assert.equal(card.documents.find(d=>d.id===hire.id).payload.employee.position,'Operator');assert.equal(card.documents.find(d=>d.id===transfer.id).payload.employee.position,'Operator');
  // File bytes are persistent and only visible to personnel roles in this factory.
@@ -47,12 +53,14 @@ try{
  assert.equal((await call(p+'/files/'+file.body.id,'GET',undefined,users.buxgalter)).status,403);
  card=await ok(p);assert.ok(!JSON.stringify(card.files).includes('contentBase64'));e=card.employee;
  const terminationTerms={terminationBasis:'other',reason:'Sinov asosi',evidence:'Sinov hujjati',sourceContractNumber:'S-001',sourceContractDate:'2026-10-01'};
- let termination=await ok(p+'/documents','POST',{kind:'termination',number:'B-003',date:'2026-11-01',effectiveDate:'2026-11-01',terms:terminationTerms});assert.equal((await issue(termination)).status,400);
+ assert.equal((await call(p+'/documents','POST',{kind:'termination',number:'R-1',date:'2026-11-01',effectiveDate:'2026-11-01',terms:terminationTerms,signedPdf},users.rahbar)).status,403);
+ assert.equal((await call('/hr/employees/'+e.id,'PUT',{...e,endDate:'2026-11-01'},users.rahbar)).status,409);
+ let termination=await ok(p+'/documents','POST',{kind:'termination',signedPdf,number:'B-003',date:'2026-11-01',effectiveDate:'2026-11-01',terms:terminationTerms});assert.equal((await issue(termination)).status,400);
  termination=await edit(termination,{number:'B-003',date:'2026-11-01',effectiveDate:'2026-11-01',terms:{...terminationTerms,terminationBasis:'mutual'}});
  await q("INSERT INTO hr_months(factory_id,month,norm_hours,status) VALUES($1,'2026-11',160,'approved')",[f.id]);assert.equal((await issue(termination)).status,409);await q("UPDATE hr_months SET status='draft' WHERE factory_id=$1",[f.id]);
- assert.equal((await issue(termination)).status,200);card=await ok(p);assert.equal(card.employee.endDate,'2026-11-01');assert.ok(card.history.some(h=>h.action==='personnel.document.issue'));
+ assert.equal((await issue(termination,users.rahbar)).status,403);assert.equal((await issue(termination,users.buxgalter)).status,403);assert.equal((await issue(termination,alien)).status,400);assert.equal((await issue(termination,users.kadrlar)).status,200);card=await ok(p);assert.equal(card.employee.endDate,'2026-11-01');assert.ok(card.history.some(h=>h.action==='personnel.document.issue'));
  // Central archive contains only this factory and excludes file bytes / document payloads.
- const center=await ok('/hr/personnel-documents');assert.equal(center.documents.length,5);assert.equal(center.files.length,1);assert.ok(!JSON.stringify(center).includes('contentBase64'));assert.ok(!Object.hasOwn(center.documents[0],'payload'));
+ const center=await ok('/hr/personnel-documents');assert.equal(center.documents.length,5);assert.equal(center.files.length,1);assert.ok(center.documents.every(d=>d.hasSignedPdf));assert.ok(!JSON.stringify(center).includes('contentBase64'));assert.ok(!Object.hasOwn(center.documents[0],'payload'));
  for(const u of [users.buxgalter,users.usta])assert.equal((await call('/hr/personnel-documents','GET',undefined,u)).status,403);
  assert.equal((await ok('/hr/personnel-documents','GET',undefined,alien)).documents.length,0);
  const original=await ok(`${p}/documents/${hire.id}`);assert.equal(original.payload.terms.sourceContractNumber,'S-001');assert.equal((await call(`${p}/documents/${hire.id}`,'GET',undefined,alien)).status,400);
@@ -62,11 +70,12 @@ try{
  const companyBytes=await fetch(base+'/hr/personnel-documents/company-files/'+company.id,{headers:{Authorization:`Bearer ${issueToken(users.kadrlar)}`}});assert.deepEqual(Buffer.from(await companyBytes.arrayBuffer()),bytes);
  assert.equal((await call('/hr/personnel-documents/company-files/'+company.id,'GET',undefined,alien)).status,400);assert.equal((await call('/hr/personnel-documents/company-files/'+company.id,'GET',undefined,users.buxgalter)).status,403);
  // Complete backup and restore retains linked documents and attachment bytes.
- const backup=await ok('/backup','GET',undefined,users.admin);assert.equal(backup.data.hr_employee_files.length,1);assert.equal(backup.data.hr_company_files.length,1);assert.equal(backup.data.hr_employment_docs.length,5);
+ const backup=await ok('/backup','GET',undefined,users.admin);assert.equal(backup.data.hr_employee_files.length,1);assert.equal(backup.data.hr_company_files.length,1);assert.equal(backup.data.hr_employment_docs.length,5);assert.equal(backup.data.hr_employment_docs.find(d=>d.id===termination.id).signed_pdf.contentBase64,signedPdf.contentBase64);
  const folder=fs.mkdtempSync(path.join(os.tmpdir(),'personnel-restore-'));
  try{
   const fileName=path.join(folder,'backup.json');fs.writeFileSync(fileName,JSON.stringify(backup));await q('DELETE FROM hr_employee_files WHERE factory_id=$1',[f.id]);
   await promisify(execFile)(process.execPath,[fileURLToPath(new URL('../scripts/restore.js',import.meta.url)),fileName,'--yes'],{cwd:folder,env:process.env,windowsHide:true});
+  assert.equal((await one('SELECT signed_pdf FROM hr_employment_docs WHERE id=$1',[termination.id])).signedPdf.contentBase64,signedPdf.contentBase64);
   assert.equal((await ok(p)).files.length,1);assert.equal((await one('SELECT content_base64 FROM hr_employee_files WHERE id=$1',[file.body.id])).contentBase64,bytes.toString('base64'));
   const legacy={...backup,data:{...backup.data}};for(const table of ['hr_employers','hr_employment_docs','hr_employee_files','hr_records','hr_leave_allowances','hr_company_files'])delete legacy.data[table];
   fs.writeFileSync(fileName,JSON.stringify(legacy));await promisify(execFile)(process.execPath,[fileURLToPath(new URL('../scripts/restore.js',import.meta.url)),fileName,'--yes'],{cwd:folder,env:process.env,windowsHide:true});

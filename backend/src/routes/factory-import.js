@@ -7,6 +7,7 @@ import {financeLock} from '../finance-integrity.js';
 const r=Router();
 r.use((req,res,next)=>req.user.role==='admin'&&!req.user.factoryId?next():res.status(403).json({error:'JSON import faqat bosh administrator uchun'}));
 r.use((req,res,next)=>{res.set('Cache-Control','no-store');next();});
+const HR_ARCHIVE_TABLES=['hr_employees','hr_rates','hr_months','hr_payments','hr_events','hr_records','hr_leave_allowances','hr_employers','hr_employment_docs','hr_employee_files','hr_company_files'];
 const hash=value=>crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const metadata='id,factory_id,source_name,source_created_at,counts,replaced,created_by,created_at';
 async function target(c,id){if(!isId(id))throw new ValidationError('Maqsad zavodni tanlang');const f=await one('SELECT * FROM factories WHERE id=$1',[id],c);if(!f||f.archived)throw new ValidationError('Faol zavod topilmadi');return f;}
@@ -33,9 +34,17 @@ r.post('/',async(req,res)=>{
  const replace=hasData(state);if(replace&&b.replace!==true)throw new ConflictError('Zavodda ma’lumot bor. Oldingi holat zaxiralanib almashtirilishini belgilang');
  if(await blocked(c,f.id))throw new ConflictError('Zavodda moliyaviy yozuvlar bor. Ularning bog‘lanishlarini saqlash uchun importni yangi yoki bo‘sh zavodga bajaring');
  const sourceData={...b.backup,data:{...b.backup.data,users:[]}};
- const archive=await one('INSERT INTO factory_imports(factory_id,request_id,source_hash,source_name,source_created_at,counts,replaced,source_data,previous_data,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING '+metadata,[f.id,b.requestId,p.sourceHash,String(b.fileName||'pto-backup.json').slice(0,160),String(b.backup.createdAt||'').slice(0,100),JSON.stringify(p.counts),replace,JSON.stringify(sourceData),JSON.stringify(state),{id:req.user.id,name:req.user.name||req.user.username}],c);
+ const previousData={...state};
+ if(p.records.hr_employees?.length){
+  await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,8172))',[f.id]);
+  await c.query('LOCK TABLE hr_employees IN SHARE ROW EXCLUSIVE MODE');
+  for(const table of HR_ARCHIVE_TABLES)previousData[table]=(await c.query('SELECT * FROM '+table+' WHERE factory_id=$1',[f.id])).rows;
+  for(const employee of p.records.hr_employees){const existing=await one('SELECT * FROM hr_employees WHERE factory_id=$1 AND (code=$2 OR lower(btrim(name))=lower(btrim($3)))',[f.id,employee.code,employee.name],c);if(existing)throw new ConflictError('Xodim avvaldan mavjud: '+employee.name+'. Xodimlarni qayta qo‘shishdan oldin ro‘yxatni tekshiring');}
+ }
+ const archive=await one('INSERT INTO factory_imports(factory_id,request_id,source_hash,source_name,source_created_at,counts,replaced,source_data,previous_data,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING '+metadata,[f.id,b.requestId,p.sourceHash,String(b.fileName||'pto-backup.json').slice(0,160),String(b.backup.createdAt||'').slice(0,100),JSON.stringify(p.counts),replace,JSON.stringify(sourceData),JSON.stringify(previousData),{id:req.user.id,name:req.user.name||req.user.username}],c);
  for(const table of ['movements','inventories','vehicle_logs','product_moves','acct_reports','month_plans','days','orders','suppliers','targets','products','materials','counters','settings'])await c.query('DELETE FROM '+table+' WHERE factory_id=$1',[f.id]);
  for(const table of OPERATION_TABLES){for(const obj of p.records[table]||[]){const sql=insertSql(table,{factoryId:f.id,...obj});await c.query(sql.text,sql.values);}}
+ for(const employee of p.records.hr_employees||[]){const sql=insertSql('hr_employees',{factoryId:f.id,...employee});await c.query(sql.text,sql.values);}
  // Keep the successful import and its audit entry in the same transaction.
  await c.query('INSERT INTO audit_log(factory_id,"user",action,entity,entity_id,label,changes) VALUES($1,$2,$3,$4,$5,$6,$7)',[f.id,{id:req.user.id,username:req.user.username,name:req.user.name},'create','factoryImport',archive.id,'JSON import: '+f.name,JSON.stringify([{p:'counts',a:Object.fromEntries(Object.entries(state).map(([k,v])=>[k,v.length])),b:p.counts}])]);
  return {import:archive,alreadyImported:false};

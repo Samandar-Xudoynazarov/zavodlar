@@ -2,11 +2,11 @@ import { Router,raw } from 'express';
 import { one,rows,tx } from '../db.js';
 import { isId,validDate,ValidationError,ConflictError } from '../valid.js';
 import { text,number,today,monthEnd,cleanDays } from '../payroll.js';
-import { PERSONNEL_ROLES,DOCUMENT_APPROVERS,DOSSIER_SLOTS,employeeSnapshot,LABOUR_SOURCE,LABOUR_CHECKED } from '../personnel.js';
+import { PERSONNEL_ROLES,DOCUMENT_APPROVERS,TERMINATION_ROLES,DOSSIER_SLOTS,employeeSnapshot,LABOUR_SOURCE,LABOUR_CHECKED } from '../personnel.js';
 const r=Router(),actor=req=>({id:req.user.id,name:req.user.name||req.user.username});
 const guard=roles=>(req,res,next)=>roles.includes(req.user.role)?next():res.status(403).json({error:"Sizda bu amal uchun ruxsat yo'q"});
 r.use('/personnel',guard(PERSONNEL_ROLES));
-const write=fn=>async(req,res)=>res.json(await tx(async c=>{await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,8172))',[req.factoryId]);return fn(c,req);}));
+const write=fn=>async(req,res)=>res.json(safeDocument(await tx(async c=>{await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,8172))',[req.factoryId]);return fn(c,req);})));
 const event=(c,req,action,id,detail)=>c.query('INSERT INTO hr_events(factory_id,actor,action,entity_id,detail) VALUES($1,$2,$3,$4,$5)',[req.factoryId,actor(req),action,id,JSON.stringify(detail)]);
 function version(row,b){if(!Number.isInteger(b?.version)||row.version!==b.version)throw new ConflictError('Ma’lumot o‘zgargan. Qayta yuklang');}
 async function employee(c,req){
@@ -14,6 +14,18 @@ async function employee(c,req){
  const e=await one('SELECT * FROM hr_employees WHERE factory_id=$1 AND id=$2',[req.factoryId,req.params.id],c);
  if(!e)throw new ValidationError('Xodim topilmadi');return e;
 }
+
+function safeDocument(doc){if(!doc?.signedPdf)return doc;const {contentBase64,...metadata}=doc.signedPdf;return {...doc,signedPdf:metadata};}
+function signedPdf(input,old=null,required=true){
+ if(input===undefined){if(old)return old;if(!required)return null;throw new ValidationError('Hujjat raqami bilan imzolangan PDF nusxasini ham yuklang');}
+ const encoded=input?.contentBase64;
+ if(typeof encoded!=='string'||encoded.length>4194304||!/^[-A-Za-z0-9+/=]+$/.test(encoded))throw new ValidationError('PDF fayl noto‘g‘ri (3 MB gacha)');
+ const bytes=Buffer.from(encoded,'base64');
+ if(!bytes.length||bytes.length>3145728||bytes.subarray(0,5).toString()!=='%PDF-'||bytes.toString('base64')!==encoded)throw new ValidationError('PDF faylni tanlang (3 MB gacha)');
+ return {name:text(input.name,160)||'Imzolangan_hujjat.pdf',contentBase64:encoded,sizeBytes:bytes.length};
+}
+function canTerminate(req,res,next){return TERMINATION_ROLES.includes(req.user.role)?next():res.status(403).json({error:'Ishdan bo‘shatishni kadrlar bo‘limi rasmiylashtiradi'});}
+
 const date=(value,label,optional=false)=>{if(optional&&!value)return '';if(!validDate(value))throw new ValidationError(`${label}: sana noto‘g‘ri`);return value;};
 function employerProfile(p={}){
  if(!p||typeof p!=='object'||Array.isArray(p))throw new ValidationError('Korxona rekvizitlari noto‘g‘ri');
@@ -33,16 +45,17 @@ const payload=(e,employer,terms)=>({employee:{...employeeSnapshot(e),version:e.v
 async function employer(c,req){return await one('SELECT * FROM hr_employers WHERE factory_id=$1',[req.factoryId],c)||{version:0,profile:{company:req.factory?.name||''}};}
 r.get('/personnel/:id',async(req,res)=>res.json(await tx(async c=>{
  await c.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY');const e=await employee(c,req);
- return {employee:e,employer:await employer(c,req),documents:await rows('SELECT * FROM hr_employment_docs WHERE factory_id=$1 AND employee_id=$2 ORDER BY created_at,id',[req.factoryId,e.id],c),files:await rows('SELECT id,slot,name,mime,size_bytes,uploaded_at,uploaded_by FROM hr_employee_files WHERE factory_id=$1 AND employee_id=$2 ORDER BY uploaded_at DESC',[req.factoryId,e.id],c),history:await rows("SELECT id,actor,action,created_at,detail FROM hr_events WHERE factory_id=$1 AND entity_id=$2 AND (action LIKE 'personnel.%' OR action IN ('employee.create','employee.update')) ORDER BY created_at DESC LIMIT 100",[req.factoryId,e.id],c)};
+ return {employee:e,employer:await employer(c,req),documents:(await rows("SELECT *,signed_pdf - 'contentBase64' AS signed_pdf FROM hr_employment_docs WHERE factory_id=$1 AND employee_id=$2 ORDER BY created_at,id",[req.factoryId,e.id],c)).map(safeDocument),files:await rows('SELECT id,slot,name,mime,size_bytes,uploaded_at,uploaded_by FROM hr_employee_files WHERE factory_id=$1 AND employee_id=$2 ORDER BY uploaded_at DESC',[req.factoryId,e.id],c),history:await rows("SELECT id,actor,action,created_at,detail FROM hr_events WHERE factory_id=$1 AND entity_id=$2 AND (action LIKE 'personnel.%' OR action IN ('employee.create','employee.update')) ORDER BY created_at DESC LIMIT 100",[req.factoryId,e.id],c)};
 })));
 r.put('/personnel-employer',guard(PERSONNEL_ROLES),write(async(c,req)=>{
  const old=await employer(c,req);version(old,req.body);const p=employerProfile(req.body.profile);
  const doc=await one('INSERT INTO hr_employers(factory_id,profile) VALUES($1,$2) ON CONFLICT(factory_id) DO UPDATE SET profile=$2,version=hr_employers.version+1 RETURNING *',[req.factoryId,JSON.stringify(p)],c);
  await event(c,req,'personnel.employer',req.factoryId,{before:old.profile,after:p});return doc;
 }));
-r.post('/personnel/:id/documents',write(async(c,req)=>{
+r.post('/personnel/:id/documents',(req,res,next)=>req.body?.kind==='termination'?canTerminate(req,res,next):next(),write(async(c,req)=>{
  const e=await employee(c,req),b=req.body||{},kind=b.kind;
  if(!['contract','hire','transfer','termination'].includes(kind))throw new ValidationError('Hujjat turi noto‘g‘ri');
+ const pdf=signedPdf(b.signedPdf,null,!!text(b.number,60));
  const em=employerProfile((await employer(c,req)).profile),terms=cleanTerms(b.terms||{position:e.position,department:e.department,startDate:e.hireDate});
  const d=date(b.date,'Hujjat'),effective=date(b.effectiveDate||terms.startDate||d,'Amal qilish');
  let relatedId=null;
@@ -52,22 +65,33 @@ r.post('/personnel/:id/documents',write(async(c,req)=>{
  }
  if(kind==='transfer'){
   if(!terms.position||!terms.agreementNumber||!validDate(terms.agreementDate)||!terms.evidence)throw new ValidationError('Yangi lavozim, qo‘shimcha kelishuv va xodim roziligini kiriting');
-  const addendum=await one("INSERT INTO hr_employment_docs(factory_id,employee_id,kind,number,date,effective_date,payload,created_by) VALUES($1,$2,'addendum',$3,$4,$5,$6,$7) RETURNING *",[req.factoryId,e.id,terms.agreementNumber,terms.agreementDate,effective,JSON.stringify(payload(e,em,terms)),actor(req)],c);relatedId=addendum.id;
+  const agreementPdf=signedPdf(b.agreementPdf);
+  const addendum=await one("INSERT INTO hr_employment_docs(factory_id,employee_id,kind,number,date,effective_date,payload,created_by) VALUES($1,$2,'addendum',$3,$4,$5,$6,$7) RETURNING *",[req.factoryId,e.id,terms.agreementNumber,terms.agreementDate,effective,JSON.stringify(payload(e,em,terms)),actor(req)],c);await c.query('UPDATE hr_employment_docs SET signed_pdf=$2 WHERE id=$1',[addendum.id,JSON.stringify(agreementPdf)]);relatedId=addendum.id;
  }
  const doc=await one('INSERT INTO hr_employment_docs(factory_id,employee_id,kind,number,date,effective_date,related_id,payload,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',[req.factoryId,e.id,kind,text(b.number,60),d,effective,relatedId,JSON.stringify(payload(e,em,terms)),actor(req)],c);
+ await c.query('UPDATE hr_employment_docs SET signed_pdf=$2 WHERE id=$1',[doc.id,pdf?JSON.stringify(pdf):null]);doc.signedPdf=pdf;
  await event(c,req,'personnel.document.create',e.id,{id:doc.id,kind,number:doc.number});return doc;
 }));
 async function document(c,req){
  if(!isId(req.params.docId))throw new ValidationError('Hujjat topilmadi');
  const d=await one('SELECT * FROM hr_employment_docs WHERE factory_id=$1 AND employee_id=$2 AND id=$3',[req.factoryId,req.params.id,req.params.docId],c);if(!d)throw new ValidationError('Hujjat topilmadi');return d;
 }
+r.get('/personnel/:id/documents/:docId/signed-pdf',async(req,res)=>{
+ await employee(null,req);const doc=await document(null,req),pdf=doc.signedPdf;
+ if(!pdf)return res.status(404).json({error:'Imzolangan PDF saqlanmagan'});
+ res.set({'Content-Type':'application/pdf','Content-Disposition':"attachment; filename*=UTF-8''"+encodeURIComponent(pdf.name),'X-Content-Type-Options':'nosniff','Cache-Control':'no-store'}).send(Buffer.from(pdf.contentBase64,'base64'));
+});
 r.get('/personnel/:id/documents/:docId',async(req,res)=>{
- await employee(null,req);res.json(await document(null,req));
+ await employee(null,req);res.json(safeDocument(await document(null,req)));
 });
 r.put('/personnel/:id/documents/:docId',write(async(c,req)=>{
  const e=await employee(c,req),old=await document(c,req),b=req.body||{};version(old,b);if(old.status!=='draft')throw new ConflictError('Faqat qoralama tahrirlanadi');
+ if(old.kind==='termination'&&!TERMINATION_ROLES.includes(req.user.role))throw new ConflictError('Ishdan bo‘shatishni kadrlar bo‘limi rasmiylashtiradi');
+ const changed=text(b.number,60)!==old.number||b.date!==old.date||b.effectiveDate!==old.effectiveDate||JSON.stringify(cleanTerms(b.terms))!==JSON.stringify(old.payload.terms);
+ const pdf=signedPdf(b.signedPdf,changed?null:old.signedPdf,!!text(b.number,60));
  const em=employerProfile((await employer(c,req)).profile),terms=cleanTerms(b.terms),d=date(b.date,'Hujjat'),effective=date(b.effectiveDate||terms.startDate||d,'Amal qilish');
  const doc=await one('UPDATE hr_employment_docs SET number=$4,date=$5,effective_date=$6,payload=$7,version=version+1 WHERE factory_id=$1 AND employee_id=$2 AND id=$3 RETURNING *',[req.factoryId,e.id,old.id,text(b.number,60),d,effective,JSON.stringify(payload(e,em,terms))],c);
+ await c.query('UPDATE hr_employment_docs SET signed_pdf=$2 WHERE id=$1',[doc.id,pdf?JSON.stringify(pdf):null]);doc.signedPdf=pdf;
  await event(c,req,'personnel.document.edit',e.id,{id:doc.id,kind:doc.kind});return doc;
 }));
 function required(v,label){if(!v)throw new ValidationError(`${label}: to‘ldiring`);}
@@ -89,7 +113,7 @@ function finalCheck(d){
   if(t.terminationBasis==='other'&&!t.legalClause)throw new ValidationError('Aniq modda, qism va bandni kiriting');
  }
 }
-r.post('/personnel/:id/documents/:docId/issue',guard(DOCUMENT_APPROVERS),write(async(c,req)=>{
+r.post('/personnel/:id/documents/:docId/issue',guard([...new Set([...DOCUMENT_APPROVERS,...TERMINATION_ROLES])]),async(req,res,next)=>{const doc=await document(null,req);if(!(doc.kind==='termination'?TERMINATION_ROLES:DOCUMENT_APPROVERS).includes(req.user.role))return res.status(403).json({error:doc.kind==='termination'?'Ishdan bo‘shatishni kadrlar bo‘limi rasmiylashtiradi':'Hujjatni rahbar tasdiqlaydi'});next();},write(async(c,req)=>{
  const e=await employee(c,req),doc=await document(c,req),b=req.body||{};version(doc,b);
  if(doc.status!=='draft')throw new ConflictError('Hujjat allaqachon rasmiylashtirilgan');
  if(b.signedConfirmed!==true||b.basisChecked!==true)throw new ValidationError('Imzolar va huquqiy asoslar tekshirilganini tasdiqlang');
@@ -105,7 +129,7 @@ r.post('/personnel/:id/documents/:docId/issue',guard(DOCUMENT_APPROVERS),write(a
    if(doc.effectiveDate>today())throw new ConflictError('Kelajakdagi buyruqni amal qilish sanasida qo‘llang');
   }else if(JSON.stringify(doc.payload.terms)!==JSON.stringify(ref.payload.terms)||doc.effectiveDate!==ref.effectiveDate)throw new ConflictError('Buyruq va qo‘shimcha kelishuv shartlari mos emas');
  }
- finalCheck(doc);const t=doc.payload.terms;
+ finalCheck(doc);signedPdf(undefined,doc.signedPdf);const t=doc.payload.terms;
  if(['hire','transfer','termination'].includes(doc.kind)){
   const frozen=await one("SELECT max(month) AS month FROM hr_months WHERE factory_id=$1 AND status<>'draft'",[req.factoryId],c);
   if(frozen.month&&doc.effectiveDate<=monthEnd(frozen.month))throw new ConflictError('Tasdiqlangan davrga buyruq qo‘llanmaydi');

@@ -34,7 +34,7 @@ app.use(
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   })
 );
-app.use(["/api/days", "/api/finance", "/api/admin/factory-imports"], express.json({ limit: "12mb" }));
+app.use(["/api/days", "/api/hr/personnel", "/api/finance", "/api/admin/factory-imports"], express.json({ limit: "12mb" }));
 app.use(express.json({ limit: "2mb" }));
 
 /* ---------- ochiq yo'llar ---------- */

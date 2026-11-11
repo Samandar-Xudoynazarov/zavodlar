@@ -62,12 +62,14 @@ function profile(b) {
 }
 r.post('/employees',guard(HR_ROLES),write(async(c,req)=>{
   const v=profile(req.body||{});
+  if(v.endDate&&!['admin','kadrlar'].includes(req.user.role))throw new ConflictError('Ishdan bo‘shatishni kadrlar bo‘limi rasmiylashtiradi');
   const doc=await one('INSERT INTO hr_employees(factory_id,code,name,position,department,phone,hire_date,end_date,notes,profile) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *',[req.factoryId,...Object.values(v).map(x=>typeof x==='object'?JSON.stringify(x):x)],c);
   await seedHiringDocs(c,req,doc);
   await invalidateDrafts(c,req.factoryId);await event(c,req,'employee.create',doc.id,v); return doc;
 }));
 r.put('/employees/:id',guard(HR_ROLES),write(async(c,req)=>{
   const e=await employee(c,req.factoryId,req.params.id); version(e,req.body||{}); const v=profile({...req.body,profile:req.body?.profile??e.profile});
+  if(v.endDate!==e.endDate&&!['admin','kadrlar'].includes(req.user.role))throw new ConflictError('Ishdan bo‘shatishni kadrlar bo‘limi rasmiylashtiradi');
   const months=await rows('SELECT month,attendance FROM hr_months WHERE factory_id=$1',[req.factoryId],c);
   for (const m of months) if (m.attendance[e.id]) cleanDays(m.attendance[e.id],m.month,v);
   const outside=await one("SELECT id FROM hr_records WHERE factory_id=$1 AND employee_id=$2 AND kind IN ('leave','shift') AND status='approved' AND (start_date<$3 OR ($4<>'' AND end_date>$4))",[req.factoryId,e.id,v.hireDate,v.endDate],c);

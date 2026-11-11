@@ -2,6 +2,7 @@ import { validDate,ValidationError } from './valid.js';
 import { text,today } from './payroll.js';
 export const PERSONNEL_ROLES=['admin','rahbar','kadrlar'];
 export const DOCUMENT_APPROVERS=['admin','rahbar'];
+export const TERMINATION_ROLES=['admin','kadrlar'];
 export const DOSSIER_SLOTS=['passport','residence','criminal','narcology','psych','medical086','photo','diploma','experience','military','pinfl','signed'];
 export const LABOUR_SOURCE='https://lex.uz/docs/-6257288';
 export const LABOUR_CHECKED='2026-11-03';

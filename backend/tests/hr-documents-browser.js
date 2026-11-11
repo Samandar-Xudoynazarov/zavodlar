@@ -59,7 +59,7 @@ try {
   const dialog=page.getByRole('dialog');
   const guide=await page.request.get('http://127.0.0.1:3100/help/kadrlar-qollanma.pdf');assert.equal(guide.status(),200);assert.equal((await guide.body()).subarray(0,5).toString(),'%PDF-');
   const fill=async(values)=>{for(const [name,value] of Object.entries(values))await dialog.getByLabel(name,{exact:true}).fill(String(value));};
-  const save=async()=>{await dialog.getByRole('button',{name:'Saqlash',exact:true}).click();await dialog.waitFor({state:'hidden'});};
+  const save=async()=>{for(const input of await dialog.locator('input[type=file]').all())await input.setInputFiles({name:'Imzolangan.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\nSigned order\n%%EOF')});await dialog.getByRole('button',{name:'Saqlash',exact:true}).click();await dialog.waitFor({state:'hidden'});};
   await page.screenshot({path:path.join(artifacts,'17-employees-list.png'),fullPage:true});
   await page.getByRole('button',{name:'Yangi xodim',exact:true}).click();
   await dialog.screenshot({path:path.join(artifacts,'18-employee-form.png')});
@@ -79,7 +79,7 @@ try {
   await fill({'Hujjat raqami':'S-002','Hujjat sanasi':'2026-11-01','Ish joyi':'Sinov zavodi','Ish rejimi':'Dushanba–juma, 09:00–18:00, tushlik 13:00–14:00','Lavozim maoshi':'3500000','Mehnat vazifalari':'Ishlab chiqarish uskunasini boshqarish'});await save();
   async function pdf(card,name){console.log('PDF',name);const [download]=await Promise.all([page.waitForEvent('download'),card.getByRole('button',{name:'PDF',exact:true}).click()]);await download.saveAs(path.join(root,'tmp/pdfs/'+name));}
   try{await pdf(contract(),'hr-contract.pdf');}catch(err){console.log('PDF DEBUG',await page.locator('.hr-personnel').innerText(),errors);throw err;}
-  async function confirm(card){await card.getByRole('button',{name:'Imzolanganini tasdiqlash',exact:true}).click();await dialog.getByLabel('Qog‘ozdagi hujjat tomonlar tomonidan imzolanganmi?',{exact:true}).selectOption('yes');await dialog.getByLabel('Huquqiy asos va barcha rekvizitlar tekshirildimi?',{exact:true}).selectOption('yes');await dialog.getByRole('button',{name:'Tasdiqlash',exact:true}).click();await dialog.waitFor({state:'hidden'});}
+  async function confirm(card){const termination=await card.getByRole('button',{name:'Ishdan bo‘shatishni rasmiylashtirish',exact:true}).count()>0;await card.getByRole('button',{name:termination?'Ishdan bo‘shatishni rasmiylashtirish':'Imzolanganini tasdiqlash',exact:true}).click();await dialog.getByLabel('Qog‘ozdagi hujjat tomonlar tomonidan imzolanganmi?',{exact:true}).selectOption('yes');await dialog.getByLabel('Huquqiy asos va barcha rekvizitlar tekshirildimi?',{exact:true}).selectOption('yes');await dialog.getByRole('button',{name:termination?'Ishdan bo‘shatishni rasmiylashtirish':'Tasdiqlash',exact:true}).click();await dialog.waitFor({state:'hidden'});}
   await confirm(contract());await hire().getByRole('button',{name:'Tahrirlash',exact:true}).click();await fill({'Hujjat raqami':'B-002','Hujjat sanasi':'2026-11-01'});await save();await pdf(hire(),'hr-hire.pdf');await confirm(hire());
   await page.getByRole('button',{name:'Lavozimini o‘zgartirish',exact:true}).click();
   await dialog.screenshot({path:path.join(artifacts,'20-transfer-form.png')});

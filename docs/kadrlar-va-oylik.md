@@ -20,7 +20,7 @@ Yangi xodim saqlanganda mehnat shartnomasi va unga bog‘langan qabul buyrug‘i
 2. PDFni tekshiring, tomonlar qog‘ozda imzolaydi. Rahbar yoki admin **Imzolanganini tasdiqlash** orqali imzolar va huquqiy asoslar tekshirilganini belgilaydi. Bu ERI emas va davlat tizimiga yubormaydi.
 3. Shartnoma tasdiqlangach qabul buyrug‘ini rasmiylashtiring. Buyruq aynan imzolangan shartnoma shartlarini oladi, maosh yozuvini tegishli sanadan yaratadi. Imzolangan shartnomadan keyin xodim kartochkasi o‘zgarsa, hujjat qayta rasmiylashtiriladi.
 4. **Lavozimini o‘zgartirish** yangi lavozim, bo‘lim, yozma rozilik, dastlabki shartnoma va qo‘shimcha kelishuv rekvizitlarini so‘raydi. Kelishuv va buyruq birgalikda qoralama yaratiladi. Avval kelishuv imzolangani tasdiqlanadi, so‘ng unga mos buyruq qo‘llanadi.
-5. **Ishdan bo‘shatish** shartnoma rekvizitlari, sabab, tasdiqlovchi hujjat va huquqiy asosni so‘raydi. Taraflar kelishuvi, muddat tugashi va xodim tashabbusi alohida variantlar; boshqa asos uchun aniq modda, qism va band qo‘lda kiritiladi. Ish beruvchi tashabbusi uchun asos tizim tomonidan taxmin qilinmaydi. Buyruq tasdiqlanganda oxirgi ish kuni kartochkaga yoziladi.
+5. **Ishdan bo‘shatish** shartnoma rekvizitlari, sabab, tasdiqlovchi hujjat va huquqiy asosni so‘raydi. Taraflar kelishuvi, muddat tugashi va xodim tashabbusi alohida variantlar; boshqa asos uchun aniq modda, qism va band qo‘lda kiritiladi. Ish beruvchi tashabbusi uchun asos tizim tomonidan taxmin qilinmaydi. Rahbar qog‘ozdagi buyruqni oldindan imzolaydi. Kadrlar xodimi (yoki administrator) imzolangan PDFni yuklab, «Ishdan bo‘shatishni rasmiylashtirish» bilan oxirgi ish kunini kartochkaga yozadi. Rahbar bu amalni ilovada bajarmaydi.
 
 Foydalanuvchi yuborgan bir sahifali buyruq va to‘rt sahifali shartnoma tuzilishi asos qilib olindi. Skanlardagi haqiqiy shaxsiy ma’lumotlar, imzo va muhr ko‘chirilmagan. PDFlar bosib chiqarish uchun; hajmli matn sahifalarni uzaytirishi mumkin. Ochiq litsenziyali Liberation Serif ishlatiladi, lotin va o‘zbek kirill harflari qo‘llanadi.
 
@@ -151,3 +151,11 @@ Qo‘llangan ta’til yoki smenani bekor qilishdan oldin tegishli tabel kunlarin
 Yangi jadvallar zaxira nusxaga kiritiladi. Eski, kadrlar bo‘limisiz zaxira mavjud kadrlar ma’lumotlarini saqlaydi. Kadrlar bo‘limi bor, ammo yangi reyestrlarsiz eski zaxirani tiklash yangi reyestrlarni bo‘sh holatga qaytaradi. Chala yangi reyestr zaxirasi rad etiladi; tiklashdan oldin avtomatik nusxa olinadi.
 
 Tekshiruvlar: `npm run test:workforce`, `node --env-file-if-exists=.env tests/workforce-browser.js`. Brauzer sinovi alohida vaqtinchalik bazada ishlaydi. Muddati yaqin yozuvlar ilova oynasida ko‘rinadi; Telegram orqali avtomatik kadrlar xabarlari hozircha yuborilmaydi.
+
+### Raqamli hujjatning imzolangan PDF nusxasi
+
+Hujjat raqami kiritilganda asl imzolangan PDF (3 MB gacha) ham yuklanadi. Hujjat va PDF bir tranzaksiyada saqlanadi. O‘tkazish buyrug‘ida qo‘shimcha kelishuv PDFi alohida yuklanadi. Rekvizit yoki shartlar o‘zgarsa yangilangan PDF talab qilinadi. Qoralamani raqamsiz saqlash mumkin, ammo PDFsiz rasmiylashtirish mumkin emas. Oldin rasmiylashtirilgan hujjatlar o‘zgarmaydi.
+
+Xodim kabinetida «Imzolangan PDF» tugmasi asl nusxani yuklaydi; «PDF» tugmasi dastur tayyorlagan blankni chiqaradi. Hujjatlar markazida yuklangan asl nusxa mavjud bo‘lsa shu nusxa olinadi, bo‘lmasa dastur blanki beriladi. Asl PDF zaxira nusxaga kiradi.
+
+Tekshirish: npm run test:personnel; node --env-file-if-exists=.env tests/personnel-termination-browser.js. Brauzer testi kadrlar va rahbar huquqlarini, PDF majburiyligini va aynan yuklangan nusxa qaytishini tekshiradi.

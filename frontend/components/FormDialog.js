@@ -27,6 +27,7 @@ export default function FormDialog({ form, onClose }) {
     const fd = new FormData(e.currentTarget);
     const out = {};
     for (const f of form.fields) {
+      if(f.type === "file"){const file=fd.get(f.name);out[f.name]=file instanceof File&&file.size?file:null;continue;}
       const v = String(fd.get(f.name) ?? "").trim();
       out[f.name] = f.type === "number" ? (v === "" ? 0 : Number(v)) : v;
     }
@@ -70,7 +71,8 @@ export default function FormDialog({ form, onClose }) {
                     aria-label={tr(f.label)}
                     name={f.name}
                     type={f.type || "text"}
-                    defaultValue={v}
+                    defaultValue={f.type === "file" ? undefined : v}
+                    accept={f.accept}
                     required={f.req}
                     min={f.min}
                     step={f.step}

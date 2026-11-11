@@ -22,3 +22,9 @@ Oldingi holat zaxirasini tiklash: backend papkasida npm run restore -- before-im
 Migratsiya: 010_factory_import.sql avtomatik qo‘llanadi. Import arxivi to‘liq zaxiralarga kiradi.
 
 Tekshirish: npm test yoki npm run test:import. Testlar vaqtinchalik alohida schema ichida ishlaydi.
+
+## Xodimlar ro‘yxati
+
+Eski ПТО JSONiga ixtiyoriy data.hrEmployees ro‘yxatini qo‘shish mumkin: _id, code, name, position, department, phone, hireDate, endDate, notes. Ism va noyob tabel raqami majburiy. Ishga kirish sanasi noma’lum bo‘lsa bo‘sh qoladi: bunday xodimlar ma’lumotlari to‘ldirilmagan deb ko‘rsatiladi va tabel/oylik hisobiga kirmaydi. Lavozim va buyruqlar keyin kiritiladi; import soxta shartnoma yoki buyruq yaratmaydi.
+
+Xodimlar mavjud ro‘yxatga qo‘shiladi. Bir xil tabel raqami yoki ism avvaldan bo‘lsa import to‘liq rad etiladi. Shu faylni qayta yuborish yangi xodim yaratmaydi. Xodimlar qo‘shiladigan importdan oldin kadrlar jadvallari ham arxivlanadi; oldingi zaxirani tiklash avvalgi xodimlar holatini qaytaradi.

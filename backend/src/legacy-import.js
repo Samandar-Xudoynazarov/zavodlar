@@ -6,9 +6,15 @@ const idOf=v=>v&&typeof v==='object'?v.$oid:String(v??'');
 export function validateLegacyBackup(backup){
  if(!backup||backup.app!=='pto'||backup.format!==1||!backup.data||typeof backup.data!=='object'||Array.isArray(backup.data))throw new ValidationError('Eski ПТО JSON zaxira faylini tanlang (app: pto, format: 1)');
  const D=backup.data;let count=0;
- for(const key of [...Object.keys(LEGACY_TABLES),'settings','users']){if(D[key]!==undefined&&!Array.isArray(D[key]))throw new ValidationError(key+' ro‘yxati noto‘g‘ri');if((D[key]?.length||0)>50000)throw new ValidationError(key+' ro‘yxati juda katta');count+=D[key]?.length||0;}
+ for(const key of [...Object.keys(LEGACY_TABLES),'settings','users','hrEmployees']){if(D[key]!==undefined&&!Array.isArray(D[key]))throw new ValidationError(key+' ro‘yxati noto‘g‘ri');if((D[key]?.length||0)>50000)throw new ValidationError(key+' ro‘yxati juda katta');count+=D[key]?.length||0;}
  if(!Array.isArray(D.materials)||!Array.isArray(D.products)||!D.materials.length&&!D.products.length)throw new ValidationError('Faylda material yoki mahsulotlar bo‘lishi kerak');
  if(count>100000||Buffer.byteLength(JSON.stringify(backup))>8388608)throw new ValidationError('Fayl juda katta (8 MB gacha)');
+ const employeeCodes=new Set(),employeeIds=new Set();
+ for(const e of D.hrEmployees||[]){
+  if(!e||typeof e!=='object'||Array.isArray(e)||!String(e.name||'').trim()||String(e.name).length>120||!String(e.code||'').trim()||String(e.code).length>40)throw new ValidationError('Xodimning ismi va tabel raqamini tekshiring');
+  const id=idOf(e._id);if(!/^(?:[a-f0-9]{24}|[a-f0-9-]{36})$/i.test(id)||employeeIds.has(id)||employeeCodes.has(e.code))throw new ValidationError('Xodim IDsi yoki tabel raqami takrorlangan');employeeIds.add(id);employeeCodes.add(e.code);
+  if(e.hireDate&&!validDate(e.hireDate)||e.endDate&&(!validDate(e.endDate)||!e.hireDate||e.endDate<e.hireDate))throw new ValidationError('Xodim ish sanalarini tekshiring');
+ }
  const known={};const seen=new Set();
  for(const key of Object.keys(LEGACY_TABLES)){known[key]=new Set();for(const row of D[key]||[]){if(!row||typeof row!=='object'||Array.isArray(row))throw new ValidationError(key+': qator noto‘g‘ri');const id=idOf(row._id);if(!/^(?:[a-f0-9]{24}|[a-f0-9-]{36})$/i.test(id)||seen.has(id))throw new ValidationError(key+': yozuv IDsi yo‘q yoki takrorlangan');seen.add(id);known[key].add(id);for(const [field,v] of Object.entries(row)){if(typeof v==='number'&&!Number.isFinite(v))throw new ValidationError(key+': son noto‘g‘ri');}if(['days','movements','inventories','productMoves','vehicleLogs'].includes(key)&&!validDate(row.date))throw new ValidationError(key+': sana noto‘g‘ri');if(['acctReports','monthPlans'].includes(key)&&!validMonth(row.month))throw new ValidationError(key+': oy noto‘g‘ri');}}
  const ref=(type,id,label,optional=false)=>{if(optional&&!id)return;if(!known[type]?.has(idOf(id)))throw new ValidationError(label+': bog‘langan '+type+' topilmadi');};
@@ -21,7 +27,7 @@ export function validateLegacyBackup(backup){
  for(const p of D.productMoves||[]){ref('products',p.productId,'Tayyor mahsulot');if(p.type==='fix')ref('products',p.toProductId,'Marka almashtirish');}
  for(const l of D.vehicleLogs||[])ref('targets',l.vehicleId,'Texnika jurnali');
  for(const s of D.settings||[]){for(const id of Object.keys(s.opening?.materials||{}))ref('materials',id,'Boshlang‘ich qoldiq');for(const id of Object.keys(s.opening?.products||{}))ref('products',id,'Boshlang‘ich qoldiq');}
- return {counts:Object.fromEntries([...Object.keys(LEGACY_TABLES),'settings'].map(k=>[k,D[k]?.length||0])),skippedUsers:D.users?.length||0};
+ return {counts:Object.fromEntries([...Object.keys(LEGACY_TABLES),'settings',...(D.hrEmployees?['hrEmployees']:[])].map(k=>[k,D[k]?.length||0])),skippedUsers:D.users?.length||0};
 }
 export async function prepareLegacyImport(backup){
  validateLegacyBackup(backup);const D=backup.data;const orderIds=new Set((D.orders||[]).map(x=>idOf(x._id)));
@@ -107,5 +113,6 @@ const records={};
  const s=sourceSettings||{};
  const opening={date:s.opening?.date||'',materials:mapKeys(s.opening?.materials),products:mapKeys(s.opening?.products)};
  await ins('settings',{electrodePct:s.electrodePct??1.5,company:s.company||'',signers:s.signers||[],opening,calcTemplate:s.calcTemplate?{...s.calcTemplate,items:mapLines(s.calcTemplate.items,'materialId')}:null,costSchemes:s.costSchemes||null,plan:s.plan||{concretePerDay:0,workDays:[1,2,3,4,5,6],holidays:[]}});
+ for(const e of D.hrEmployees||[])await ins('hr_employees',{id:U(e._id),code:String(e.code).trim(),name:String(e.name).trim(),position:String(e.position||'').trim().slice(0,120),department:String(e.department||'').trim().slice(0,120),phone:String(e.phone||'').trim().slice(0,40),hireDate:e.hireDate||'',endDate:e.endDate||'',notes:String(e.notes||'').slice(0,1500),profile:{}});
  return records;
 }

@@ -13,7 +13,7 @@ r.get('/personnel-documents',async(req,res)=>res.json(await tx(async c=>{
  const fid=[req.factoryId];
  return {
   employees:await rows('SELECT id,code,name,position,department,hire_date,end_date FROM hr_employees WHERE factory_id=$1 ORDER BY department,name',fid,c),
-  documents:await rows('SELECT id,employee_id,kind,number,date,effective_date,status,related_id,created_at FROM hr_employment_docs WHERE factory_id=$1 ORDER BY date DESC,created_at,id',fid,c),
+  documents:await rows('SELECT id,employee_id,kind,number,date,effective_date,status,related_id,created_at,(signed_pdf IS NOT NULL) AS has_signed_pdf FROM hr_employment_docs WHERE factory_id=$1 ORDER BY date DESC,created_at,id',fid,c),
   files:await rows('SELECT id,employee_id,slot,name,mime,size_bytes,uploaded_at FROM hr_employee_files WHERE factory_id=$1 ORDER BY uploaded_at DESC',fid,c),
   records:await rows('SELECT * FROM hr_records WHERE factory_id=$1 ORDER BY start_date DESC,created_at,id',fid,c),
   companyFiles:await rows('SELECT id,category,title,date,name,mime,size_bytes,uploaded_at FROM hr_company_files WHERE factory_id=$1 ORDER BY uploaded_at DESC',fid,c),
