@@ -1,3 +1,4 @@
+import { ensureDepartment as department } from '../hr-departments.js';
 import { Router } from 'express';
 import { one, rows, tx } from '../db.js';
 import { isId, validDate, validMonth, ValidationError, ConflictError } from '../valid.js';
@@ -7,6 +8,7 @@ import personnel from './personnel.js';
 import documents from './hr-documents.js';
 import { cleanProfile,seedHiringDocs } from '../personnel.js';
 const r=Router();
+const EMPLOYEE_ADMINS=['admin','kadrlar'];
 const actor=req=>({id:req.user.id,name:req.user.name||req.user.username});
 const guard=roles=>(req,res,next)=>roles.includes(req.user.role)?next():res.status(403).json({error:"Sizda bu amal uchun ruxsat yo'q"});
 r.use(guard(TIME_ROLES));
@@ -62,6 +64,7 @@ function profile(b) {
 }
 r.post('/employees',guard(HR_ROLES),write(async(c,req)=>{
   const v=profile(req.body||{});
+  v.department=await department(c,req.factoryId,v.department);
   if(v.endDate&&!['admin','kadrlar'].includes(req.user.role))throw new ConflictError('Ishdan bo‘shatishni kadrlar bo‘limi rasmiylashtiradi');
   const doc=await one('INSERT INTO hr_employees(factory_id,code,name,position,department,phone,hire_date,end_date,notes,profile) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *',[req.factoryId,...Object.values(v).map(x=>typeof x==='object'?JSON.stringify(x):x)],c);
   await seedHiringDocs(c,req,doc);
@@ -69,6 +72,7 @@ r.post('/employees',guard(HR_ROLES),write(async(c,req)=>{
 }));
 r.put('/employees/:id',guard(HR_ROLES),write(async(c,req)=>{
   const e=await employee(c,req.factoryId,req.params.id); version(e,req.body||{}); const v=profile({...req.body,profile:req.body?.profile??e.profile});
+  v.department=await department(c,req.factoryId,v.department);
   if(v.endDate!==e.endDate&&!['admin','kadrlar'].includes(req.user.role))throw new ConflictError('Ishdan bo‘shatishni kadrlar bo‘limi rasmiylashtiradi');
   const months=await rows('SELECT month,attendance FROM hr_months WHERE factory_id=$1',[req.factoryId],c);
   for (const m of months) if (m.attendance[e.id]) cleanDays(m.attendance[e.id],m.month,v);
@@ -79,6 +83,48 @@ r.put('/employees/:id',guard(HR_ROLES),write(async(c,req)=>{
     throw new ConflictError("Tasdiqlangan davrdagi ish sanalarini o'zgartirib bo'lmaydi");
   const doc=await one('UPDATE hr_employees SET code=$3,name=$4,position=$5,department=$6,phone=$7,hire_date=$8,end_date=$9,notes=$10,profile=$11,version=version+1,updated_at=now() WHERE factory_id=$1 AND id=$2 RETURNING *',[req.factoryId,e.id,...Object.values(v).map(x=>typeof x==='object'?JSON.stringify(x):x)],c);
   await invalidateDrafts(c,req.factoryId);await event(c,req,'employee.update',e.id,{before:e,after:doc}); return doc;
+}));
+// Department names remain compatible with existing payroll snapshots and imports.
+r.get('/departments',async(req,res)=>res.json(await rows(
+ 'SELECT d.*, (SELECT count(*)::int FROM hr_employees e WHERE e.factory_id=d.factory_id AND e.department=d.name) AS employee_count FROM hr_departments d WHERE d.factory_id=$1 ORDER BY d.name',[req.factoryId])));
+r.post('/departments',guard(EMPLOYEE_ADMINS),write(async(c,req)=>{
+ const name=text(req.body?.name,120);if(!name)throw new ValidationError('Bo‘lim nomi majburiy');
+ if(await one('SELECT id FROM hr_departments WHERE factory_id=$1 AND lower(btrim(name))=lower($2)',[req.factoryId,name],c))throw new ConflictError('Bu nomli bo‘lim mavjud');
+ const d=await one('INSERT INTO hr_departments(factory_id,name) VALUES($1,$2) RETURNING *',[req.factoryId,name],c);
+ await event(c,req,'department.create',d.id,{name});return d;
+}));
+r.put('/departments/:id',guard(EMPLOYEE_ADMINS),write(async(c,req)=>{
+ if(!isId(req.params.id))throw new ValidationError('Bo‘lim topilmadi');
+ const d=await one('SELECT * FROM hr_departments WHERE factory_id=$1 AND id=$2',[req.factoryId,req.params.id],c);
+ if(!d)throw new ValidationError('Bo‘lim topilmadi');version(d,req.body||{});
+ const name=text(req.body.name,120);if(!name)throw new ValidationError('Bo‘lim nomi majburiy');
+ if(await one('SELECT id FROM hr_departments WHERE factory_id=$1 AND id<>$2 AND lower(btrim(name))=lower($3)',[req.factoryId,d.id,name],c))throw new ConflictError('Bu nomli bo‘lim mavjud');
+ const changed=await one('UPDATE hr_departments SET name=$3,version=version+1 WHERE factory_id=$1 AND id=$2 RETURNING *',[req.factoryId,d.id,name],c);
+ await c.query('UPDATE hr_employees SET department=$3,version=version+1,updated_at=now() WHERE factory_id=$1 AND department=$2',[req.factoryId,d.name,name]);
+ await invalidateDrafts(c,req.factoryId);await event(c,req,'department.update',d.id,{before:d.name,after:name});return changed;
+}));
+r.delete('/departments/:id',guard(EMPLOYEE_ADMINS),write(async(c,req)=>{
+ if(!isId(req.params.id))throw new ValidationError('Bo‘lim topilmadi');
+ const d=await one('SELECT * FROM hr_departments WHERE factory_id=$1 AND id=$2',[req.factoryId,req.params.id],c);
+ if(!d)throw new ValidationError('Bo‘lim topilmadi');version(d,req.body||{});
+ if(await one('SELECT id FROM hr_employees WHERE factory_id=$1 AND department=$2 LIMIT 1',[req.factoryId,d.name],c))throw new ConflictError('Avval bo‘limdagi xodimlarni boshqa bo‘limga o‘tkazing');
+ await c.query('DELETE FROM hr_departments WHERE factory_id=$1 AND id=$2',[req.factoryId,d.id]);
+ await event(c,req,'department.delete',d.id,{name:d.name});return {ok:true};
+}));
+r.delete('/employees/:id',guard(EMPLOYEE_ADMINS),write(async(c,req)=>{
+ const e=await employee(c,req.factoryId,req.params.id);version(e,req.body||{});
+ if(req.body.confirmName!==e.name)throw new ValidationError('Tasdiqlash uchun xodimning F.I.Sh.ini aynan kiriting');
+ const months=await rows('SELECT * FROM hr_months WHERE factory_id=$1',[req.factoryId],c);
+ if(months.some(m=>m.status!=='draft'&&(m.attendance?.[e.id]||m.adjustments?.[e.id]||(m.snapshot||[]).some(x=>x.employeeId===e.id))))throw new ConflictError('Xodim tasdiqlangan yoki yopilgan oylikda bor. Hisob tarixini saqlash uchun ishdan bo‘shatishni rasmiylashtiring');
+ if(await one('SELECT id FROM hr_payments WHERE factory_id=$1 AND employee_id=$2 AND voided_at IS NULL LIMIT 1',[req.factoryId,e.id],c))throw new ConflictError('Xodimga to‘lov yozilgan. Avval to‘lovlarni tekshirib, bekor qiling');
+ for(const table of ['hr_employee_files','hr_employment_docs','hr_records','hr_leave_allowances','hr_rates','hr_payments'])await c.query('DELETE FROM '+table+' WHERE factory_id=$1 AND employee_id=$2',[req.factoryId,e.id]);
+ for(const m of months.filter(m=>m.status==='draft')){
+  if(!Object.hasOwn(m.attendance,e.id)&&!Object.hasOwn(m.adjustments,e.id))continue;
+  await c.query('UPDATE hr_months SET attendance=attendance-$3,adjustments=adjustments-$3,version=version+1,updated_at=now() WHERE factory_id=$1 AND month=$2',[req.factoryId,m.month,e.id]);
+ }
+ await c.query('DELETE FROM hr_events WHERE factory_id=$1 AND entity_id=$2',[req.factoryId,e.id]);
+ await c.query('DELETE FROM hr_employees WHERE factory_id=$1 AND id=$2',[req.factoryId,e.id]);
+ await invalidateDrafts(c,req.factoryId);await event(c,req,'employee.delete',e.id,{code:e.code,name:e.name});return {ok:true};
 }));
 r.get('/rates/:id',guard(PAY_ROLES),async(req,res)=>{
   await employee(null,req.factoryId,req.params.id);

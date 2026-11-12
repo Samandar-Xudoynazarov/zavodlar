@@ -30,6 +30,8 @@ export default function HrTab({notify,openForm,initialView,onViewChange}) {
   const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState('');
   const [query,setQuery]=useState(''),[selected,setSelected]=useState(''),[days,setDays]=useState({}),[dirty,setDirty]=useState(false);
   const [profileId,setProfileId]=useState('');
+  const [departments,setDepartments]=useState([]),[departmentFilter,setDepartmentFilter]=useState('');
+  const employeeAdmin=['admin','kadrlar'].includes(user?.role);
   const [rates,setRates]=useState(null),[history,setHistory]=useState(null);
   useEffect(()=>{if(initialView){setView(initialView);setDirty(false);setListEdits({});setDays(doc?.attendance?.[selected]||{});}},[initialView]);
   useEffect(()=>{setListDay(day=>Math.min(day,endOf(month)));},[month]);
@@ -37,10 +39,10 @@ export default function HrTab({notify,openForm,initialView,onViewChange}) {
   const load=useCallback(async()=>{
     const id=++request.current;setLoading(true);setError('');setDoc(null);
     try {
-      const [es,ms]=await Promise.all([api('/hr/employees'),api('/hr/months')]);
+      const [es,ms,ds]=await Promise.all([api('/hr/employees'),api('/hr/months'),api('/hr/departments')]);
       const m=ms.some(x=>x.month===month)?await api(`/hr/months/${month}`):null;
       if(id!==request.current)return;
-      setEmployees(es);setMonths(ms);setDoc(m);setDirty(false);
+      setEmployees(es);setDepartments(ds);setMonths(ms);setDoc(m);setDirty(false);
     } catch(e){if(id===request.current)setError(e.message);}
     finally {if(id===request.current)setLoading(false);}
   },[month]);
@@ -57,7 +59,7 @@ export default function HrTab({notify,openForm,initialView,onViewChange}) {
   const refresh=()=>{if(askLeave())load();};
   const changeView=v=>{if(askLeave()){setProfileId('');if(onViewChange){onViewChange(v);return;}setView(v);setDirty(false);setDays(doc?.attendance?.[selected]||{});}};
   const choose=id=>{if(askLeave()){setSelected(id);setDirty(false);}};
-  const visible=employees.filter(e=>`${e.name} ${e.code} ${e.position} ${e.department}`.toLowerCase().includes(query.toLowerCase()));
+  const visible=employees.filter(e=>`${e.name} ${e.code} ${e.position} ${e.department}`.toLowerCase().includes(query.toLowerCase())&&(!departmentFilter||(departmentFilter==='__none'? !e.department:e.department===departmentFilter)));
   const eligible=useMemo(()=>monthEmployees(employees,month),[employees,month]);
   const employee=employees.find(e=>e.id===selected);
   const payroll=doc?.payroll||[];const person=payroll.find(p=>p.employeeId===selected);
@@ -71,13 +73,32 @@ export default function HrTab({notify,openForm,initialView,onViewChange}) {
     const fields=[['birthDate','Tug‘ilgan sana','date'],['passport','Pasport / ID raqami'],['pinfl','JShShIR'],['passportIssued','Berilgan sana','date'],['passportExpiry','Amal qilish muddati','date'],['passportIssuer','Kim tomonidan berilgan'],['phone2','Ikkinchi telefon'],['birthPlace','Tug‘ilgan joy'],['citizenship','Fuqaroligi'],['gender','Jinsi'],['maritalStatus','Oilaviy holati'],['address','Doimiy manzil'],['currentAddress','Hozirgi manzil'],['education','Ma’lumoti'],['specialty','Mutaxassisligi'],['diplomaNumber','Diplom raqami'],['previousEmployment','Avvalgi ish joyi va staji'],['emergencyName','Yaqin kishisi'],['emergencyPhone','Yaqin kishisining telefoni']];
     openForm({title:e?'Xodim kartochkasi':'Yangi xodim',description:'Avval ish ma’lumotlarini kiriting, keyin pasport va aloqalarni to‘ldiring. Qolgan ma’lumotlarni keyin ham tahrirlash mumkin.',values:e?{...e,...e.profile}:{hireDate:today()},fields:[
       {name:'code',label:'Tabel raqami',req:true},{name:'name',label:'F.I.Sh.',req:true},
-      ...(!e?[{name:'position',label:'Lavozim'},{name:'department',label:'Sex / bo‘lim'}]:[]),
+      {name:'position',label:'Lavozim'},
+      {name:'department',label:'Sex / bo‘lim',type:'select',raw:true,options:[['','Bo‘limsiz'],...Array.from(new Set([...departments.map(d=>d.name),...employees.map(x=>x.department)].filter(Boolean))).sort().map(n=>[n,n])]},
       {name:'phone',label:'Telefon'},...fields.map(([name,label,type])=>({name,label,type})),
-      {name:'hireDate',label:'Ishga kirish sanasi',type:'date',req:true},{name:'notes',label:'Izoh',wide:true}].map(f=>({...f,section:['code','name','position','department','hireDate','notes'].includes(f.name)?'1. Ish ma’lumotlari':['phone','phone2','emergencyName','emergencyPhone'].includes(f.name)?'3. Aloqa ma’lumotlari':['education','specialty','diplomaNumber','previousEmployment'].includes(f.name)?'4. Ma’lumoti va tajribasi':'2. Shaxsiy ma’lumotlar'})).sort((a,b)=>a.section.localeCompare(b.section)),onSubmit:async v=>{
+      {name:'hireDate',label:'Ishga kirish sanasi',type:'date',req:true},...(employeeAdmin?[{name:'endDate',label:'Oxirgi ish kuni',type:'date'}]:[]),{name:'notes',label:'Izoh',wide:true}].map(f=>({...f,section:['code','name','position','department','hireDate','endDate','notes'].includes(f.name)?'1. Ish ma’lumotlari':['phone','phone2','emergencyName','emergencyPhone'].includes(f.name)?'3. Aloqa ma’lumotlari':['education','specialty','diplomaNumber','previousEmployment'].includes(f.name)?'4. Ma’lumoti va tajribasi':'2. Shaxsiy ma’lumotlar'})).sort((a,b)=>a.section.localeCompare(b.section)),onSubmit:async v=>{
         const profile={...e?.profile,...Object.fromEntries(fields.map(([key])=>[key,v[key]]))};
-        const saved=await api(e?`/hr/employees/${e.id}`:'/hr/employees',{method:e?'PUT':'POST',body:{...v,...(e?{position:e.position,department:e.department,endDate:e.endDate,version:e.version}:{}),profile}});
+        const saved=await api(e?`/hr/employees/${e.id}`:'/hr/employees',{method:e?'PUT':'POST',body:{...v,...(e?{endDate:employeeAdmin?v.endDate:e.endDate,version:e.version}:{}),profile}});
         await load();if(['admin','rahbar','kadrlar'].includes(user?.role))setProfileId(saved.id);notify('Saqlandi');
       }});
+  }
+  function departmentForm(d=null){
+    openForm({title:d?'Bo‘limni tahrirlash':'Yangi bo‘lim',values:d||{},fields:[{name:'name',label:'Bo‘lim nomi',req:true}],onSubmit:async v=>{
+      await api(d?'/hr/departments/'+d.id:'/hr/departments',{method:d?'PUT':'POST',body:{...v,...(d?{version:d.version}:{})}});
+      if(d&&departmentFilter===d.name)setDepartmentFilter(v.name);await load();notify('Saqlandi');
+    }});
+  }
+  function assignDepartment(){
+    openForm({title:'Xodimni bo‘limga biriktirish',values:{department:departmentFilter==='__none'?'':departmentFilter},fields:[
+      {name:'employeeId',label:'Xodim',type:'select',req:true,raw:true,options:[['','Tanlang'],...employees.map(e=>[e.id,e.name+' · '+e.code])]},
+      {name:'department',label:'Bo‘lim',type:'select',raw:true,options:[['','Bo‘limsiz'],...departments.map(d=>[d.name,d.name])]}
+    ],onSubmit:async v=>{const e=employees.find(e=>e.id===v.employeeId);if(!e)throw new Error('Xodim topilmadi');await api('/hr/employees/'+e.id,{method:'PUT',body:{...e,department:v.department}});await load();notify('Saqlandi');}});
+  }
+  function deleteEmployee(e){
+    openForm({title:'Xodimni butunlay o‘chirish',description:e.name+' — kartochka, shaxsiy fayllar, kadrlar hujjatlari, maosh tarixi va qoralama tabel yozuvlari o‘chadi. Amal qaytarilmaydi. Tasdiqlangan hisob yoki amaldagi to‘lov bo‘lsa o‘chirish bloklanadi.',submitLabel:'Butunlay o‘chirish',fields:[{name:'confirmName',label:'Tasdiqlash uchun xodimning to‘liq F.I.Sh.ini kiriting',req:true,wide:true}],onSubmit:async v=>{
+      await api('/hr/employees/'+e.id,{method:'DELETE',body:{version:e.version,confirmName:v.confirmName}});
+      if(selected===e.id)setSelected('');setProfileId('');await load();notify('Xodim o‘chirildi');
+    }});
   }
   function newMonth() {
     const workDays=dayList.filter(d=>{const wd=new Date(`${month}-${String(d).padStart(2,'0')}T00:00:00Z`).getUTCDay();return wd>0&&wd<6;}).length;
@@ -171,7 +192,9 @@ export default function HrTab({notify,openForm,initialView,onViewChange}) {
         <div className="hr-list-intro"><div><span className="hr-eyebrow">{t('Xodimlar ro‘yxati')}</span><h3>{t('Har bir xodimning ma’lumoti bir joyda')}</h3><p>{t('Kabinet uchun Ko‘rish tugmasini bosing. Shartnoma, buyruq va shaxsiy delo shu yerda.')}</p></div><div className="hr-list-total"><strong>{employees.filter(e=>!e.endDate||e.endDate>today()).length}</strong><span>{t('faol xodim')}</span></div></div>
         <div className="hr-list-guide"><Icon name="inv" size={21}/><p><strong>{t('Yangi xodim olasizmi?')}</strong> {t('Yangi xodim → Ma’lumotlar → Shartnoma → Qabul buyrug‘i')}</p></div>
         <div className="hr-toolbar hr-no-print">{['admin','rahbar','kadrlar'].includes(user?.role)&&<button className="btn" onClick={()=>changeView('archive')}><Icon name="acct"/>{t('Hujjatlar markazi')}</button>}<input type="search" aria-label={t('Xodim qidirish')} placeholder={t('Xodim qidirish')} value={query} onChange={e=>setQuery(e.target.value)}/>{manage&&<button className="btn primary" onClick={()=>employeeForm(null)}><Icon name="plus"/>{t('Yangi xodim')}</button>}</div>
-        <div className="tbl-wrap"><table><thead><tr>{['Tabel raqami','F.I.Sh.','Lavozim','Sex / bo‘lim','Ishga kirish sanasi','Holat','Amallar'].map(x=><th key={x}>{t(x)}</th>)}</tr></thead><tbody>{visible.map(e=><tr key={e.id}><td>{e.code}</td><td><strong>{e.name}</strong>{manage&&e.phone&&<div className="hint">{e.phone}</div>}</td><td>{e.position}</td><td>{e.department}</td><td>{e.hireDate}</td><td><span className={`hr-state ${e.endDate&&e.endDate<=today()?'personnel-inactive':'personnel-active'}`}>{t(!e.hireDate?'Ma’lumotlar to‘ldirilmagan':e.endDate&&e.endDate<=today()?'Ishdan chiqqan':'Faol')}</span></td><td className="hr-no-print"><div className="acts">{['admin','rahbar','kadrlar'].includes(user?.role)&&<button className="btn sm primary" onClick={()=>setProfileId(e.id)}>{t('Ko‘rish')}</button>}{manage&&<button className="btn sm" onClick={()=>employeeForm(e)}>{t('Kartochka')}</button>}<button className="btn sm" onClick={()=>{choose(e.id);changeView('time');}}>{t('Tabel')}</button>{pay&&<button className="btn sm" onClick={()=>showRates(e)}>{t('Maosh tarixi')}</button>}</div></td></tr>)}</tbody></table></div>
+        <div className="hr-toolbar hr-no-print"><label>{t('Bo‘lim bo‘yicha')}<select value={departmentFilter} onChange={e=>setDepartmentFilter(e.target.value)}><option value="">{t('Barcha bo‘limlar')}</option><option value="__none">{t('Bo‘limsiz')}</option>{Array.from(new Set([...departments.map(d=>d.name),...employees.map(e=>e.department)].filter(Boolean))).sort().map(n=><option key={n} value={n}>{n}</option>)}</select></label>{employeeAdmin&&<button className="btn" disabled={busy} onClick={()=>departmentForm()}><Icon name="plus"/>{t('Yangi bo‘lim')}</button>}{employeeAdmin&&<button className="btn" disabled={busy||!employees.length} onClick={assignDepartment}>{t('Bo‘limga biriktirish')}</button>}</div>
+        {employeeAdmin&&<details className="hr-card hr-no-print"><summary>{t('Bo‘limlarni boshqarish')} · {departments.length}</summary><div className="tbl-wrap"><table><thead><tr><th>{t('Bo‘lim')}</th><th>{t('Xodimlar')}</th><th>{t('Amallar')}</th></tr></thead><tbody>{departments.map(d=><tr key={d.id}><td>{d.name}</td><td>{d.employeeCount}</td><td><div className="acts"><button className="btn sm" disabled={busy} onClick={()=>departmentForm(d)}>{t('Tahrirlash')}</button><button className="btn sm" disabled={busy||d.employeeCount>0} onClick={()=>{if(window.confirm(d.name+' — '+t('Bo‘lim o‘chirilsinmi?')))run(async()=>{await api('/hr/departments/'+d.id,{method:'DELETE',body:{version:d.version}});if(departmentFilter===d.name)setDepartmentFilter('');await load();});}}>{t('O‘chirish')}</button></div></td></tr>)}</tbody></table></div>{!departments.length&&<p className="hint">{t('Avval bo‘lim yarating, keyin xodim kartochkasida bo‘limni tanlang.')}</p>}</details>}
+        <div className="tbl-wrap"><table><thead><tr>{['Tabel raqami','F.I.Sh.','Lavozim','Sex / bo‘lim','Ishga kirish sanasi','Holat','Amallar'].map(x=><th key={x}>{t(x)}</th>)}</tr></thead><tbody>{visible.map(e=><tr key={e.id}><td>{e.code}</td><td><strong>{e.name}</strong>{manage&&e.phone&&<div className="hint">{e.phone}</div>}</td><td>{e.position}</td><td>{e.department}</td><td>{e.hireDate}</td><td><span className={`hr-state ${e.endDate&&e.endDate<=today()?'personnel-inactive':'personnel-active'}`}>{t(!e.hireDate?'Ma’lumotlar to‘ldirilmagan':e.endDate&&e.endDate<=today()?'Ishdan chiqqan':'Faol')}</span></td><td className="hr-no-print"><div className="acts">{['admin','rahbar','kadrlar'].includes(user?.role)&&<button className="btn sm primary" onClick={()=>setProfileId(e.id)}>{t('Ko‘rish')}</button>}{manage&&<button className="btn sm" onClick={()=>employeeForm(e)}>{t('Tahrirlash')}</button>}{employeeAdmin&&<button className="btn sm" disabled={busy} onClick={()=>deleteEmployee(e)}>{t('Butunlay o‘chirish')}</button>}<button className="btn sm" onClick={()=>{choose(e.id);changeView('time');}}>{t('Tabel')}</button>{pay&&<button className="btn sm" onClick={()=>showRates(e)}>{t('Maosh tarixi')}</button>}</div></td></tr>)}</tbody></table></div>
         {!visible.length&&<div className="empty">{t('Xodimlar hali kiritilmagan')}</div>}
         {manage&&employee&&<div className="hr-card"><h3>{employee.name}</h3><p>{employee.position} · {employee.department}</p><p className="hint">{employee.notes}</p>{employee.endDate&&<p>{t('Oxirgi ish kuni')}: {employee.endDate}</p>}</div>}
         {pay&&rates&&employee&&<div className="hr-card"><div className="hr-heading"><h3>{t('Maosh tarixi')} · {employee.name}</h3><button className="btn primary" onClick={()=>rateForm(employee)}>{t('Maosh belgilash')}</button></div><p className="hint">{t('Har bir maosh o‘z sanasidan amal qiladi. Tasdiqlangan davr o‘zgarmaydi.')}</p><div className="tbl-wrap"><table><thead><tr>{['Amal qilish sanasi','Lavozim maoshi','Koeffitsiyent haqi','Razryad','Sabab','Amallar'].map(x=><th key={x}>{t(x)}</th>)}</tr></thead><tbody>{rates.map(r=><tr key={r.id}><td>{r.effectiveDate}</td><td>{fmtN(r.salary,2)}</td><td>{fmtN(r.coefficient,2)}</td><td>{r.grade}</td><td>{r.reason}</td><td><button className="btn sm" disabled={months.some(m=>m.status!=='draft'&&m.month>=r.effectiveDate.slice(0,7))} onClick={()=>rateForm(employee,r)}>{t('Tahrirlash')}</button></td></tr>)}</tbody></table></div>{!rates.length&&<p>{t('Maosh belgilanmagan')}</p>}</div>}
@@ -220,4 +243,4 @@ export default function HrTab({notify,openForm,initialView,onViewChange}) {
     </div>}
   </section>;
 }
-const eventLabel={'employee.create':'Xodim qo‘shildi','employee.update':'Xodim kartochkasi o‘zgardi','rate.create':'Maosh belgilandi','rate.update':'Maosh o‘zgartirildi','month.create':'Hisob oyi ochildi','month.settings':'Oy sozlamalari o‘zgardi','attendance.save':'Tabel saqlandi','payroll.adjust':'Oylik qo‘shimchalari o‘zgardi','payroll.approve':'Oylik tasdiqlandi','payroll.close':'Oy yopildi','payment.create':'To‘lov yozildi','payment.void':'To‘lov bekor qilindi','workforce.create':'Kadrlar yozuvi yaratildi','workforce.update':'Kadrlar yozuvi o‘zgardi','workforce.decision':'Kadrlar yozuvi holati o‘zgardi','workforce.apply':'Reja tabelga qo‘llandi','workforce.allowance':'Ta’til limiti o‘zgardi'};
+const eventLabel={'employee.delete':'Xodim o‘chirildi','department.create':'Bo‘lim yaratildi','department.update':'Bo‘lim o‘zgardi','department.delete':'Bo‘lim o‘chirildi','employee.create':'Xodim qo‘shildi','employee.update':'Xodim kartochkasi o‘zgardi','rate.create':'Maosh belgilandi','rate.update':'Maosh o‘zgartirildi','month.create':'Hisob oyi ochildi','month.settings':'Oy sozlamalari o‘zgardi','attendance.save':'Tabel saqlandi','payroll.adjust':'Oylik qo‘shimchalari o‘zgardi','payroll.approve':'Oylik tasdiqlandi','payroll.close':'Oy yopildi','payment.create':'To‘lov yozildi','payment.void':'To‘lov bekor qilindi','workforce.create':'Kadrlar yozuvi yaratildi','workforce.update':'Kadrlar yozuvi o‘zgardi','workforce.decision':'Kadrlar yozuvi holati o‘zgardi','workforce.apply':'Reja tabelga qo‘llandi','workforce.allowance':'Ta’til limiti o‘zgardi'};

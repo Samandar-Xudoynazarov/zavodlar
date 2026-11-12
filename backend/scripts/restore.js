@@ -23,6 +23,7 @@ if (backup.app !== "zavodlar" || backup.format !== 2 || !backup.data) {
   process.exit(1);
 }
 const D = backup.data;
+if(Object.hasOwn(D,'hr_departments')&&!Array.isArray(D.hr_departments))throw new Error('Bo‘limlar zaxirasi noto‘g‘ri');
 const HR_TABLES = ['hr_employees', 'hr_rates', 'hr_months', 'hr_payments', 'hr_events'];
 const NEW_HR_TABLES=['hr_records','hr_leave_allowances'];
 const PERSONNEL_TABLES=['hr_employers','hr_employment_docs','hr_employee_files'];
@@ -69,7 +70,7 @@ console.log(`Joriy holat saqlandi: ${autoName}`);
 const ORDER = ["factories", "settings", "materials", "products", "targets", "orders", "days", "inventories", "movements", "suppliers", "product_moves", "vehicle_logs", "acct_reports", "month_plans", "counters"];
 // Older backups have no personnel data: preserve existing personnel tables.
 if((hasNewHr||hasPersonnel||hasCompany)&&!hasHr)throw new Error('Kadrlar zaxirasi to‘liq emas');
-if (hasHr) ORDER.push(...HR_TABLES,...(hasNewHr?NEW_HR_TABLES:[]),...(hasPersonnel?PERSONNEL_TABLES:[]),...(hasCompany?['hr_company_files']:[]));
+if (hasHr) ORDER.push(...(Array.isArray(D.hr_departments)?['hr_departments']:[]),...HR_TABLES,...(hasNewHr?NEW_HR_TABLES:[]),...(hasPersonnel?PERSONNEL_TABLES:[]),...(hasCompany?['hr_company_files']:[]));
 // A legacy HR backup must not remove employees referenced by newer dossiers.
 const preserveEmployeeRows=hasHr&&(!hasNewHr||!hasPersonnel);
 if(hasDispatch)ORDER.push('dispatch_documents');

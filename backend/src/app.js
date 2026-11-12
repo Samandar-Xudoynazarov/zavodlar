@@ -374,7 +374,7 @@ app.get("/api/audit", adminOnly, async (req, res) => {
 });
 
 /* ---------- Zaxira nusxa (bosh ofis admini: hamma zavod; zavod admini: o'z zavodi) ---------- */
-export const BACKUP_TABLES = ["factories", "settings", "materials", "products", "days", "orders", "targets", "inventories", "movements", "suppliers", "product_moves", "vehicle_logs", "acct_reports", "month_plans", "counters", "hr_employees", "hr_rates", "hr_months", "hr_payments", "hr_events", "hr_records", "hr_leave_allowances", "hr_employers", "hr_employment_docs", "hr_employee_files", "hr_company_files", "dispatch_documents", "finance_order_progress", "finance_invoices", "finance_receipts", "factory_imports", "material_invoices"];
+export const BACKUP_TABLES = ["factories", "settings", "materials", "products", "days", "orders", "targets", "inventories", "movements", "suppliers", "product_moves", "vehicle_logs", "acct_reports", "month_plans", "counters", "hr_departments", "hr_employees", "hr_rates", "hr_months", "hr_payments", "hr_events", "hr_records", "hr_leave_allowances", "hr_employers", "hr_employment_docs", "hr_employee_files", "hr_company_files", "dispatch_documents", "finance_order_progress", "finance_invoices", "finance_receipts", "factory_imports", "material_invoices"];
 app.get("/api/backup", adminOnly, async (req, res) => {
   const fid = req.user.factoryId;
   const data = await tx(async (c) => {

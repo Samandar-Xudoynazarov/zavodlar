@@ -1,3 +1,4 @@
+import { ensureDepartment } from '../hr-departments.js';
 import { Router,raw } from 'express';
 import { one,rows,tx } from '../db.js';
 import { isId,validDate,ValidationError,ConflictError } from '../valid.js';
@@ -142,6 +143,7 @@ r.post('/personnel/:id/documents/:docId/issue',guard([...new Set([...DOCUMENT_AP
    await c.query('UPDATE hr_employees SET end_date=$3,version=version+1,updated_at=now() WHERE factory_id=$1 AND id=$2',[req.factoryId,e.id,doc.effectiveDate]);
   }else{
    if(e.endDate&&e.endDate<=today())throw new ConflictError('Ishdan chiqqan xodimga yangi ishga qabul yozuvi kerak');
+   t.department=await ensureDepartment(c,req.factoryId,t.department);
    await c.query('UPDATE hr_employees SET position=$3,department=$4,version=version+1,updated_at=now() WHERE factory_id=$1 AND id=$2',[req.factoryId,e.id,t.position,t.department]);
    if(t.salary>0){
     const rate=await one('SELECT * FROM hr_rates WHERE factory_id=$1 AND employee_id=$2 AND effective_date=$3',[req.factoryId,e.id,doc.effectiveDate],c);
