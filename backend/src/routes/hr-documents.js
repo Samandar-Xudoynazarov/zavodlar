@@ -1,3 +1,4 @@
+import { employerWithIdentity } from '../factory-profile.js';
 import { Router,raw } from 'express';
 import { one,rows,tx } from '../db.js';
 import { PERSONNEL_ROLES } from '../personnel.js';
@@ -18,7 +19,7 @@ r.get('/personnel-documents',async(req,res)=>res.json(await tx(async c=>{
   records:await rows('SELECT * FROM hr_records WHERE factory_id=$1 ORDER BY start_date DESC,created_at,id',fid,c),
   companyFiles:await rows('SELECT id,category,title,date,name,mime,size_bytes,uploaded_at FROM hr_company_files WHERE factory_id=$1 ORDER BY uploaded_at DESC',fid,c),
   months:await rows('SELECT month,norm_hours,status FROM hr_months WHERE factory_id=$1 ORDER BY month DESC',fid,c),
-  employer:(await one('SELECT profile FROM hr_employers WHERE factory_id=$1',fid,c))?.profile||{},
+  employer:await employerWithIdentity(req.factoryId,(await one('SELECT profile FROM hr_employers WHERE factory_id=$1',fid,c))?.profile||{},c),
  };
 })));
 r.post('/personnel-documents/company-files',raw({type:'application/octet-stream',limit:'3mb'}),write(async(c,req)=>{

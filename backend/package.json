@@ -14,7 +14,7 @@
     "restore": "node --env-file-if-exists=.env scripts/restore.js",
     "import-mongo": "node --env-file-if-exists=.env scripts/import-mongo.js",
     "import-products": "node --env-file-if-exists=.env scripts/import-products.js",
-    "test": "node --env-file-if-exists=.env tests/regression.js && node --env-file-if-exists=.env tests/notifications.js && node --env-file-if-exists=.env tests/telegram.js && node --env-file-if-exists=.env tests/payroll.js && node --env-file-if-exists=.env tests/workforce.js && node --env-file-if-exists=.env tests/personnel.js && node --env-file-if-exists=.env tests/finance.js && node --env-file-if-exists=.env tests/factory-import.js && node --env-file-if-exists=.env tests/material-invoices.js && node --env-file-if-exists=.env tests/factory-import-employees.js && node --env-file-if-exists=.env tests/departments.js",
+    "test": "node --env-file-if-exists=.env tests/regression.js && node --env-file-if-exists=.env tests/notifications.js && node --env-file-if-exists=.env tests/telegram.js && node --env-file-if-exists=.env tests/payroll.js && node --env-file-if-exists=.env tests/workforce.js && node --env-file-if-exists=.env tests/personnel.js && node --env-file-if-exists=.env tests/finance.js && node --env-file-if-exists=.env tests/factory-import.js && node --env-file-if-exists=.env tests/material-invoices.js && node --env-file-if-exists=.env tests/factory-import-employees.js && node --env-file-if-exists=.env tests/departments.js && node --env-file-if-exists=.env tests/factory-tools.js && node --env-file-if-exists=.env tests/timesheet-shifts.js && node --env-file-if-exists=.env tests/operations-flow.js",
     "test:payroll": "node --env-file-if-exists=.env tests/payroll.js",
     "test:notifications": "node --env-file-if-exists=.env tests/notifications.js",
     "test:telegram": "node --env-file-if-exists=.env tests/telegram.js",
@@ -24,7 +24,12 @@
     "test:import": "node --env-file-if-exists=.env tests/factory-import.js",
     "test:material-invoices": "node --env-file-if-exists=.env tests/material-invoices.js",
     "test:import-employees": "node --env-file-if-exists=.env tests/factory-import-employees.js",
-    "test:departments": "node --env-file-if-exists=.env tests/departments.js"
+    "test:departments": "node --env-file-if-exists=.env tests/departments.js",
+    "backup:auto": "node --env-file-if-exists=.env scripts/backup.js",
+    "backup:decrypt": "node --env-file-if-exists=.env scripts/backup-decrypt.js",
+    "test:factory-tools": "node --env-file-if-exists=.env tests/factory-tools.js",
+    "test:timesheet-shifts": "node --env-file-if-exists=.env tests/timesheet-shifts.js",
+    "test:operations": "node --env-file-if-exists=.env tests/operations-flow.js"
   },
   "engines": {
     "node": ">=20.12"

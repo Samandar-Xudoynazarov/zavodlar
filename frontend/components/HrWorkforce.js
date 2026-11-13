@@ -1,5 +1,6 @@
 "use client";
 import HrNavigation from './HrNavigation';
+import HrDeadlineNotice from './HrDeadlineNotice';
 import { useCallback,useEffect,useRef,useState } from 'react';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
@@ -76,7 +77,8 @@ export default function HrWorkforce({view,onViewChange,notify,openForm}) {
  }
  return <section className="sheet hr-workforce" aria-busy={loading}>
   <div className="hr-heading"><div><span className="hr-eyebrow">{t('Kadrlar bo‘limi')}</span><h2>{t(view==='overview'?'Kadrlar nazorati':TYPES[view]?.[1]||'Kadrlar nazorati')}</h2></div><button className="btn" disabled={busy||loading} onClick={load}>{t('Yangilash')}</button></div>
-  <HrNavigation view={view} onChange={onViewChange} tabs={[["overview","Kadrlar nazorati"],["employees","Xodimlar"],["time","Tabel"],...(["admin","rahbar","kadrlar"].includes(user.role)?[["archive","Hujjatlar"]]:[]),...Object.entries(TYPES).map(([key,[,label]])=>[key,label])]} />
+  <HrDeadlineNotice onOpen={()=>onViewChange('reminders')}/>
+  <HrNavigation view={view} onChange={onViewChange} tabs={[["overview","Kadrlar nazorati"],["employees","Xodimlar"],["time","Tabel"],...(["admin","rahbar","kadrlar"].includes(user.role)?[["archive","Hujjatlar"],["staff","Shtat jadvali"],["reminders","Muddat eslatmalari"]]:[]),...Object.entries(TYPES).map(([key,[,label]])=>[key,label])]} />
   {error&&<p className="err" role="alert">{t(error)}</p>}
   {loading?<p className="loading">{t("Ma'lumotlar yuklanmoqda…")}</p>:data&&<>
    {view==='overview'?<>

@@ -16,3 +16,9 @@ tmp/material-invoices/
 
 # Xodimlar importi uchun vaqtinchalik shaxsiy fayllar
 tmp/employee-json/
+
+# Temporary export validation fixtures
+tmp/factory-qa/
+
+# Generated frontend deployment archives
+tmp/deploy-frontend/

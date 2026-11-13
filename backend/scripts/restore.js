@@ -24,6 +24,7 @@ if (backup.app !== "zavodlar" || backup.format !== 2 || !backup.data) {
 }
 const D = backup.data;
 if(Object.hasOwn(D,'hr_departments')&&!Array.isArray(D.hr_departments))throw new Error('Bo‘limlar zaxirasi noto‘g‘ri');
+if(Object.hasOwn(D,'hr_staff_positions')&&!Array.isArray(D.hr_staff_positions))throw new Error('Shtat jadvali zaxirasi noto‘g‘ri');
 const HR_TABLES = ['hr_employees', 'hr_rates', 'hr_months', 'hr_payments', 'hr_events'];
 const NEW_HR_TABLES=['hr_records','hr_leave_allowances'];
 const PERSONNEL_TABLES=['hr_employers','hr_employment_docs','hr_employee_files'];
@@ -69,18 +70,20 @@ console.log(`Joriy holat saqlandi: ${autoName}`);
 // 2) almashtirish (bog'lanishlar tartibida: avval bolalar o'chiriladi, keyin ota-onalar qo'shiladi)
 const ORDER = ["factories", "settings", "materials", "products", "targets", "orders", "days", "inventories", "movements", "suppliers", "product_moves", "vehicle_logs", "acct_reports", "month_plans", "counters"];
 // Older backups have no personnel data: preserve existing personnel tables.
-if((hasNewHr||hasPersonnel||hasCompany)&&!hasHr)throw new Error('Kadrlar zaxirasi to‘liq emas');
-if (hasHr) ORDER.push(...(Array.isArray(D.hr_departments)?['hr_departments']:[]),...HR_TABLES,...(hasNewHr?NEW_HR_TABLES:[]),...(hasPersonnel?PERSONNEL_TABLES:[]),...(hasCompany?['hr_company_files']:[]));
+if((hasNewHr||hasPersonnel||hasCompany||Object.hasOwn(D,'hr_staff_positions'))&&!hasHr)throw new Error('Kadrlar zaxirasi to‘liq emas');
+if (hasHr) ORDER.push(...(Array.isArray(D.hr_departments)?['hr_departments']:[]),...(Array.isArray(D.hr_staff_positions)?['hr_staff_positions']:[]),...HR_TABLES,...(hasNewHr?NEW_HR_TABLES:[]),...(hasPersonnel?PERSONNEL_TABLES:[]),...(hasCompany?['hr_company_files']:[]));
 // A legacy HR backup must not remove employees referenced by newer dossiers.
 const preserveEmployeeRows=hasHr&&(!hasNewHr||!hasPersonnel);
 if(hasDispatch)ORDER.push('dispatch_documents');
 if(hasFinance)ORDER.push(...FINANCE_TABLES);
 if(hasMaterialInvoices)ORDER.push('material_invoices');
 if(Object.hasOwn(D,'factory_imports')){if(!Array.isArray(D.factory_imports))throw new Error('Import arxivi noto‘g‘ri');ORDER.push('factory_imports');}
-const JSONB = new Set(["signed_pdf","lines", "items", "rows", "customers", "extra_cols", "signers", "opening", "calc_template", "cost_schemes", "plan", "recipe", "writeoff", "norms", "calc", "notes", "production", "materials", "shipments", "created_by", "approved_by", "updated_by"]);
+if(Object.hasOwn(D,'day_reviews')){if(!Array.isArray(D.day_reviews))throw new Error('Hisobot tasdiqlash tarixi noto‘g‘ri');ORDER.push('day_reviews');}
+const JSONB = new Set(["document_profile","signed_pdf","lines", "items", "rows", "customers", "extra_cols", "signers", "opening", "calc_template", "cost_schemes", "plan", "recipe", "writeoff", "norms", "calc", "notes", "production", "materials", "shipments", "created_by", "approved_by", "updated_by"]);
 for (const key of ['history','source_data','previous_data','counts','work_days','holidays','attendance','adjustments','snapshot','closed_by','voided_by','actor','detail','profile','decided_by','payload','issued_by','uploaded_by']) JSONB.add(key);
 try {
   await tx(async (c) => {
+    if(!Object.hasOwn(D,'day_reviews')&&(await c.query('SELECT 1 FROM day_reviews WHERE factory_id=ANY($1::uuid[]) LIMIT 1',[fids])).rowCount)throw new Error('Bu eski zaxirada hisobot tasdiqlash tarixi yo‘q. Yangi to‘liq zaxiradan foydalaning.');
     if(!hasMaterialInvoices&&(await c.query('SELECT 1 FROM material_invoices WHERE factory_id=ANY($1::uuid[]) LIMIT 1',[fids])).rowCount)throw new Error('Eski zaxirada material fakturalari yo‘q. Yangi to‘liq zaxiradan foydalaning.');
     if(!hasFinance){
       for(const table of FINANCE_TABLES){const existing=await c.query('SELECT 1 FROM '+table+' WHERE factory_id=ANY($1::uuid[]) LIMIT 1',[fids]);if(existing.rowCount)throw new Error('Bu eski zaxirada moliyaviy ma’lumotlar yo‘q. Faktura va to‘lovlar saqlanishi uchun yangi to‘liq zaxiradan foydalaning.');}

@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "package:deploy": "node scripts/package-build.cjs"
   },
   "dependencies": {
     "exceljs": "4.4.0",

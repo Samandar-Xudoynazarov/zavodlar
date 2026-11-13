@@ -1,3 +1,4 @@
+import { employerWithIdentity } from '../factory-profile.js';
 import { ensureDepartment } from '../hr-departments.js';
 import { Router,raw } from 'express';
 import { one,rows,tx } from '../db.js';
@@ -43,7 +44,7 @@ function cleanTerms(p={}){
  return out;
 }
 const payload=(e,employer,terms)=>({employee:{...employeeSnapshot(e),version:e.version},employer,terms,legalSource:LABOUR_SOURCE,legalChecked:LABOUR_CHECKED});
-async function employer(c,req){return await one('SELECT * FROM hr_employers WHERE factory_id=$1',[req.factoryId],c)||{version:0,profile:{company:req.factory?.name||''}};}
+async function employer(c,req){const row=await one('SELECT * FROM hr_employers WHERE factory_id=$1',[req.factoryId],c)||{version:0,profile:{}};return {...row,profile:await employerWithIdentity(req.factoryId,row.profile,c)};}
 r.get('/personnel/:id',async(req,res)=>res.json(await tx(async c=>{
  await c.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY');const e=await employee(c,req);
  return {employee:e,employer:await employer(c,req),documents:(await rows("SELECT *,signed_pdf - 'contentBase64' AS signed_pdf FROM hr_employment_docs WHERE factory_id=$1 AND employee_id=$2 ORDER BY created_at,id",[req.factoryId,e.id],c)).map(safeDocument),files:await rows('SELECT id,slot,name,mime,size_bytes,uploaded_at,uploaded_by FROM hr_employee_files WHERE factory_id=$1 AND employee_id=$2 ORDER BY uploaded_at DESC',[req.factoryId,e.id],c),history:await rows("SELECT id,actor,action,created_at,detail FROM hr_events WHERE factory_id=$1 AND entity_id=$2 AND (action LIKE 'personnel.%' OR action IN ('employee.create','employee.update')) ORDER BY created_at DESC LIMIT 100",[req.factoryId,e.id],c)};
@@ -51,13 +52,15 @@ r.get('/personnel/:id',async(req,res)=>res.json(await tx(async c=>{
 r.put('/personnel-employer',guard(PERSONNEL_ROLES),write(async(c,req)=>{
  const old=await employer(c,req);version(old,req.body);const p=employerProfile(req.body.profile);
  const doc=await one('INSERT INTO hr_employers(factory_id,profile) VALUES($1,$2) ON CONFLICT(factory_id) DO UPDATE SET profile=$2,version=hr_employers.version+1 RETURNING *',[req.factoryId,JSON.stringify(p)],c);
+ await c.query('INSERT INTO settings(factory_id) VALUES($1) ON CONFLICT DO NOTHING',[req.factoryId]);
+ await c.query('UPDATE settings SET company=$2,document_profile=document_profile||$3::jsonb,document_version=document_version+1,updated_at=now() WHERE factory_id=$1',[req.factoryId,p.company,JSON.stringify(p)]);
  await event(c,req,'personnel.employer',req.factoryId,{before:old.profile,after:p});return doc;
 }));
 r.post('/personnel/:id/documents',(req,res,next)=>req.body?.kind==='termination'?canTerminate(req,res,next):next(),write(async(c,req)=>{
  const e=await employee(c,req),b=req.body||{},kind=b.kind;
  if(!['contract','hire','transfer','termination'].includes(kind))throw new ValidationError('Hujjat turi noto‘g‘ri');
  const pdf=signedPdf(b.signedPdf,null,!!text(b.number,60));
- const em=employerProfile((await employer(c,req)).profile),terms=cleanTerms(b.terms||{position:e.position,department:e.department,startDate:e.hireDate});
+ const em=(await employer(c,req)).profile,terms=cleanTerms(b.terms||{position:e.position,department:e.department,startDate:e.hireDate});
  const d=date(b.date,'Hujjat'),effective=date(b.effectiveDate||terms.startDate||d,'Amal qilish');
  let relatedId=null;
  if(kind==='hire'){

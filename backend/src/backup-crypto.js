@@ -1,0 +1,4 @@
+import crypto from 'node:crypto';import {gzipSync,gunzipSync} from 'node:zlib';
+function key(value){if(!/^[a-f0-9]{64}$/i.test(value||''))throw new Error('BACKUP_ENCRYPTION_KEY 64 ta hex belgi bo‘lsin');return Buffer.from(value,'hex');}
+export function encryptBackup(data,value){const iv=crypto.randomBytes(12),cipher=crypto.createCipheriv('aes-256-gcm',key(value),iv),body=Buffer.concat([cipher.update(gzipSync(Buffer.from(JSON.stringify(data)))),cipher.final()]);return Buffer.concat([Buffer.from('ZVB1'),iv,cipher.getAuthTag(),body]);}
+export function decryptBackup(data,value){if(data.subarray(0,4).toString()!=='ZVB1')throw new Error('Zaxira formati noto‘g‘ri');const decipher=crypto.createDecipheriv('aes-256-gcm',key(value),data.subarray(4,16));decipher.setAuthTag(data.subarray(16,32));return JSON.parse(gunzipSync(Buffer.concat([decipher.update(data.subarray(32)),decipher.final()])).toString());}

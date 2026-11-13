@@ -308,6 +308,7 @@ export default function OverviewTab({ notify, onOpenFactory }) {
                         </span>
                       )}
                     </div>
+                    <div className="ov-today"><div><div className="k">{t('Faol xodimlar')}</div><div className="v">{f.headcount||0}</div></div><div><div className="k">{t('Fakturalar bo‘yicha qarzdorlik')}</div><div className="v">{fmtN(f.finance?.receivable||0,0)} <small>{t('so‘m')}</small></div></div></div>
                     <span className="ov-card-link">{t("Zavod bo'limlarini ochish")} <Icon name="chevR" size={17} /></span>
                   </button>
                 );

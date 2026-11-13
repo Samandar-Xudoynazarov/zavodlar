@@ -6,6 +6,9 @@ import { api } from "@/lib/api";
 import Icon from "./Icon";
 import ExportMenu from "./ExportMenu";
 import NakladnoyDialog from "./NakladnoyDialog";
+import DayReview from "./DayReview";
+import ReportSigners from "./ReportSigners";
+import Reconciliation from "./Reconciliation";
 import { addDaySheet, deliver, newWorkbook, pickRows } from "@/lib/excel";
 import { BRAK_REASONS, consumption, fmtDate, fmtN, lsGet, lsSet, productOptions, round, shiftDate, today } from "@/lib/calc";
 
@@ -14,7 +17,11 @@ const emptyProd = () => ({ productId: "", plan: "", fact: "", brak: "", brakReas
 const emptyShip = () => ({ productId: "", qty: "", customer: "", vehicle: "", orderId: "" });
 
 export default function DayTab({ data, notify, onSaved, onDirtyChange, version }) {
-  const { canEdit, canDay } = useUser(); // canDay: ПТО, admin va sex boshlig'i (usta — jo'natish va kunni o'chirishsiz)
+  const { canEdit:mayEdit, canDay:mayEditDay,user } = useUser();
+  const [review,setReview]=useState({status:'draft',version:0});
+  const canDay=mayEditDay&&review.status==='draft',canEdit=mayEdit&&review.status==='draft';
+  const [quickEntry,setQuickEntry]=useState(false);
+  useEffect(()=>{setQuickEntry(window.matchMedia('(max-width:700px)').matches);},[]); // canDay: ПТО, admin va sex boshlig'i (usta — jo'natish va kunni o'chirishsiz)
   const { materials, products, mats, prods, settings, orders } = data;
   const [date, setDate] = useState(() => lsGet("pto.day", today()));
   const [loading, setLoading] = useState(true);
@@ -53,6 +60,7 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
       setShips(d.shipments.map((l) => ({ ...l, orderId: l.orderId || "" })));
       setNote(d.note || "");
       setExists(!d.isNew);
+      setReview({status:d.reviewStatus||'draft',version:d.version||0});
       setStock(s);
       setDirty(false);
       setLoaded({ date, ver: d.isNew ? null : d.updatedAt || null });
@@ -191,6 +199,7 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
 
   async function save(shipRows, dispatchDocument) {
     if (!ready) return notify("Kun ma'lumoti yuklanmagan — avval qayta yuklang");
+    if(!canDay)return notify('Hisobot tahrirdan yopilgan. Avval qayta oching');
     if (!Array.isArray(shipRows)) shipRows = ships;
     setSaving(true);
     try {
@@ -205,6 +214,7 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
           .map((r) => ({ productId: r.productId, qty: num(r.qty), customer: r.customer || "", vehicle: r.vehicle || "", orderId: r.orderId || null, dispatchId: r.dispatchId || null, dispatchNo: r.dispatchNo || "" })),
       };
       if (dispatchDocument) body.dispatchDocument = dispatchDocument;
+      body.baseVersion=review.version;
       body.baseUpdatedAt = loaded.ver; // server boshqa xodim keyin saqlaganini shu bilan aniqlaydi
       const doc = await api(`/days/${date}`, { method: "PUT", body });
       notify(tr("{d} saqlandi", { d: fmtDate(date) }));
@@ -212,6 +222,7 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
       setExists(true);
       setConflict(false);
       setLoaded({ date, ver: doc?.updatedAt || null });
+      setReview({status:doc.reviewStatus||'draft',version:doc.version||0});
       onSaved();
       return doc;
     } catch (e) {
@@ -341,7 +352,7 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
   const activeOrders = orders.filter((o) => o.status !== "topshirildi");
 
   return (
-    <section className={`sheet day${canDay ? " has-savebar" : ""}`}>
+    <section className={`sheet day${canDay ? " has-savebar" : ""}${quickEntry?' day-quick':''}`}>
       <div className="print-only print-head">
         <div>{settings.company}</div>
         <strong>Ежедневная информация о выпуске ЖБИ и об остатках основных материалов на {fmtDate(date)}</strong>
@@ -372,7 +383,7 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
         </div>
       </div>
 
-      <div className="day-controls no-print">
+      <div className='day-controls no-print'><label className='check'><input type='checkbox' checked={quickEntry} onChange={e=>setQuickEntry(e.target.checked)}/>{tr('Telefonda tez kiritish')}</label>
         <div className="day-date-group">
           <label className="day-date-label" htmlFor="day-date">{tr("Hisobot sanasi")}</label>
           <div className="daynav">
@@ -389,6 +400,9 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
         {!canDay && <span className="pill st-topshirildi">{tr("Ko'rish rejimi")}</span>}
       </div>
 
+      <ReportSigners settings={settings} canEdit={mayEdit} notify={notify} onSaved={onSaved}/>
+      <DayReview date={date} report={review} dirty={dirty} exists={exists} ready={ready} onChanged={async()=>{await load();onSaved();}} notify={notify}/>
+      {['admin','rahbar','pto','buxgalter'].includes(user?.role)&&<Reconciliation date={date} version={review.version}/>}
       {canDay && (
         <div className={`day-savebar no-print ${saving ? "is-saving" : dirty ? "is-dirty" : exists ? "is-saved" : ""}`}>
           <div className="day-save-state" role="status" aria-live="polite" aria-atomic="true">
@@ -456,7 +470,8 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
                 <p className="hint no-print">{tr("Reja va sifatli faktni kiriting. Brakni alohida yozing.")}</p>
               </div>
             </div>
-            <div className="tbl-wrap">
+            {quickEntry&&<fieldset className='plain day-quick-cards no-print' disabled={!canDay}>{prod.map((r,i)=><div className='hr-card' key={i}><label>{tr('Mahsulot')}<select value={r.productId} onChange={e=>setProdRow(i,{productId:e.target.value})}><option value=''>{tr('Mahsulot tanlang')}</option>{popts.map(([k,n])=><option key={k} value={k}>{n}</option>)}</select></label><div className='day-quick-numbers'>{[['plan','Reja'],['fact','Sifatli fakt'],['brak','Brak']].map(([key,label])=><label key={key}>{tr(label)}<input type='number' inputMode='numeric' min='0' step='1' value={r[key]} onChange={e=>setProdRow(i,{[key]:e.target.value})}/></label>)}</div>{num(r.brak)>0&&<label>{tr('Brak sababi')}<select value={r.brakReason||'boshqa'} onChange={e=>setProdRow(i,{brakReason:e.target.value})}>{BRAK_REASONS.map(([k,n])=><option key={k} value={k}>{tr(n)}</option>)}</select></label>}<label>{tr('Izoh')}<input value={r.note||''} onChange={e=>setProdRow(i,{note:e.target.value})}/></label><button className='btn sm danger' onClick={touch(()=>setProd(rows=>rows.filter((_,j)=>j!==i)))}>{tr('Qatorni o‘chirish')}</button></div>)}</fieldset>}
+            <div className={quickEntry?'tbl-wrap quick-table':'tbl-wrap'}>
               <fieldset className="plain" disabled={!canDay}><table className="edit day-production-table">
                 <thead>
                   <tr>
@@ -554,7 +569,8 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
                 )}
               </div>
             </div>
-            <div className="tbl-wrap" style={{ marginTop: 8 }}>
+            {quickEntry&&<fieldset className='plain day-quick-cards no-print' disabled={!canDay}>{matRows.map(({m,norm,v,end})=><div className='hr-card' key={m.id}><strong>{m.name}</strong><p className='hint'>{tr('Norma bo‘yicha')}: {fmtN(norm,3)} {m.unit}</p><label>{tr('Amaldagi sarf')}<input type='number' inputMode='decimal' min='0' step='0.001' value={v.sarf||''} onChange={e=>setMat(m.id,'sarf',e.target.value)}/></label><p className={end<0?'err':'hint'}>{tr('Qoldiq')}: {fmtN(end,3)} {m.unit}</p></div>)}</fieldset>}
+            <div className={quickEntry?'tbl-wrap quick-table':'tbl-wrap'} style={{ marginTop: 8 }}>
               <fieldset className="plain" disabled={!canDay}><table className="edit">
                 <thead>
                   <tr>

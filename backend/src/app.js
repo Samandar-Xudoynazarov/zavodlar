@@ -1,3 +1,8 @@
+import reconciliation from './routes/reconciliation.js';
+import {recordIncident} from './error-reporting.js';
+import dayReview from './routes/day-review.js';
+import {BACKUP_TABLES} from './backup-tables.js';
+import factoryIdentity from './routes/factory-profile.js';
 import express from "express";
 import cors from "cors";
 import { q, one, rows, migrate, tx, dbUrl, DB_VARS } from "./db.js";
@@ -164,6 +169,7 @@ app.use("/api", async (req, res, next) => {
 app.use("/api", notifications);
 app.use("/api", telegramSettings);
 
+app.use('/api',factoryIdentity);
 // Personnel/payroll has its own stricter permissions, including read access.
 app.use("/api/hr", hr);
 app.use("/api/finance/material-invoices", materialInvoices);
@@ -191,6 +197,7 @@ app.use("/api", (req, res, next) => {
   // tasdiqlangan reja: usta ham tuzadi va saqlaydi (o'chira olmaydi)
   if (MPLAN_ROLES.includes(role) && req.method === "PUT" && /^\/month-plans\/[^/]+$/.test(req.path)) return next();
   if (STORE_ROLES.includes(role) && (STORE_PATH.test(req.path) || (/^\/materials(\/|$)/.test(req.path) && req.method !== "DELETE"))) return next();
+  if (DAY_ROLES.includes(role)&&req.method==="POST"&&/^\/days\/[^/]+\/review$/.test(req.path))return next();
   if (DAY_ROLES.includes(role) && req.method === "PUT" && /^\/days\/[^/]+$/.test(req.path)) return next();
   if (DAY_ROLES.includes(role) && /^\/product-moves(\/|$)/.test(req.path)) return next();
   return res.status(403).json({ error: "Sizda bu amal uchun ruxsat yo'q" });
@@ -373,8 +380,12 @@ app.get("/api/audit", adminOnly, async (req, res) => {
   res.json({ items: list.slice(0, limit).map((x) => ({ ...x, id: String(x.id) })), hasMore: list.length > limit });
 });
 
+app.get('/api/error-incidents',adminOnly,async(req,res)=>{
+ const p=req.user.factoryId?[req.user.factoryId]:[];res.set('Cache-Control','no-store');res.json(await rows('SELECT id,factory_id,method,route,code,created_at FROM error_incidents '+(p.length?'WHERE factory_id=$1 ':'')+'ORDER BY created_at DESC LIMIT 50',p));
+});
+
 /* ---------- Zaxira nusxa (bosh ofis admini: hamma zavod; zavod admini: o'z zavodi) ---------- */
-export const BACKUP_TABLES = ["factories", "settings", "materials", "products", "days", "orders", "targets", "inventories", "movements", "suppliers", "product_moves", "vehicle_logs", "acct_reports", "month_plans", "counters", "hr_departments", "hr_employees", "hr_rates", "hr_months", "hr_payments", "hr_events", "hr_records", "hr_leave_allowances", "hr_employers", "hr_employment_docs", "hr_employee_files", "hr_company_files", "dispatch_documents", "finance_order_progress", "finance_invoices", "finance_receipts", "factory_imports", "material_invoices"];
+export {BACKUP_TABLES} from './backup-tables.js';
 app.get("/api/backup", adminOnly, async (req, res) => {
   const fid = req.user.factoryId;
   const data = await tx(async (c) => {
@@ -397,16 +408,18 @@ app.get("/api/backup", adminOnly, async (req, res) => {
 
 /* ---------- bo'limlar ---------- */
 app.use("/api", catalog);
+app.use("/api", dayReview);
 app.use("/api", production);
 app.use("/api", store);
 app.use("/api", overview);
 app.use("/api", reports);
+app.use("/api", reconciliation);
 
 /* ---------- 404 va xatolar ---------- */
 app.use("/api", (_req, res) => res.status(404).json({ error: "Bunday API yo'li yo'q" }));
 
 // eslint-disable-next-line no-unused-vars
-app.use((err, _req, res, _next) => {
+app.use(async (err, req, res, _next) => {
   if (err instanceof ValidationError) return res.status(400).json({ error: err.message });
   if (err instanceof ConflictError) return res.status(409).json({ error: err.message, code: "conflict" });
   if (err?.type === "entity.parse.failed") return res.status(400).json({ error: "JSON noto'g'ri" });
@@ -415,11 +428,13 @@ app.use((err, _req, res, _next) => {
   if (err?.code === "23505") return res.status(409).json({ error: "Bunday yozuv allaqachon bor" });
   if (err?.code === "23503") return res.status(409).json({ error: "Bog'langan yozuv bor yoki topilmadi" });
   if (err?.code === "23514" || err?.code === "22P02" || err?.code === "23502") return res.status(400).json({ error: "Noto'g'ri qiymat" });
-  console.error(err);
+  const databaseUnavailable=/ECONNREFUSED|ENOTFOUND|ETIMEDOUT|password authentication|database ".*" does not exist|DATABASE_URL/i.test(String(err?.message));
+  const errorId=await recordIncident(err,req,{databaseUnavailable});
+  res.set('X-Error-Id',errorId);
   if (/ECONNREFUSED|ENOTFOUND|ETIMEDOUT|password authentication|database ".*" does not exist|DATABASE_URL/i.test(String(err?.message))) {
-    return res.status(503).json({ error: "Ma'lumotlar bazasiga ulanib bo'lmadi — DATABASE_URL ni tekshiring (batafsil: /api/health)" });
+    return res.status(503).json({ error: "Ma'lumotlar bazasiga vaqtincha ulanib bo'lmadi",errorId });
   }
-  res.status(500).json({ error: "Serverda xatolik" });
+  res.status(500).json({ error: "Serverda xatolik",errorId });
 });
 
 export default app;

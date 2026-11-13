@@ -5,13 +5,13 @@ const dt=s=>s?s.split('-').reverse().join('.'):'__.__.____';
 const para=(text,options={})=>({text,alignment:'justify',margin:[0,0,0,9],...options});
 const line=()=>({canvas:[{type:'line',x1:0,y1:0,x2:495,y2:0,lineWidth:.7}],margin:[0,12,0,18]});
 export const DOC_TITLES={contract:'Mehnat shartnomasi',hire:'Ishga qabul qilish to‘g‘risida',addendum:'Mehnat shartnomasiga qo‘shimcha kelishuv',transfer:'Boshqa lavozimga o‘tkazish to‘g‘risida',termination:'Mehnat shartnomasini bekor qilish to‘g‘risida'};
-function base(doc,content){return {pageSize:'A4',pageMargins:[55,42,45,42],defaultStyle:{font:'Times',fontSize:12,lineHeight:1.15},info:{title:DOC_TITLES[doc.kind],author:doc.payload.employer.company||''},content};}
+function base(doc,content){if(['contract','addendum'].includes(doc.kind)&&doc.payload.employer.logo)content.unshift({image:doc.payload.employer.logo,fit:[110,50],alignment:'center',margin:[0,0,0,8]});return {pageSize:'A4',pageMargins:[55,42,45,42],defaultStyle:{font:'Times',fontSize:12,lineHeight:1.15},info:{title:DOC_TITLES[doc.kind],author:doc.payload.employer.company||''},content};}
 function signature(name,label='Imzo'){return {text:`${label}: __________________   ${name?val(name):''}`,margin:[0,20,0,0]};}
 function bodyOrder(doc,cyr){
  const {employee:e,employer:em,terms:t}=doc.payload,C=s=>cyr(s),name=C(e.name),job=C(t.position||e.position),company=C(em.company),effective=dt(doc.effectiveDate);
- const head={columns:[{width:'*',text:[{text:`«${val(em.company)}»\n`,bold:true},'MAS’ULIYATI CHEKLANGAN JAMIYATI\n',`${val(em.address)}\nTel. ${val(em.phone)}`],fontSize:10,alignment:'center'},
- {width:70,text:C(em.shortName||'МЧЖ'),bold:true,fontSize:16,color:'#43205d',alignment:'center',margin:[0,20,0,0]},
- {width:'*',text:[{text:`«${company}»\n`,bold:true},'МАСЪУЛИЯТИ ЧЕКЛАНГАН ЖАМИЯТ\n',`${C(val(em.address))}\nТел. ${val(em.phone)}`],fontSize:10,alignment:'center'}],columnGap:10};
+ const head={columns:[{width:'*',text:[{text:`«${val(em.company)}»\n`,bold:true},(em.legalForm||'')+'\n',`${val(em.address)}\nTel. ${val(em.phone)}`],fontSize:10,alignment:'center'},
+ em.logo?{width:70,image:em.logo,fit:[70,60],alignment:'center'}:{width:70,text:C(em.shortName||''),bold:true,fontSize:16,color:'#43205d',alignment:'center',margin:[0,20,0,0]},
+ {width:'*',text:[{text:`«${company}»\n`,bold:true},C(em.legalForm||'')+'\n',`${C(val(em.address))}\nТел. ${val(em.phone)}`],fontSize:10,alignment:'center'}],columnGap:10};
  let text=[],basis='';
  if(doc.kind==='hire'){
   text=[`«${company}» корхонасига ${effective} санадан ${job} вазифасига ${name} ишга қабул қилинсин.`,

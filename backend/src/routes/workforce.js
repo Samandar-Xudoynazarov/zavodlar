@@ -92,7 +92,7 @@ r.post('/workforce/records/:id/decision',guard(DECIDERS),write(async(c,req)=>{
   if(months.some(m=>m.status!=='draft'))throw new ConflictError('Tasdiqlangan yoki yopilgan oyga qo‘llanmaydi');
   if(plannedDays(old).some(({date,value})=>{
    const actual=months.find(m=>m.month===date.slice(0,7))?.attendance[old.employeeId]?.[String(+date.slice(8))];
-   return actual&&['status','hours','shift'].every(k=>actual[k]===value[k]);
+   return actual&&actual.shiftCount!==2&&['status','hours','shift'].every(k=>actual[k]===value[k]);
   }))throw new ConflictError('Avval tabeldagi tegishli kunlarni tekshirib tuzating');
  }
  if(status==='approved')await checkApproval(c,req.factoryId,old);
@@ -111,7 +111,7 @@ r.post('/workforce/records/:id/apply',guard(DECIDERS),write(async(c,req)=>{
   if(m.status!=='draft')throw new ConflictError('Tasdiqlangan yoki yopilgan oyga qo‘llanmaydi');
   const days={...m.attendance[e.id]};
   for(const [day,v] of entries){
-   if(days[day]&&['status','hours','shift'].some(k=>days[day][k]!==v[k]))throw new ConflictError('Tabelda boshqa yozuv bor. Avval kunlarni tekshiring');
+   if(days[day]&&(days[day].shiftCount===2||['status','hours','shift'].some(k=>days[day][k]!==v[k])))throw new ConflictError('Tabelda boshqa yozuv bor. Avval kunlarni tekshiring');
    days[day]=v;
   }
   cleanDays(days,month,e);

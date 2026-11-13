@@ -1,3 +1,4 @@
+import {brandDocx} from './docx-branding';
 /**
  * Tijorat taklifi (коммерческое предложение) — tanlangan mahsulotlar va 1 dona narxi (QQSsiz), Word (DOCX).
  * Shablon: public/templates/tijorat-taklifi.docx — korxona blanki; qiymatlar o'rnida {{…}} belgilar.
@@ -17,7 +18,7 @@ export const OFFER_DEFAULTS = {
   text: "На ваш запрос о предоставление коммерческого предложения на нижеперечисленные ж/б изделия сообщаем следующее.",
   priceHead: "Цена за 1 шт (без НДС)",
   note: "Примечание: Цена указана без учёта НДС, с учётом всех максимальных скидок.",
-  director: "Ф.Махмудов",
+  director: "",
 };
 
 const esc = (s) =>
@@ -45,6 +46,7 @@ export async function buildOfferDocx(o) {
   const res = await fetch(OFFER_TEMPLATE_URL, { cache: "no-store" });
   if (!res.ok) throw new Error("Tijorat taklifi shablonini yuklab bo'lmadi");
   const zip = await JSZip.loadAsync(await res.arrayBuffer());
+  const identity=await brandDocx(zip);
   let xml = await zip.file("word/document.xml").async("string");
 
   const span = around(xml, "{{NOMI}}", "w:tr");
@@ -71,7 +73,7 @@ export async function buildOfferDocx(o) {
     MATN: o.text || "",
     NARX_SARLAVHA: o.priceHead || OFFER_DEFAULTS.priceHead,
     IZOH: o.note || "",
-    DIREKTOR: o.director || "",
+    DIREKTOR: o.director || identity.director || "",
   });
   zip.file("word/document.xml", xml);
   return zip.generateAsync({ type: "blob", mimeType: DOCX_MIME, compression: "DEFLATE" });

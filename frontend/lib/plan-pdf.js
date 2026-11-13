@@ -1,3 +1,4 @@
+import {loadBrand,pdfBrand} from './document-branding';
 /**
  * «Buyurtmalar rejasi» — kunlik ishlab chiqarish rejasi PDF (A4, chop etish uchun).
  * pdfmake faqat tugma bosilganda yuklanadi (shrift ~1 MB) — sahifa sekinlashmaydi.
@@ -274,6 +275,7 @@ async function loadPdfMake() {
 /** PDF Blob */
 export async function buildPlanPdf(def) {
   const pdfMake = await loadPdfMake();
+  def=pdfBrand(def,await loadBrand());
   return new Promise((resolve, reject) => {
     try {
       pdfMake.createPdf(def).getBlob(resolve);

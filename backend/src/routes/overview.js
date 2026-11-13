@@ -34,6 +34,10 @@ async function factorySummary(f, month, today, day) {
     planInput(fid).then(planOrders),
     rows("SELECT count(*) AS n FROM orders WHERE factory_id = $1 AND status <> 'topshirildi'", [fid]),
   ]);
+  const [headcount,finance]=await Promise.all([
+    rows("SELECT count(*)::int AS active FROM hr_employees WHERE factory_id=$1 AND hire_date<>'' AND hire_date<=$2 AND (end_date='' OR end_date>$2)",[fid,today]),
+    rows("SELECT COALESCE(sum(greatest(COALESCE(i.amount,0)-COALESCE(r.amount,0),0)),0) AS receivable,COALESCE(sum(greatest(COALESCE(r.amount,0)-COALESCE(i.amount,0),0)),0) AS advance FROM orders o LEFT JOIN (SELECT order_id,sum(amount) AS amount FROM finance_invoices WHERE factory_id=$1 AND voided_at IS NULL GROUP BY order_id) i ON i.order_id=o.id LEFT JOIN (SELECT order_id,sum(amount) AS amount FROM finance_receipts WHERE factory_id=$1 AND voided_at IS NULL GROUP BY order_id) r ON r.order_id=o.id WHERE o.factory_id=$1",[fid])
+  ]);
   const reported = (dayDoc?.production || []).length > 0;
   return {
     factory: { id: f.id, code: f.code, name: f.name, kind: f.kind },
@@ -46,6 +50,7 @@ async function factorySummary(f, month, today, day) {
     month: cur,
     prevMonth: prv,
     stock,
+    headcount:headcount[0]?.active||0,finance:finance[0]||{receivable:0,advance:0},
     orderCount: orders[0]?.n || 0, // faol buyurtmalar soni
     // faol buyurtmalarning har bir mahsuloti (reja bo'yicha holati bilan)
     orders: plan.orders.map((p) => ({ id: p.id, orderId: p.orderId, no: p.no, customer: p.customer, contractNo: p.contractNo || "", productId: p.productId, qty: p.qty, deadline: p.deadline, shipped: p.shipped, remaining: p.remaining, plan: p.status, finish: p.finish, lateDays: p.lateDays })),

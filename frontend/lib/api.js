@@ -53,7 +53,9 @@ async function request(path, { method = "GET", body, raw = false, signal } = {})
     data = await res.json();
   } catch {}
   if (!res.ok) {
-    const e = new Error(data?.error || `Xatolik (${res.status})`);
+    const errorId=data?.errorId;
+    const e = new Error((data?.error || `Xatolik (${res.status})`)+(errorId?` · Xato raqami: ${errorId}`:''));
+    e.errorId=errorId;
     e.status = res.status;
     if (res.status === 401 && typeof window !== "undefined") window.dispatchEvent(new Event("pto:unauthorized"));
     throw e;

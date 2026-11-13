@@ -7,6 +7,8 @@ import { fmtN } from "@/lib/calc";
 import DeleteButton from "./DeleteButton";
 import Icon from "./Icon";
 import FactoryImport from "./FactoryImport";
+import FactoryIdentity from "./FactoryIdentity";
+import ErrorIncidents from "./ErrorIncidents";
 
 /* ================= yordamchilar ================= */
 const TZ = "Asia/Tashkent";
@@ -361,6 +363,9 @@ function Audit({ data, notify, users }) {
 
 /* ================= Zaxira nusxa ================= */
 function Backup({ notify }) {
+  const {isHQAdmin}=useUser();
+  const [autoBackup,setAutoBackup]=useState(null);
+  useEffect(()=>{if(isHQAdmin)api('/backup-status').then(setAutoBackup).catch(()=>{});},[isHQAdmin]);
   const [last, setLast] = useState(undefined);
   const [busy, setBusy] = useState(false);
   const loadLast = useCallback(async () => {
@@ -392,6 +397,7 @@ function Backup({ notify }) {
   return (
     <div>
       <h3>{tr("Zaxira nusxa")}</h3>
+      {isHQAdmin&&<div className="hr-card"><strong>{tr('Avtomatik shifrlangan zaxira')}</strong><p>{autoBackup?.last?tr('Oxirgi muvaffaqiyatli nusxa')+': '+fmtDateTime(autoBackup.last.createdAt):tr('Avtomatik zaxira hali qayd etilmagan')}</p><p className="hint">{tr('Oxirgi nusxa tashqi manzilga yuborilgan')}: {tr(autoBackup?.last?.uploaded?'Ha':'Yo‘q')}</p><p className="hint">{tr('Jadval hostingdagi Cron Jobs orqali yoqiladi. Kalit va saqlash manzilini serverda sozlang; faqat shu panelni ochish zaxirani ishga tushirmaydi.')}</p></div>}
       <div className="backup-card">
         <div>
           <div className="strong">{tr("Butun bazani bitta faylga yuklab olish")}</div>
@@ -523,8 +529,10 @@ export default function AdminTab({ data, openForm, notify, onImported }) {
     <section className="sheet">
       {isHQAdmin && <Factories openForm={openForm} notify={notify} factories={factories} reload={loadFactories} />}
       {isHQAdmin && <FactoryImport factories={factories} notify={notify} onImported={onImported}/>}
+      <FactoryIdentity notify={notify} onSaved={onImported}/>
       <Users openForm={openForm} notify={notify} factories={factories} />
       <Backup notify={notify} />
+      <ErrorIncidents/>
       <Audit data={data} notify={notify} users={users} />
     </section>
   );

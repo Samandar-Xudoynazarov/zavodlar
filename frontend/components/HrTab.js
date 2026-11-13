@@ -1,4 +1,10 @@
 "use client";
+import HrEmployeeImport from './HrEmployeeImport';
+import HrStaff from './HrStaff';
+import HrAttendanceFields from './HrAttendanceFields';
+import {emptyAttendance,updateAttendance} from '@/lib/attendance';
+import HrDeadlineNotice from './HrDeadlineNotice';
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { useUser } from '@/lib/role';
@@ -24,6 +30,7 @@ const monthEmployees=(list,month)=>list.filter(e=>e.hireDate&&e.hireDate<=`${mon
 export default function HrTab({notify,openForm,initialView,onViewChange}) {
   const t=useT();const {user}=useUser();const pay=PAY.includes(user?.role),manage=user?.role!=='usta';
   const [view,setView]=useState(initialView||(user?.role==='usta'?'time':'employees'));
+  const [entryShiftCount,setEntryShiftCount]=useState(1);
   const [timeMode,setTimeMode]=useState('list'),[listDay,setListDay]=useState(1),[listEdits,setListEdits]=useState({});
   const [month,setMonth]=useState(()=>today().slice(0,7));
   const [employees,setEmployees]=useState([]),[months,setMonths]=useState([]),[doc,setDoc]=useState(null);
@@ -65,7 +72,7 @@ export default function HrTab({notify,openForm,initialView,onViewChange}) {
   const payroll=doc?.payroll||[];const person=payroll.find(p=>p.employeeId===selected);
   const editable=doc?.status==='draft'&&!loading&&!busy;
   const dayList=Array.from({length:endOf(month)},(_,i)=>i+1);
-  const tabs=[...(manage?[['overview','Kadrlar nazorati'],['leaves','Ta’tillar'],['shifts','Smena rejasi'],['orders','Buyruqlar'],['documents','Hujjat muddatlari'],['equipment','Himoya vositalari']]:[]),['employees','Xodimlar'],['time','Tabel'],...(['admin','rahbar','kadrlar'].includes(user?.role)?[['archive','Hujjatlar']]:[]),...(pay?[['payroll','Oylik hisoblash'],['payments',"To'lovlar"]]:[]),['reports','Hisobotlar']];
+  const tabs=[...(manage?[['overview','Kadrlar nazorati'],['leaves','Ta’tillar'],['shifts','Smena rejasi'],['orders','Buyruqlar'],['documents','Hujjat muddatlari'],['equipment','Himoya vositalari']]:[]),['employees','Xodimlar'],...(['admin','rahbar','kadrlar'].includes(user?.role)?[['staff','Shtat jadvali'],['reminders','Muddat eslatmalari']]:[]),['time','Tabel'],...(['admin','rahbar','kadrlar'].includes(user?.role)?[['archive','Hujjatlar']]:[]),...(pay?[['payroll','Oylik hisoblash'],['payments',"To'lovlar"]]:[]),['reports','Hisobotlar']];
   const checkReady=()=>{if(loading||error)throw new Error(t("Avval ma'lumotlarni qayta yuklang"));};
 
   function employeeForm(e) {
@@ -154,12 +161,12 @@ export default function HrTab({notify,openForm,initialView,onViewChange}) {
     if(Object.keys(days).length&&!window.confirm(t('Mavjud tabelni ish jadvali bilan almashtirasizmi?')))return;
     const out={};dayList.forEach(d=>{const date=`${month}-${String(d).padStart(2,'0')}`;if(!employed(employee,date))return;
       const work=doc.workDays.includes(new Date(date+'T00:00:00Z').getUTCDay())&&!doc.holidays.includes(date);
-      out[d]={status:work?'work':'off',hours:work?8:0,shift:'day'};
+      out[d]=updateAttendance(emptyAttendance(entryShiftCount),'status',work?'work':'off');
     });setDays(out);setDirty(true);
   }
   function changeDay(d,key,value) {
-    const old=days[d]||{status:'work',hours:8,shift:'day'};
-    const v={...old,[key]:value};if(key==='status')v.hours=['work','trip'].includes(value)?8:0;
+    const old=days[d]||emptyAttendance(entryShiftCount);
+    const v=updateAttendance(old,key,value);
     const next={...days};if(key==='status'&&value==='')delete next[d];else next[d]=v;
     setDays(next);setDirty(true);
   }
@@ -175,10 +182,12 @@ export default function HrTab({notify,openForm,initialView,onViewChange}) {
   const labels={hours:'Ish soati',openingBalance:'Oldingi qarz',base:'Ishlangan vaqt haqi',coefficient:'Koeffitsiyent haqi',extra:'Qo‘shimcha haq',tripPay:'Xizmat safari haqi',gross:'Jami hisoblandi',tax:'Daromad solig‘i',deductions:'Boshqa ushlanmalar',net:'Sof hisoblangan',cash:'Naqd',card:'Bank kartasi',balance:'To‘lanishi lozim'};
 
   if(view==='employees'&&profileId)return <HrEmployeeProfile employeeId={profileId} refreshKey={employees.find(e=>e.id===profileId)?.version} onBack={()=>setProfileId('')} onEdit={employeeForm} onOpenArchive={()=>changeView('archive')} notify={notify} openForm={openForm}/>;
+  if(['staff','reminders'].includes(view)&&['admin','rahbar','kadrlar'].includes(user?.role))return <HrStaff view={view} tabs={tabs} onViewChange={changeView} openForm={openForm} notify={notify} onOpenEmployee={id=>{changeView('employees');setProfileId(id);}}/>;
   if(view==='archive'&&['admin','rahbar','kadrlar'].includes(user?.role))return <HrDocuments notify={notify} openForm={openForm} onViewChange={changeView} tabs={tabs} onOpenEmployee={id=>{changeView('employees');setProfileId(id);}}/>;
   if(manage&&['overview','leaves','shifts','orders','documents','equipment'].includes(view))return <HrWorkforce view={view} onViewChange={changeView} notify={notify} openForm={openForm}/>;
   return <section className="sheet hr-module" aria-busy={loading}>
     <div className="hr-heading hr-no-print"><div><span className="hr-eyebrow">{t('Xodimdan to‘lovgacha')}</span><h2>{t('Kadrlar bo‘limi')}</h2><p className="hint">{t('Xodimlar → tabel → hisoblash → to‘lov → oy yopish')}</p></div><button className="btn" disabled={busy} onClick={refresh}><Icon name="moves"/>{t('Qayta yuklash')}</button></div>
+    <HrDeadlineNotice onOpen={()=>changeView('reminders')}/>
     <HrNavigation view={view} onChange={changeView} tabs={tabs}/>
     {view!=='employees'&&<div className="hr-toolbar hr-no-print"><label>{t('Hisob oyi')}<input type="month" min="2000-01" max="2100-12" value={month} onChange={e=>{if(/^\d{4}-(0[1-9]|1[0-2])$/.test(e.target.value)&&askLeave()){setDoc(null);setLoading(true);setMonth(e.target.value);setDirty(false);}}}/></label>
       {doc&&<span className={`hr-state ${doc.status}`}>{t(MONTH_STATUS[doc.status])}</span>}
@@ -189,6 +198,8 @@ export default function HrTab({notify,openForm,initialView,onViewChange}) {
     {error&&<p role="alert" className="err">{t(error)}</p>}
     {loading?<div className="loading">{t("Ma'lumotlar yuklanmoqda…")}</div>:<div role="tabpanel" id="hr-panel" aria-label={t(tabs.find(([id])=>id===view)?.[1]||'Kadrlar bo‘limi')}>
       {view==='employees'&&<>
+        {employeeAdmin&&<HrEmployeeImport notify={notify} onDone={load}/>}
+
         <div className="hr-list-intro"><div><span className="hr-eyebrow">{t('Xodimlar ro‘yxati')}</span><h3>{t('Har bir xodimning ma’lumoti bir joyda')}</h3><p>{t('Kabinet uchun Ko‘rish tugmasini bosing. Shartnoma, buyruq va shaxsiy delo shu yerda.')}</p></div><div className="hr-list-total"><strong>{employees.filter(e=>!e.endDate||e.endDate>today()).length}</strong><span>{t('faol xodim')}</span></div></div>
         <div className="hr-list-guide"><Icon name="inv" size={21}/><p><strong>{t('Yangi xodim olasizmi?')}</strong> {t('Yangi xodim → Ma’lumotlar → Shartnoma → Qabul buyrug‘i')}</p></div>
         <div className="hr-toolbar hr-no-print">{['admin','rahbar','kadrlar'].includes(user?.role)&&<button className="btn" onClick={()=>changeView('archive')}><Icon name="acct"/>{t('Hujjatlar markazi')}</button>}<input type="search" aria-label={t('Xodim qidirish')} placeholder={t('Xodim qidirish')} value={query} onChange={e=>setQuery(e.target.value)}/>{manage&&<button className="btn primary" onClick={()=>employeeForm(null)}><Icon name="plus"/>{t('Yangi xodim')}</button>}</div>
@@ -202,20 +213,21 @@ export default function HrTab({notify,openForm,initialView,onViewChange}) {
       {view!=='employees'&&!doc&&!error&&<div className="empty"><h3>{t('Bu oy hali ochilmagan')}</h3><p>{t('Mas’ul xodim oy normasini tekshirib, hisob oyini ochadi.')}</p></div>}
       {doc&&view==='time'&&<>
         <div className="hr-toolbar"><button className="btn" disabled={busy||loading||dirty||!!error} onClick={()=>run(()=>exportTimesheet({month,employees:eligible,doc,company:user.factory?.name,t}))}><Icon name="download"/>{t('Oylik tabel')} · Excel</button><span className="hint">{t('A4 · Albom · Excel orqali chop etish')}</span></div>
-        <div className="hr-view-switch"><button className={`btn ${timeMode==='list'?'primary':''}`} onClick={()=>{if(askLeave()){setTimeMode('list');setListEdits({});setDirty(false);setDays(doc.attendance[selected]||{});}}}>{t('Kunlik ro‘yxat')}</button><button className={`btn ${timeMode==='calendar'?'primary':''}`} onClick={()=>{if(askLeave()){setTimeMode('calendar');setListEdits({});setDirty(false);}}}>{t('Oylik kalendar')}</button></div>
+        <div className='hr-toolbar'><label>{t('Yangi yozuvlar rejimi')}<select value={entryShiftCount} onChange={e=>setEntryShiftCount(+e.target.value)}><option value='1'>{t('1 smena')}</option><option value='2'>{t('2 smena')}</option></select></label><span className='hint'>{t('Har bir kun uchun smenalar soni alohida tanlanadi. Ikki smenaning soatlarini alohida kiriting; jami avtomatik hisoblanadi.')}</span></div>
+        <div className='hr-view-switch'><button className={`btn ${timeMode==='list'?'primary':''}`} onClick={()=>{if(askLeave()){setTimeMode('list');setListEdits({});setDirty(false);setDays(doc.attendance[selected]||{});}}}>{t('Kunlik ro‘yxat')}</button><button className={`btn ${timeMode==='calendar'?'primary':''}`} onClick={()=>{if(askLeave()){setTimeMode('calendar');setListEdits({});setDirty(false);}}}>{t('Oylik kalendar')}</button></div>
         {timeMode==='list'&&<>
           <div className="hr-toolbar"><button className="btn" disabled={busy} onClick={()=>{if(!askLeave())return;const date=today();setListEdits({});setDirty(false);setListDay(+date.slice(8));if(month!==date.slice(0,7)){setDoc(null);setLoading(true);setMonth(date.slice(0,7));}}}>{t('Bugun')}</button><label>{t('Sana')}<select aria-label={t('Sana')} value={listDay} disabled={busy} onChange={e=>{if(askLeave()){setListDay(+e.target.value);setListEdits({});setDirty(false);}}}>{dayList.map(d=><option key={d} value={d}>{String(d).padStart(2,'0')}.{month.slice(5)}.{month.slice(0,4)}</option>)}</select></label><button className="btn primary" disabled={!editable||!dirty} onClick={()=>run(async()=>{let version=doc.version;for(const [id,value] of Object.entries(listEdits)){const updated={...doc.attendance[id]};if(value.status)updated[listDay]=value;else delete updated[listDay];const result=await api(`/hr/months/${month}/attendance/${id}`,{method:'PUT',body:{version,days:updated}});version=result.version;}await load();notify('Saqlandi');})}>{t('Tabelni saqlash')}</button><span className="hint">{t(dirty?'Saqlanmagan o‘zgarishlar':'Saqlangan')}</span></div>
           <p className="hint">{t('Sanani tanlang, har bir xodimning holati va ishlagan soatini belgilang.')}</p>
-          <div className="tbl-wrap hr-daily"><table><thead><tr>{['Xodim','Sex / bo‘lim','Holat','Ish soati','Smena'].map(x=><th key={x}>{t(x)}</th>)}</tr></thead><tbody>{eligible.filter(e=>employed(e,`${month}-${String(listDay).padStart(2,'0')}`)).map(e=>{const v=listEdits[e.id]||doc.attendance[e.id]?.[listDay]||{status:'',hours:0,shift:'day'};const update=(key,value)=>{const next={...v,[key]:value};if(key==='status')next.hours=['work','trip'].includes(value)?(v.hours||8):0;setListEdits(prev=>({...prev,[e.id]:next}));setDirty(true);};return <tr key={e.id}><td><strong>{e.name}</strong><div className="hint">{e.code} · {e.position}</div></td><td>{e.department||'—'}</td><td><select aria-label={`${e.name} · ${t('Holat')}`} disabled={!editable} value={v.status} onChange={ev=>update('status',ev.target.value)}><option value="">—</option>{STATUS.map(([k,l])=><option key={k} value={k}>{t(l)}</option>)}</select></td><td><input aria-label={`${e.name} · ${t('Ish soati')}`} type="number" min="0" max="24" step="0.25" disabled={!editable||!['work','trip'].includes(v.status)} value={v.hours} onChange={ev=>update('hours',ev.target.value)}/></td><td><select aria-label={`${e.name} · ${t('Smena')}`} disabled={!editable||!v.status} value={v.shift} onChange={ev=>update('shift',ev.target.value)}><option value="day">{t('Kunduzgi')}</option><option value="night">{t('Tungi')}</option></select></td></tr>;})}</tbody></table></div>
+          <div className='tbl-wrap hr-daily'><table><thead><tr>{['Xodim','Sex / bo‘lim','Kunlik davomat va smenalar','Jami soat'].map(x=><th key={x}>{t(x)}</th>)}</tr></thead><tbody>{eligible.filter(e=>employed(e,`${month}-${String(listDay).padStart(2,'0')}`)).map(e=>{const v=listEdits[e.id]||doc.attendance[e.id]?.[listDay]||emptyAttendance(entryShiftCount);const update=(key,value)=>{setListEdits(prev=>({...prev,[e.id]:updateAttendance(v,key,value)}));setDirty(true);};return <tr key={e.id}><td><strong>{e.name}</strong><div className='hint'>{e.code} · {e.position}</div></td><td>{e.department||'—'}</td><td><HrAttendanceFields value={v} disabled={!editable} onChange={update} label={e.name}/></td><td>{v.hours||0}</td></tr>;})}</tbody></table></div>
           {!eligible.length&&<p className="empty">{t('Xodimlar hali kiritilmagan')}</p>}
         </>}
         {timeMode==='calendar'&&<>
         <div className="hr-toolbar hr-no-print"><label>{t('Xodim')}<select value={eligible.some(e=>e.id===selected)?selected:''} onChange={e=>choose(e.target.value)}><option value="">{t('Tanlang')}</option>{eligible.map(e=><option value={e.id} key={e.id}>{e.code} · {e.name}</option>)}</select></label><span className="hint">{t('Oy normasi')}: {doc.normHours} {t('soat')}</span></div>
         {employee&&eligible.some(e=>e.id===selected)?<>
-          <div className="hr-toolbar hr-no-print"><button className="btn" disabled={!editable} onClick={fillSchedule}>{t('Ish jadvalidan to‘ldirish (8 soat)')}</button><button className="btn primary" disabled={!editable||!dirty} onClick={()=>run(async()=>{await api(`/hr/months/${month}/attendance/${selected}`,{method:'PUT',body:{version:doc.version,days}});await load();notify('Saqlandi');})}><Icon name="save"/>{t(dirty?'Tabelni saqlash':'Saqlangan')}</button><span role="status">{t(dirty?'Saqlanmagan o‘zgarishlar':'Saqlangan')}</span></div>
+          <div className="hr-toolbar hr-no-print"><button className="btn" disabled={!editable} onClick={fillSchedule}>{t(entryShiftCount===2?'Ish jadvalidan to‘ldirish (1-smena 8 soat)':'Ish jadvalidan to‘ldirish (8 soat)')}</button><button className="btn primary" disabled={!editable||!dirty} onClick={()=>run(async()=>{await api(`/hr/months/${month}/attendance/${selected}`,{method:'PUT',body:{version:doc.version,days:Object.fromEntries(Object.entries(days).filter(([,v])=>v.status))}});await load();notify('Saqlandi');})}><Icon name="save"/>{t(dirty?'Tabelni saqlash':'Saqlangan')}</button><span role="status">{t(dirty?'Saqlanmagan o‘zgarishlar':'Saqlangan')}</span></div>
           <p className="hint">{t('Jadvaldan to‘ldirish namuna hisoblanadi. Haqiqiy kelish-ketish va soatlarni tekshirib saqlang.')}</p>
           <div className="hr-time-totals" aria-live="polite"><strong>{t('Ish kuni')}: {Object.values(days).filter(d=>+d.hours>0).length}</strong><strong>{t('Ish soati')}: {fmtN(Object.values(days).reduce((s,d)=>s+(+d.hours||0),0),2)}</strong></div>
-          <div className="hr-time-grid">{dayList.map(d=>{const date=`${month}-${String(d).padStart(2,'0')}`,v=days[d],disabled=!editable||!employed(employee,date);return <div key={d} className={`hr-time-day ${v?.status||''}`}><strong>{d} <small>{t(['Ya','Du','Se','Ch','Pa','Ju','Sh'][new Date(date+'T00:00:00Z').getUTCDay()])}</small></strong><label><span className="sr-only">{d} · {t('Holat')}</span><select aria-label={`${d} · ${t('Holat')}`} disabled={disabled} value={v?.status||''} onChange={e=>changeDay(d,'status',e.target.value)}><option value="">-</option>{STATUS.map(([k,l])=><option key={k} value={k}>{t(l)}</option>)}</select></label><label>{t('Ish soati')}<input aria-label={`${d} · ${t('Ish soati')}`} type="number" min="0" max="24" step="0.25" disabled={disabled||!['work','trip'].includes(v?.status)} value={v?.hours??''} onChange={e=>changeDay(d,'hours',e.target.value)}/></label><select aria-label={`${d} · ${t('Smena')}`} disabled={disabled||!v} value={v?.shift||'day'} onChange={e=>changeDay(d,'shift',e.target.value)}><option value="day">{t('Kunduzgi')}</option><option value="night">{t('Tungi')}</option></select></div>;})}</div>
+          <div className='hr-time-grid'>{dayList.map(d=>{const date=`${month}-${String(d).padStart(2,'0')}`,v=days[d]||emptyAttendance(entryShiftCount),disabled=!editable||!employed(employee,date);return <div key={d} className={`hr-time-day ${v.status||''}`}><strong>{d} <small>{t(['Ya','Du','Se','Ch','Pa','Ju','Sh'][new Date(date+'T00:00:00Z').getUTCDay()])}</small></strong><HrAttendanceFields value={v} disabled={disabled} label={String(d)} onChange={(key,value)=>changeDay(d,key,value)}/></div>;})}</div>
         </>:<p className="empty">{t('Tabel uchun xodimni tanlang')}</p>}
         </>}
       </>}

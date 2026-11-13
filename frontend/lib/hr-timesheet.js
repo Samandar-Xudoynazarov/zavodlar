@@ -1,10 +1,10 @@
 import { newWorkbook, deliver } from './excel';
+import { shiftEntries,workingDay } from './attendance';
 
 const CODES = { work: 'I', off: 'D', leave: 'T', sick: 'K', absent: 'Y', trip: 'XS' };
 
-// A printable monthly register: status and hours remain separate, including trips.
-export async function exportTimesheet({ month, employees, doc, company, t, blank = false }) {
-  const wb = await newWorkbook();
+// Single-shift days are merged cells; only two-shift working days have two cells.
+export function buildTimesheet(wb,{ month, employees, doc, company, t, blank = false }) {
   const count = new Date(+month.slice(0, 4), +month.slice(5), 0).getDate();
   const last = count + 8;
   wb.calcProperties.fullCalcOnLoad=true;
@@ -45,13 +45,20 @@ export async function exportTimesheet({ month, employees, doc, company, t, blank
       ws.mergeCells(row, i + 1, row + 1, i + 1); ws.getCell(row, i + 1).value = value || '';
     });
     for (let d = 1; d <= count; d++) {
-      const v = days[d]; ws.getCell(row, d + 4).value = v ? CODES[v.status] || '' : '';
-      ws.getCell(row + 1, d + 4).value = v && ['work', 'trip'].includes(v.status) ? +v.hours : null;
-      ws.getCell(row + 1, d + 4).numFmt = 'General';
+      const v=days[d],col=d+4,entries=shiftEntries(v);
+      if(v?.shiftCount===2&&workingDay(v)){
+        ws.getCell(row,col).value=Number(entries[0]?.hours)||null;
+        ws.getCell(row+1,col).value=Number(entries[1]?.hours)||null;
+      }else{
+        ws.mergeCells(row,col,row+1,col);
+        ws.getCell(row,col).value=v?(workingDay(v)?Number(v.hours)||null:CODES[v.status]||''):'';
+      }
+      ws.getCell(row,col).numFmt='General';ws.getCell(row+1,col).numFmt='General';
     }
-    const values=Object.values(days),range=`E${row+1}:${ws.getColumn(count+4).letter}${row+1}`;
+    const values=Object.values(days),lastDay=ws.getColumn(count+4).letter;
     const first=Object.entries(days).filter(([d])=>+d<=15).reduce((s,[,v])=>s+(+v.hours||0),0),second=Object.entries(days).filter(([d])=>+d>15).reduce((s,[,v])=>s+(+v.hours||0),0);
-    const totals=[{formula:`COUNTIF(${range},">0")`,result:values.filter(v=>+v.hours>0).length},{formula:`SUM(${range})`,result:values.reduce((s,v)=>s+(+v.hours||0),0)},{formula:`SUM(E${row+1}:S${row+1})`,result:first},{formula:`SUM(T${row+1}:${ws.getColumn(count+4).letter}${row+1})`,result:second}];
+    const dayTerms=Array.from({length:count},(_,i)=>{const col=ws.getColumn(i+5).letter;return 'IF(SUM('+col+row+':'+col+(row+1)+')>0,1,0)';});
+    const totals=[{formula:'SUM('+dayTerms.join(',')+')',result:values.filter(v=>+v.hours>0).length},{formula:'SUM(E'+row+':'+lastDay+(row+1)+')',result:values.reduce((s,v)=>s+(+v.hours||0),0)},{formula:'SUM(E'+row+':S'+(row+1)+')',result:first},{formula:'SUM(T'+row+':'+lastDay+(row+1)+')',result:second}];
     totals.forEach((value,i)=>{ws.mergeCells(row,count+5+i,row+1,count+5+i);ws.getCell(row,count+5+i).value=value;ws.getCell(row,count+5+i).numFmt='General';});
     // Keep each employee's pair of rows together on successive printed pages.
     if (index > 0 && index % 12 === 0) ws.getRow(row - 1).addPageBreak();
@@ -68,11 +75,15 @@ export async function exportTimesheet({ month, employees, doc, company, t, blank
       if (r <= 5) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
     }
   }
+  // Give long names and job titles enough height without splitting an employee across pages.
+  employees.forEach((e,index)=>{const lines=[e.name,e.position].filter(Boolean).reduce((n,text)=>n+String(text).split('\n').reduce((sum,line)=>sum+Math.max(1,Math.ceil(line.length/22)),0),0);const height=Math.max(36,lines*12+4)/2;ws.getRow(6+index*2).height=height;ws.getRow(7+index*2).height=height;});
   banner(end + 2, Object.entries(CODES).map(([key, code]) => `${code} — ${t({work:'Ishda',off:'Dam olish',leave:"Ta'til",sick:'Kasallik',absent:'Kelmagan',trip:'Xizmat safari'}[key])}`).join('; '), 9);
-  banner(end + 3, t('Yuqori qatorda holat, pastki qatorda ish soati. Bo‘sh katak — belgilanmagan.'), 9);
+  banner(end + 3, t('1 smena — bitta katakda ish soati. 2 smena — yuqorida 1-smena, pastda 2-smena soati. Bo‘sh katak — belgilanmagan.'), 9);
   banner(end + 5, `${t('Mas’ul xodim')}: ____________________                 ${t('Imzo')}: ____________________`, 10);
   banner(end+6,`${t('Bo‘lim rahbari')}: ____________________                 ${t('Kadrlar bo‘yicha mas’ul')}: ____________________`,10);
   ws.pageSetup.printTitlesRow = '1:5';
   ws.pageSetup.printArea = `A1:${ws.getColumn(last).letter}${end + 6}`;
-  return deliver(wb, `Tabel_${month}${blank?'_bosh':''}.xlsx`);
+  return ws;
 }
+
+export async function exportTimesheet(options){const wb=await newWorkbook();buildTimesheet(wb,options);return deliver(wb,`Tabel_${options.month}${options.blank?'_bosh':''}.xlsx`);}

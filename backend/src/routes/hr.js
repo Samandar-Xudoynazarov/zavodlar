@@ -1,3 +1,4 @@
+import tools from './hr-tools.js';
 import { ensureDepartment as department } from '../hr-departments.js';
 import { Router } from 'express';
 import { one, rows, tx } from '../db.js';
@@ -13,6 +14,7 @@ const actor=req=>({id:req.user.id,name:req.user.name||req.user.username});
 const guard=roles=>(req,res,next)=>roles.includes(req.user.role)?next():res.status(403).json({error:"Sizda bu amal uchun ruxsat yo'q"});
 r.use(guard(TIME_ROLES));
 r.use((_req,res,next)=>{res.set('Cache-Control','no-store');next();});
+r.use(tools);
 r.use(workforce);
 r.use(personnel);
 r.use(documents);
@@ -101,12 +103,14 @@ r.put('/departments/:id',guard(EMPLOYEE_ADMINS),write(async(c,req)=>{
  if(await one('SELECT id FROM hr_departments WHERE factory_id=$1 AND id<>$2 AND lower(btrim(name))=lower($3)',[req.factoryId,d.id,name],c))throw new ConflictError('Bu nomli bo‘lim mavjud');
  const changed=await one('UPDATE hr_departments SET name=$3,version=version+1 WHERE factory_id=$1 AND id=$2 RETURNING *',[req.factoryId,d.id,name],c);
  await c.query('UPDATE hr_employees SET department=$3,version=version+1,updated_at=now() WHERE factory_id=$1 AND department=$2',[req.factoryId,d.name,name]);
+ await c.query('UPDATE hr_staff_positions SET department=$3,version=version+1 WHERE factory_id=$1 AND department=$2',[req.factoryId,d.name,name]);
  await invalidateDrafts(c,req.factoryId);await event(c,req,'department.update',d.id,{before:d.name,after:name});return changed;
 }));
 r.delete('/departments/:id',guard(EMPLOYEE_ADMINS),write(async(c,req)=>{
  if(!isId(req.params.id))throw new ValidationError('Bo‘lim topilmadi');
  const d=await one('SELECT * FROM hr_departments WHERE factory_id=$1 AND id=$2',[req.factoryId,req.params.id],c);
  if(!d)throw new ValidationError('Bo‘lim topilmadi');version(d,req.body||{});
+ if(await one('SELECT id FROM hr_staff_positions WHERE factory_id=$1 AND department=$2 LIMIT 1',[req.factoryId,d.name],c))throw new ConflictError('Avval bo‘limning shtat jadvalini o‘tkazing yoki o‘chiring');
  if(await one('SELECT id FROM hr_employees WHERE factory_id=$1 AND department=$2 LIMIT 1',[req.factoryId,d.name],c))throw new ConflictError('Avval bo‘limdagi xodimlarni boshqa bo‘limga o‘tkazing');
  await c.query('DELETE FROM hr_departments WHERE factory_id=$1 AND id=$2',[req.factoryId,d.id]);
  await event(c,req,'department.delete',d.id,{name:d.name});return {ok:true};

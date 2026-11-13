@@ -1,3 +1,4 @@
+import {brandDocx} from './docx-branding';
 /**
  * Buxgalteriya: «…ойида куйилган махсулотлар руйхати» — material hisoboti (DOCX).
  * Shablon: public/templates/material-hisobot.docx (asl Word hujjatning o'zi, qiymatlar o'rnida {{…}} belgilar).
@@ -79,6 +80,7 @@ export async function buildAcctDocx(r) {
   const res = await fetch(TEMPLATE_URL, { cache: "no-store" });
   if (!res.ok) throw new Error("Hisobot shablonini yuklab bo'lmadi");
   const zip = await JSZip.loadAsync(await res.arrayBuffer());
+  const identity=await brandDocx(zip);
   let xml = await zip.file("word/document.xml").async("string");
 
   // 1) mahsulot qatorlari: shablondagi qator har bir mahsulot uchun nusxalanadi
@@ -117,7 +119,7 @@ export async function buildAcctDocx(r) {
     OY_SANA: dm ? OY[+dm - 1].toLowerCase() : "",
     YIL: dy || String(y),
     OY: OY[m - 1],
-    DIREKTOR: r.director || "",
+    DIREKTOR: r.director || identity.director || "",
     JAMI_NOMI: "Жами",
     JAMI_M3: dec(t.m3, 3, 2),
     JAMI_SUMMA: money(t.sum),

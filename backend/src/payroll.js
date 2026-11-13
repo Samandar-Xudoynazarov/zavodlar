@@ -1,3 +1,4 @@
+import {cleanAttendance} from './attendance.js';
 // Rules mirror the referenced payroll sheet. Rates and month norm are explicit,
 // not a statement of statutory tax/leave/overtime entitlements.
 import { ValidationError, validDate, validMonth } from './valid.js';
@@ -36,11 +37,7 @@ export function cleanDays(days,month,e) {
     if (!/^([1-9]|[12]\d|3[01])$/.test(key)) throw new ValidationError("Tabel kuni noto'g'ri");
     const date=`${month}-${key.padStart(2,'0')}`;
     if (!validDate(date) || !employment(e,date)) throw new ValidationError("Sana xodimning ish davriga mos emas");
-    if (!['work','off','leave','sick','absent','trip'].includes(v?.status)) throw new ValidationError("Davomat holati noto'g'ri");
-    const hours=number(v.hours,'Ish soati',0,24);
-    if (!['work','trip'].includes(v.status) && hours!==0) throw new ValidationError("Bu holatda ish soati nol bo'lishi kerak");
-    if (!['day','night'].includes(v.shift)) throw new ValidationError("Smena noto'g'ri");
-    out[key]={status:v.status,hours,shift:v.shift};
+    out[key]=cleanAttendance(v);
   }
   return out;
 }

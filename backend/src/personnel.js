@@ -1,3 +1,4 @@
+import { employerWithIdentity } from './factory-profile.js';
 import { validDate,ValidationError } from './valid.js';
 import { text,today } from './payroll.js';
 export const PERSONNEL_ROLES=['admin','rahbar','kadrlar'];
@@ -29,7 +30,7 @@ export function cleanProfile(p={}) {
 }
 export function employeeSnapshot(e){return {id:e.id,code:e.code,name:e.name,position:e.position,department:e.department,hireDate:e.hireDate,endDate:e.endDate,phone:e.phone,profile:e.profile,version:e.version};}
 export async function seedHiringDocs(c,req,e) {
- const employer=(await c.query('SELECT profile FROM hr_employers WHERE factory_id=$1',[req.factoryId])).rows[0]?.profile||{company:req.factory?.name||''};
+ const employer=await employerWithIdentity(req.factoryId,(await c.query('SELECT profile FROM hr_employers WHERE factory_id=$1',[req.factoryId])).rows[0]?.profile||{},c);
  const payload={employee:employeeSnapshot(e),employer,terms:{position:e.position,department:e.department,startDate:e.hireDate},legalSource:LABOUR_SOURCE,legalChecked:LABOUR_CHECKED};
  const actor={id:req.user.id,name:req.user.name||req.user.username};
  const contract=(await c.query("INSERT INTO hr_employment_docs(factory_id,employee_id,kind,date,effective_date,payload,created_by) VALUES($1,$2,'contract',$3,$4,$5,$6) RETURNING id",[req.factoryId,e.id,today(),e.hireDate,payload,actor])).rows[0];

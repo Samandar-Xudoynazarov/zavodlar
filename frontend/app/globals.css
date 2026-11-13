@@ -1433,3 +1433,9 @@ dialog.share-ready h2{margin:0}
 .material-invoice-dialog{max-height:calc(100dvh - 32px);overflow:auto}.material-invoice-dialog form{min-width:0;grid-template-columns:minmax(0,1fr)}.material-invoice-dialog fieldset,.material-invoice-dialog label{min-width:0}.material-invoice-dialog input,.material-invoice-dialog select{min-width:0;max-width:100%;width:100%}.material-invoice-dialog .dlg-actions{position:static;margin-bottom:0;flex-wrap:wrap}.material-invoice-dialog .dlg-actions .btn{white-space:normal}@media(max-width:760px){.material-invoice-line{grid-template-columns:repeat(2,minmax(0,1fr))}.material-invoice-dialog form{padding:16px}.material-invoice-dialog .dlg-actions .btn.primary{flex:1}}
 
 .form-grid .field{min-width:0}.form-grid input[type=file]{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
+
+/* One/two-shift daily attendance controls */
+.hr-attendance-fields{display:flex;flex-wrap:wrap;gap:8px;align-items:end}.hr-attendance-fields label{display:flex;flex-direction:column;gap:4px;font-size:12px;min-width:100px}.hr-attendance-fields input{width:95px}.hr-attendance-fields .hint{flex-basis:100%}.hr-time-day .hr-attendance-fields{display:grid;grid-template-columns:1fr;align-items:start}.hr-time-day .hr-attendance-fields input,.hr-time-day .hr-attendance-fields select{width:100%;min-width:0}.hr-time-day .hr-attendance-fields label{min-width:0}
+
+/* Mobile daily entry: shared state with the full production table. */
+.day-quick-cards{display:grid;gap:12px}.day-quick-cards label{display:flex;flex-direction:column;gap:5px}.day-quick-cards input,.day-quick-cards select{width:100%;min-height:44px;font-size:16px}.day-quick-numbers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0}.day-quick .quick-table{display:none}@media print{.day-quick .quick-table{display:block}.day-quick-cards{display:none!important}}

@@ -1,3 +1,4 @@
+import {loadBrand,excelBrand} from './document-branding';
 /**
  * Kunlik hisobotni zavoddagi Excel shakli bo'yicha yasash:
  * «Ежедневная информация о выпуске ЖБИ и об остатках основных материалов … на ДД.ММ.ГГГГ»
@@ -189,12 +190,14 @@ export function addDaySheet(wb, { date, company, signers, matList, prodList, pro
   r += Math.max(lines.length, 1) + 1;
 
   for (const s of signers || []) {
-    ws.getRow(r).height = 24;
+    ws.getRow(r).height = s.length > 65 ? 36 : 24;
+    ws.mergeCells(`C${r}:F${r}`);
+    ws.mergeCells(`G${r}:H${r}`);
     const c = ws.getCell(`C${r}`);
     c.value = s;
     c.font = { ...font, size: 11 };
-    c.alignment = { horizontal: "left", vertical: "middle" };
-    ws.getCell(`G${r}`).value = "____________";
+    c.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
+    ws.getCell(`G${r}`).border = { bottom: thin };
     r += 1;
   }
   // Chop etish sohasi imzolar bilan birga: oxirgi qatordan bitta keyin tugaydi.
@@ -224,6 +227,7 @@ export async function newWorkbook() {
 
 /** Faylni yuklab olish yoki (telefonda) Telegram va boshqalarga ulashish */
 export async function deliver(wb, filename, { share = false } = {}) {
+  excelBrand(wb,await loadBrand());
   const buf = await wb.xlsx.writeBuffer();
   return deliverBlob(new Blob([buf], { type: XLSX_MIME }), filename, XLSX_MIME, { share });
 }
