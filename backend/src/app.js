@@ -1,6 +1,5 @@
 import reconciliation from './routes/reconciliation.js';
 import {recordIncident} from './error-reporting.js';
-import dayReview from './routes/day-review.js';
 import {BACKUP_TABLES} from './backup-tables.js';
 import factoryIdentity from './routes/factory-profile.js';
 import express from "express";
@@ -197,7 +196,6 @@ app.use("/api", (req, res, next) => {
   // tasdiqlangan reja: usta ham tuzadi va saqlaydi (o'chira olmaydi)
   if (MPLAN_ROLES.includes(role) && req.method === "PUT" && /^\/month-plans\/[^/]+$/.test(req.path)) return next();
   if (STORE_ROLES.includes(role) && (STORE_PATH.test(req.path) || (/^\/materials(\/|$)/.test(req.path) && req.method !== "DELETE"))) return next();
-  if (DAY_ROLES.includes(role)&&req.method==="POST"&&/^\/days\/[^/]+\/review$/.test(req.path))return next();
   if (DAY_ROLES.includes(role) && req.method === "PUT" && /^\/days\/[^/]+$/.test(req.path)) return next();
   if (DAY_ROLES.includes(role) && /^\/product-moves(\/|$)/.test(req.path)) return next();
   return res.status(403).json({ error: "Sizda bu amal uchun ruxsat yo'q" });
@@ -408,7 +406,6 @@ app.get("/api/backup", adminOnly, async (req, res) => {
 
 /* ---------- bo'limlar ---------- */
 app.use("/api", catalog);
-app.use("/api", dayReview);
 app.use("/api", production);
 app.use("/api", store);
 app.use("/api", overview);

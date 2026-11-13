@@ -1,4 +1,3 @@
-import {editableDay} from '../day-review.js';
 // Kunlik hisobot, ombor qoldig'i, tayyor mahsulot, buyurtmalar, reja, grafiklar
 import { Router } from "express";
 import { q, one, rows, tx } from "../db.js";
@@ -54,7 +53,6 @@ r.put("/days/:date", async (req, res) => {
   await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,9473))", [req.factoryId]);
   await c.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`day:${req.factoryId}:${date}`]);
   const before = await one("SELECT * FROM days WHERE factory_id = $1 AND date = $2", [req.factoryId, date], c);
-  editableDay(before);
   if(Object.hasOwn(b,'baseVersion')&&(!Number.isInteger(b.baseVersion)||b.baseVersion!==(before?.version||0)))throw new ConflictError('Hisobot o‘zgargan. Qayta yuklang');
   if (checkVer && before && new Date(before.updatedAt).getTime() !== base)
     throw new ConflictError("Bu kunni siz ochgandan keyin boshqa xodim saqlagan. Uning o'zgarishlari o'chib ketmasligi uchun saqlanmadi — kunni qayta yuklang.");
@@ -130,7 +128,7 @@ r.put("/days/:date", async (req, res) => {
   res.json(doc);
 });
 r.delete("/days/:date", async (req, res) => {
-  const doc = await tx(async c=>{await financeLock(c,req.factoryId);await c.query('SELECT pg_advisory_xact_lock(hashtext($1))',['day:'+req.factoryId+':'+req.params.date]);editableDay(await one('SELECT * FROM days WHERE factory_id=$1 AND date=$2 FOR UPDATE',[req.factoryId,req.params.date],c));await assertInvoiceCoverage(c,req.factoryId,{date:String(req.params.date),shipments:[]});return one("DELETE FROM days WHERE factory_id = $1 AND date = $2 RETURNING *", [req.factoryId, String(req.params.date)],c);});
+  const doc = await tx(async c=>{await financeLock(c,req.factoryId);await c.query('SELECT pg_advisory_xact_lock(hashtext($1))',['day:'+req.factoryId+':'+req.params.date]);await assertInvoiceCoverage(c,req.factoryId,{date:String(req.params.date),shipments:[]});return one("DELETE FROM days WHERE factory_id = $1 AND date = $2 RETURNING *", [req.factoryId, String(req.params.date)],c);});
   if (!doc) return notFound(res);
   await audit(req, { action: "delete", entity: "day", entityId: doc.date, label: doc.date, before: doc });
   res.json({ ok: true });
@@ -383,7 +381,6 @@ r.delete("/orders/:id", async (req, res) => {
   const doc = await tx(async (c) => {
     await financeLock(c,f);
     if((await c.query('SELECT 1 FROM finance_invoices WHERE factory_id=$1 AND order_id=$2 UNION ALL SELECT 1 FROM finance_receipts WHERE factory_id=$1 AND order_id=$2 LIMIT 1',[f,req.params.id])).rowCount)throw new ConflictError('Faktura yoki to‘lovlari bor buyurtmani o‘chirib bo‘lmaydi');
-    if((await c.query("SELECT 1 FROM days WHERE factory_id=$1 AND review_status<>'draft' AND shipments @> $2::jsonb LIMIT 1",[f,JSON.stringify([{orderId:req.params.id}])])).rowCount)throw new ConflictError('Buyurtma tasdiqlangan yoki tekshirishdagi hisobotga bog‘langan. Avval hisobotni qayta oching');
     await c.query('DELETE FROM finance_order_progress WHERE factory_id=$1 AND order_id=$2',[f,req.params.id]);
     const d = await one("DELETE FROM orders WHERE id = $1 AND factory_id = $2 RETURNING *", [req.params.id, f], c);
     if (!d) return null;

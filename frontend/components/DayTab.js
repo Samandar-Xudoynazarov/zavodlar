@@ -6,7 +6,6 @@ import { api } from "@/lib/api";
 import Icon from "./Icon";
 import ExportMenu from "./ExportMenu";
 import NakladnoyDialog from "./NakladnoyDialog";
-import DayReview from "./DayReview";
 import ReportSigners from "./ReportSigners";
 import Reconciliation from "./Reconciliation";
 import { addDaySheet, deliver, newWorkbook, pickRows } from "@/lib/excel";
@@ -19,7 +18,7 @@ const emptyShip = () => ({ productId: "", qty: "", customer: "", vehicle: "", or
 export default function DayTab({ data, notify, onSaved, onDirtyChange, version }) {
   const { canEdit:mayEdit, canDay:mayEditDay,user } = useUser();
   const [review,setReview]=useState({status:'draft',version:0});
-  const canDay=mayEditDay&&review.status==='draft',canEdit=mayEdit&&review.status==='draft';
+  const canDay=mayEditDay,canEdit=mayEdit;
   const [quickEntry,setQuickEntry]=useState(false);
   useEffect(()=>{setQuickEntry(window.matchMedia('(max-width:700px)').matches);},[]); // canDay: ПТО, admin va sex boshlig'i (usta — jo'natish va kunni o'chirishsiz)
   const { materials, products, mats, prods, settings, orders } = data;
@@ -401,7 +400,6 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
       </div>
 
       <ReportSigners settings={settings} canEdit={mayEdit} notify={notify} onSaved={onSaved}/>
-      <DayReview date={date} report={review} dirty={dirty} exists={exists} ready={ready} onChanged={async()=>{await load();onSaved();}} notify={notify}/>
       {['admin','rahbar','pto','buxgalter'].includes(user?.role)&&<Reconciliation date={date} version={review.version}/>}
       {canDay && (
         <div className={`day-savebar no-print ${saving ? "is-saving" : dirty ? "is-dirty" : exists ? "is-saved" : ""}`}>

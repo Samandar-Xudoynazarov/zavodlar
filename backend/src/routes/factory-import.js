@@ -35,7 +35,6 @@ r.post('/',async(req,res)=>{
  const replace=hasData(state);if(replace&&b.replace!==true)throw new ConflictError('Zavodda ma’lumot bor. Oldingi holat zaxiralanib almashtirilishini belgilang');
  if(await blocked(c,f.id))throw new ConflictError('Zavodda moliyaviy yozuvlar bor. Ularning bog‘lanishlarini saqlash uchun importni yangi yoki bo‘sh zavodga bajaring');
  const sourceData={...b.backup,data:{...b.backup.data,users:[]}};
- if(await one("SELECT id FROM days WHERE factory_id=$1 AND review_status<>'draft' LIMIT 1",[f.id],c))throw new ConflictError('Tasdiqlangan yoki tekshirishdagi hisobotlar bor. Importni bo‘sh zavodga bajaring');
  const previousData={...state,day_reviews:(await c.query('SELECT * FROM day_reviews WHERE factory_id=$1',[f.id])).rows};
  const identity=await one('SELECT document_profile,document_version FROM settings WHERE factory_id=$1',[f.id],c);
  if(p.records.hr_employees?.length){

@@ -22,3 +22,5 @@ tmp/factory-qa/
 
 # Generated frontend deployment archives
 tmp/deploy-frontend/
+
+/frontend/.next.zip
