@@ -1,0 +1,198 @@
+.pay-register,
+.contract-review,
+.supplier-materials {
+  --ledger-teal: #115c54;
+  --ledger-amber: #936019;
+  --ledger-rule: #d8e2de;
+  font-variant-numeric: tabular-nums;
+}
+.pay-summary {
+  border: 1px solid var(--ledger-rule);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+  padding: clamp(16px, 2vw, 30px);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.pay-summary > div:not(.pay-progress) {
+  display: grid;
+  gap: 6px;
+}
+.pay-summary strong {
+  font-size: clamp(20px, 2.3vw, 36px);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.pay-summary small {
+  font-size: 13px;
+}
+.pay-summary > div:nth-child(3) strong,
+.pay-due {
+  color: var(--ledger-amber);
+}
+.pay-progress,
+.pay-legend {
+  grid-column: 1/-1;
+}
+.pay-progress {
+  height: 9px;
+  background: #e4b76d;
+  border-radius: 5px;
+  overflow: hidden;
+}
+.pay-progress i {
+  display: block;
+  height: 100%;
+  background: var(--ledger-teal);
+}
+.pay-legend {
+  color: #4c605d;
+}
+.pay-register button[aria-pressed="true"],
+.contract-decision button[aria-pressed="true"] {
+  background: var(--ledger-teal);
+  color: white;
+}
+.pay-register tbody tr {
+  cursor: pointer;
+}
+.pay-register td small,
+.pay-history li small {
+  display: block;
+}
+.pay-history,
+.contract-line {
+  border: 1px solid var(--ledger-rule);
+  border-radius: 10px;
+  padding: 16px;
+  margin: 14px 0;
+}
+.pay-history ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.pay-history li {
+  display: grid;
+  grid-template-columns: 110px 1fr auto;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--ledger-rule);
+}
+.contract-review {
+  width: min(1190px, 96vw);
+  max-width: 96vw;
+  max-height: 92vh;
+  border: 1px solid var(--ledger-rule);
+  border-radius: 14px;
+  padding: clamp(14px, 2vw, 28px);
+  color: inherit;
+  background: var(--surface, #fff);
+}
+.contract-review::backdrop {
+  background: #122b2a77;
+}
+.contract-columns {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.8fr) minmax(330px, 1.2fr);
+  gap: 20px;
+  margin: 18px 0;
+}
+.contract-columns aside {
+  position: sticky;
+  top: 0;
+  align-self: start;
+}
+.contract-columns iframe {
+  width: 100%;
+  height: 65vh;
+  border: 1px solid var(--ledger-rule);
+  border-radius: 8px;
+}
+.contract-columns fieldset {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+.contract-review label {
+  display: grid;
+  gap: 4px;
+}
+.contract-line,
+.contract-numbers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.contract-line > div {
+  grid-column: 1/-1;
+}
+.contract-line input,
+.contract-line select {
+  min-width: 0;
+  width: 100%;
+}
+.contract-decision {
+  background: #fff3d9;
+  color: #644619;
+  border-radius: 8px;
+  padding: 10px;
+}
+.contract-removed {
+  padding: 8px;
+  color: #5c6562;
+}
+.supplier-materials details {
+  padding: 10px 0;
+}
+.supplier-materials h3 {
+  margin: 18px 0 10px;
+}
+@media (max-width: 750px) {
+  .contract-columns {
+    display: flex;
+    flex-direction: column;
+  }
+  .contract-columns aside {
+    position: static;
+    width: 100%;
+  }
+  .contract-columns iframe {
+    height: 32vh;
+  }
+  .pay-summary {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .pay-summary > div:not(.pay-progress) {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .pay-history li {
+    grid-template-columns: 1fr auto;
+  }
+  .pay-history li time {
+    grid-column: 1/-1;
+  }
+  .pay-register .finance-heading {
+    flex-wrap: wrap;
+  }
+}
+
+.contract-source {
+  position: relative;
+  line-height: 0;
+  border: 1px solid var(--ledger-rule);
+}
+.contract-source img {
+  width: 100%;
+  height: auto;
+}
+.contract-source span {
+  position: absolute;
+  background: #ffd45538;
+  outline: 2px solid #ae761c;
+  pointer-events: none;
+}

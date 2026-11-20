@@ -21,13 +21,13 @@ try{
  await migrate();
  const f=await one("INSERT INTO factories(code,name) VALUES('a','A') RETURNING *"),other=await one("INSERT INTO factories(code,name) VALUES('b','B') RETURNING *");
  const hash=await hashPassword('MaterialTest123!'),users={};
- for(const role of ['admin','buxgalter','pto','omborchi'])users[role]=await one('INSERT INTO users(username,role,factory_id,password_hash) VALUES($1,$1,$2,$3) RETURNING *',[role,f.id,hash]);
+ for(const role of ['admin','buxgalter','pto','omborchi','kadrlar','usta','kurator','kuzatuvchi'])users[role]=await one('INSERT INTO users(username,role,factory_id,password_hash) VALUES($1,$1,$2,$3) RETURNING *',[role,f.id,hash]);
  const otherUser=await one("INSERT INTO users(username,role,factory_id,password_hash) VALUES('other','admin',$1,$2) RETURNING *",[other.id,hash]);
  const mat=await one("INSERT INTO materials(factory_id,name,unit,stock) VALUES($1,'Armatura','kg',true) RETURNING *",[f.id]);
  const mat2=await one("INSERT INTO materials(factory_id,name,unit,stock) VALUES($1,'Beton','m3',true) RETURNING *",[f.id]);
  server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
  const base='http://127.0.0.1:'+server.address().port+'/api';
- const call=async(p,method='GET',body,user=users.admin)=>{const res=await fetch(base+p,{method,headers:{Authorization:'Bearer '+issueToken(user),'Content-Type':'application/json','X-Factory':other.id},body:body===undefined?undefined:JSON.stringify(body)});return {status:res.status,body:res.headers.get('content-type')?.includes('application/json')?await res.json():await res.text()};};
+ const call=async(p,method='GET',body,user=users.admin,factory=other.id)=>{const res=await fetch(base+p,{method,headers:{Authorization:'Bearer '+issueToken(user),'Content-Type':'application/json','X-Factory':factory},body:body===undefined?undefined:JSON.stringify(body)});return {status:res.status,body:res.headers.get('content-type')?.includes('application/json')?await res.json():await res.text()};};
  const pdf=Buffer.from('%PDF-1.4\nTest\n%%EOF').toString('base64');
  const invoice=(type='in',qty=10)=>({requestId:crypto.randomUUID(),type,date:'2026-11-01',number:crypto.randomUUID(),counterparty:'Supplier',items:[{materialId:mat.id,qty,price:100,vatRate:12}],contentBase64:pdf,name:'Original.pdf'});
  const input=invoice();const a=await call('/finance/material-invoices','POST',input,users.buxgalter);assert.equal(a.status,200,JSON.stringify(a.body));assert.equal(a.body.amount,1120);assert.equal(a.body.items[0].vat,120);
@@ -47,8 +47,40 @@ try{
  const frac=await call('/finance/material-invoices','POST',{...invoice(),items:[{materialId:mat2.id,qty:.000001,price:100,vatRate:0}]});assert.equal(frac.status,200);assert.equal(frac.body.items[0].qty,.000001);
  const list=await call('/finance/material-invoices?month=2026-11');assert.equal(list.body.length,3);assert.ok(list.body.every(d=>!Object.hasOwn(d,'contentBase64')));
  assert.equal((await call('/finance/material-invoices?month=2026-11','GET',undefined,otherUser)).body.length,0);
- const backup=await call('/backup');assert.equal(backup.body.data.material_invoices.length,3);
+ // Supplier credit, allocations and statement rows must be consistent across retries and factory switches.
+ const settlements='/finance/supplier-settlements';
+ const party=(await call(settlements,'POST',{name:'Beton Servis'},users.buxgalter)).body;
+ const ledgerUrl=settlements+'/'+party.id;
+ const post=(path,data)=>call(ledgerUrl+path,'POST',{requestId:crypto.randomUUID(),...data},users.buxgalter);
+ const director=await one("INSERT INTO users(username,role,factory_id,password_hash) VALUES('director','rahbar',$1,$2) RETURNING *",[f.id,hash]);
+ const hq=await one("INSERT INTO users(username,role,password_hash) VALUES('head-office','admin',$1) RETURNING *",[hash]);
+ assert.equal((await call(ledgerUrl,'GET',undefined,director)).status,200);
+ assert.equal((await call(ledgerUrl,'GET',undefined,otherUser)).status,404);
+ assert.equal((await call(ledgerUrl,'GET',undefined,hq)).status,404); // this request selects the other factory
+ assert.equal((await call(ledgerUrl,'GET',undefined,hq,f.id)).status,200);
+ assert.ok((await call(settlements)).body.some(s=>s.id===party.id));
+ for(const r of ['pto','omborchi','kadrlar','usta','kurator','kuzatuvchi'])assert.equal((await call(ledgerUrl,'GET',undefined,users[r])).status,403);
+ const opening=await post('/entries',{kind:'opening_advance',date:'2026-10-31',amount:6000000});
+ assert.equal(opening.status,200,JSON.stringify(opening.body));
+ const signedBill=await call('/finance/material-invoices','POST',{...invoice(),counterparty:' beton   servis ',dueDate:'2026-11-05',items:[{materialId:mat.id,qty:20,price:1200000}]});
+ assert.equal(signedBill.body.supplierId,party.id);assert.equal(signedBill.body.amount,24000000);
+ const link={sourceId:opening.body.id,targetId:signedBill.body.id,amount:6000000,requestId:crypto.randomUUID()};
+ const pairs=await Promise.all([post('/allocations',link),post('/allocations',link)]);
+ assert.equal(pairs[0].status,200);assert.equal(pairs[0].body.id,pairs[1].body.id);
+ const pay={kind:'payment',amount:10000000,number:'B-7',date:'2026-11-02',targetId:signedBill.body.id,requestId:crypto.randomUUID()};
+ assert.equal((await post('/entries',pay)).status,200);assert.equal((await post('/entries',pay)).status,200);
+ assert.equal((await post('/entries',{...pay,number:'B-8',requestId:crypto.randomUUID(),amount:10000000})).status,409);
+ const account=(await call(settlements)).body.find(s=>s.id===party.id);
+ assert.equal(account.debt,8000000);assert.equal(account.advance,0);
+ const detail=(await call(ledgerUrl)).body;
+ assert.equal(detail.ledger.length,3);assert.equal(detail.allocations.length,2);
+ assert.equal((await post('/allocations',{sourceId:opening.body.id,targetId:signedBill.body.id,amount:1})).status,409);
+ assert.equal((await call('/finance/material-invoices/'+signedBill.body.id+'/void','POST',{reason:'test'})).status,409);
+ assert.equal((await post('/cancel',{kind:'allocation',id:pairs[0].body.id,reason:'Test'})).status,200);
+ assert.equal((await call(settlements)).body.find(s=>s.id===party.id).advance,6000000);
+ assert.equal((await post('/allocations',{...link,requestId:crypto.randomUUID()})).status,200);
+ const backup=await call('/backup');assert.equal(backup.body.data.material_invoices.length,4);assert.equal(backup.body.data.supplier_entries.length,2);
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'material-invoice-restore-'));
- try{const file=path.join(dir,'backup.json');await fs.writeFile(file,JSON.stringify(backup.body));await promisify(execFile)(process.execPath,[fileURLToPath(new URL('../scripts/restore.js',import.meta.url)),file,'--yes'],{cwd:dir,env:process.env,windowsHide:true,timeout:60000});assert.equal((await one('SELECT count(*) AS n FROM material_invoices')).n,3);assert.equal((await one('SELECT content_base64 FROM material_invoices WHERE id=$1',[a.body.id])).contentBase64,pdf);}finally{if(path.dirname(path.resolve(dir))===path.resolve(os.tmpdir())&&path.basename(dir).startsWith('material-invoice-restore-'))await fs.rm(dir,{recursive:true,force:true});}
+ try{const file=path.join(dir,'backup.json');await fs.writeFile(file,JSON.stringify(backup.body));await promisify(execFile)(process.execPath,[fileURLToPath(new URL('../scripts/restore.js',import.meta.url)),file,'--yes'],{cwd:dir,env:process.env,windowsHide:true,timeout:60000});assert.equal((await one('SELECT count(*) AS n FROM material_invoices')).n,4);assert.equal((await call(settlements)).body.find(s=>s.id===party.id).debt,8000000);assert.equal((await one('SELECT content_base64 FROM material_invoices WHERE id=$1',[a.body.id])).contentBase64,pdf);}finally{if(path.dirname(path.resolve(dir))===path.resolve(os.tmpdir())&&path.basename(dir).startsWith('material-invoice-restore-'))await fs.rm(dir,{recursive:true,force:true});}
  console.log('PASS: material invoices, VAT, atomic stock, concurrency, PDF, isolation, permissions, fractional quantities, void and backup restore');
 }finally{if(server)await new Promise(r=>server.close(r));await getPool().end();await management.query('DROP SCHEMA '+schema+' CASCADE');await management.end();}

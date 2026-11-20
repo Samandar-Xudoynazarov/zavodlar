@@ -127,9 +127,14 @@ r.post("/products", async (req, res) => {
   }
   const data = clean(SPEC.product, body);
   if (body.sort === undefined) data.sort = (await q("SELECT COALESCE(max(sort), 0) + 1 AS n FROM products WHERE factory_id = $1", [req.factoryId])).rows[0].n;
-  const s = insertSql("products", { factoryId: req.factoryId, ...data });
-  const doc = await one(s.text, s.values);
-  await audit(req, { action: "create", entity: "product", entityId: doc.id, label: doc.code, after: doc });
+  const {doc,completed} = await tx(async c => {
+    await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,9473))',[req.factoryId]);
+    const pending = await rows('SELECT id FROM products WHERE factory_id=$1 AND cost_pending AND lower(code)=lower($2) FOR UPDATE',[req.factoryId,data.code],c);
+    if(pending.length>1)throw new ValidationError('PTO hisobini kutayotgan mahsulotni katalogdan tanlang');
+    const sql=pending.length?updateSql('products',pending[0].id,req.factoryId,{...data,costPending:!data.calc?.items?.length}):insertSql('products',{factoryId:req.factoryId,...data});
+    return {doc:await one(sql.text,sql.values,c),completed:pending.length>0};
+  });
+  await audit(req, { action: completed?"update":"create", entity: "product", entityId: doc.id, label: doc.code, after: doc });
   res.status(201).json(doc);
 });
 r.put("/products/:id", async (req, res) => {
@@ -138,6 +143,7 @@ r.put("/products/:id", async (req, res) => {
   if (!before) return notFound(res);
   const data = clean(SPEC.product, req.body, { partial: true });
   if (!Object.keys(data).length) return res.json(before);
+  if (before.costPending && data.calc?.items?.length) data.costPending=false;
   const s = updateSql("products", req.params.id, req.factoryId, data);
   const doc = await one(s.text, s.values);
   await audit(req, { action: "update", entity: "product", entityId: doc.id, label: doc.code, before, after: doc });
@@ -173,7 +179,7 @@ r.put("/settings", async (req, res) => {
   const before = structuredClone(s);
   const b = req.body || {};
   if (b.electrodePct !== undefined) s.electrodePct = Math.max(0, +b.electrodePct || 0);
-  if (b.company !== undefined) s.company = String(b.company).slice(0, 200);
+  const company = b.company === undefined ? null : String(b.company).slice(0, 200);
   if (b.plan && typeof b.plan === "object") {
     const holidays = Array.isArray(b.plan.holidays) ? b.plan.holidays : s.plan?.holidays || [];
     if (holidays.some((d) => !validDate(d))) return res.status(400).json({ error: "Dam olish kuni sanasi noto'g'ri" });
@@ -218,8 +224,8 @@ r.put("/settings", async (req, res) => {
     };
   }
   await q(
-    `UPDATE settings SET electrode_pct = $2, company = $3, signers = $4, opening = $5, calc_template = $6, cost_schemes = $7, plan = $8, updated_at = now() WHERE factory_id = $1`,
-    [req.factoryId, s.electrodePct, s.company, JSON.stringify(s.signers), JSON.stringify(s.opening), s.calcTemplate === null ? null : JSON.stringify(s.calcTemplate), s.costSchemes === null ? null : JSON.stringify(s.costSchemes), JSON.stringify(s.plan)]
+    `UPDATE settings SET electrode_pct = $2, company = COALESCE($3, company), signers = $4, opening = $5, calc_template = $6, cost_schemes = $7, plan = $8, updated_at = now() WHERE factory_id = $1`,
+    [req.factoryId, s.electrodePct, company, JSON.stringify(s.signers), JSON.stringify(s.opening), s.calcTemplate === null ? null : JSON.stringify(s.calcTemplate), s.costSchemes === null ? null : JSON.stringify(s.costSchemes), JSON.stringify(s.plan)]
   );
   const after = await getSettings(req.factoryId);
   await audit(req, { action: "update", entity: "settings", entityId: "main", label: "Sozlamalar", before, after });

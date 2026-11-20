@@ -17,7 +17,7 @@ function usedDays(r,year){
  const a=r.startDate>`${year}-01-01`?r.startDate:`${year}-01-01`,b=r.endDate<`${year}-12-31`?r.endDate:`${year}-12-31`;
  return a>b?0:Math.round((Date.parse(b)-Date.parse(a))/86400000)+1;
 }
-export default function HrWorkforce({view,onViewChange,notify,openForm}) {
+export default function HrWorkforce({view,onViewChange,notify,openForm,canWrite,tabs}) {
  const t=useT(),{user}=useUser();const decide=['admin','rahbar','kadrlar'].includes(user.role);
  const [data,setData]=useState(null),[error,setError]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
  const [query,setQuery]=useState(''),[status,setStatus]=useState('all'),[year,setYear]=useState(()=>+today().slice(0,4));
@@ -78,7 +78,7 @@ export default function HrWorkforce({view,onViewChange,notify,openForm}) {
  return <section className="sheet hr-workforce" aria-busy={loading}>
   <div className="hr-heading"><div><span className="hr-eyebrow">{t('Kadrlar bo‘limi')}</span><h2>{t(view==='overview'?'Kadrlar nazorati':TYPES[view]?.[1]||'Kadrlar nazorati')}</h2></div><button className="btn" disabled={busy||loading} onClick={load}>{t('Yangilash')}</button></div>
   <HrDeadlineNotice onOpen={()=>onViewChange('reminders')}/>
-  <HrNavigation view={view} onChange={onViewChange} tabs={[["overview","Kadrlar nazorati"],["employees","Xodimlar"],["time","Tabel"],...(["admin","rahbar","kadrlar"].includes(user.role)?[["archive","Hujjatlar"],["staff","Shtat jadvali"],["reminders","Muddat eslatmalari"]]:[]),...Object.entries(TYPES).map(([key,[,label]])=>[key,label])]} />
+  <HrNavigation view={view} onChange={onViewChange} tabs={tabs} />
   {error&&<p className="err" role="alert">{t(error)}</p>}
   {loading?<p className="loading">{t("Ma'lumotlar yuklanmoqda…")}</p>:data&&<>
    {view==='overview'?<>
@@ -93,7 +93,7 @@ export default function HrWorkforce({view,onViewChange,notify,openForm}) {
     <h3>{t('Oxirgi amallar')}</h3>
     <div className="tbl-wrap"><table><thead><tr>{['Sana','Mas’ul','Xodim','Amal'].map(x=><th key={x}>{t(x)}</th>)}</tr></thead><tbody>{(data.events||[]).slice(0,15).map(e=><tr key={e.id}><td>{new Date(e.createdAt).toLocaleString('ru-RU',{timeZone:'Asia/Tashkent'})}</td><td>{e.actor.name}</td><td>{name(e.entityId)}</td><td>{t({'workforce.create':'Kadrlar yozuvi yaratildi','workforce.update':'Kadrlar yozuvi o‘zgardi','workforce.decision':'Kadrlar yozuvi holati o‘zgardi','workforce.apply':'Reja tabelga qo‘llandi','workforce.allowance':'Ta’til limiti o‘zgardi'}[e.action]||e.action)}</td></tr>)}</tbody></table></div>
    </>:<>
-    <div className="hr-toolbar"><input type="search" aria-label={t('Qidirish')} placeholder={t('Qidirish')} value={query} onChange={e=>setQuery(e.target.value)}/><label>{t('Holat')}<select value={status} onChange={e=>setStatus(e.target.value)}><option value="all">{t('Barchasi')}</option>{Object.entries(STATES).map(([k,l])=><option key={k} value={k}>{t(l)}</option>)}</select></label><button className="btn primary" disabled={busy||!employees.length} onClick={()=>recordForm()}>{t('Yangi yozuv')}</button></div>
+    <div className="hr-toolbar"><input type="search" aria-label={t('Qidirish')} placeholder={t('Qidirish')} value={query} onChange={e=>setQuery(e.target.value)}/><label>{t('Holat')}<select value={status} onChange={e=>setStatus(e.target.value)}><option value="all">{t('Barchasi')}</option>{Object.entries(STATES).map(([k,l])=><option key={k} value={k}>{t(l)}</option>)}</select></label>{canWrite&&<button className="btn primary" disabled={busy||!employees.length} onClick={()=>recordForm()}>{t('Yangi yozuv')}</button>}</div>
     {view==='leaves'&&<>
      <p className="hint">{t('Ta’til limiti har yil uchun qo‘lda belgilanadi. Qoldiqdan tasdiqlangan ta’tillar, kelajakdagilari ham, ayriladi. Hisob kalendar kunlarda yuritiladi.')}</p>
      <label>{t('Yil')} <input type="number" min="1900" max="2200" value={year} onChange={e=>setYear(+e.target.value)}/></label>
@@ -105,7 +105,7 @@ export default function HrWorkforce({view,onViewChange,notify,openForm}) {
     {view==='shifts'&&<p className="hint">{t('Smena rejasi haqiqiy davomatdan alohida yuritiladi. Tasdiqlangach bo‘sh tabelga namuna sifatida qo‘llanadi; haqiqiy soatlar tekshirib saqlanadi.')}</p>}
     {view==='orders'&&<p className="hint">{t('Buyruqlar reyestri. Lavozim, ish sanalari va maoshdagi o‘zgarishlar tegishli xodim kartochkasida alohida qayd etiladi.')}</p>}
     <div className="tbl-wrap"><table className="hr-records-table"><thead><tr>{['Xodim','Nomi','Davr','Holat','Amallar'].map(x=><th key={x}>{t(x)}</th>)}</tr></thead><tbody>{filtered.map(r=><tr key={r.id}><td>{name(r.employeeId)}</td><td><strong>{r.title}</strong><div className="hint">{details(r)}{r.detail.number&&` · ${r.detail.number}`}</div>{r.detail.note&&<div className="hint">{r.detail.note}</div>}</td><td>{r.startDate}<br/>{r.endDate}</td><td><span className="pill">{t(STATES[r.status])}</span>{r.detail.appliedAt&&<p className="hint">{t('Tabelga qo‘llangan')}</p>}{r.reason&&<p className="hint">{r.reason}</p>}</td><td><div className="acts">
-     {r.status==='draft'&&<button className="btn sm" disabled={busy} onClick={()=>recordForm(r)}>{t('Tahrirlash')}</button>}
+     {canWrite&&r.status==='draft'&&<button className="btn sm" disabled={busy} onClick={()=>recordForm(r)}>{t('Tahrirlash')}</button>}
      {decide&&r.status==='draft'&&<button className="btn sm primary" disabled={busy} onClick={()=>decision(r,'approved')}>{t('Tasdiqlash')}</button>}
      {decide&&r.status==='approved'&&['leave','shift'].includes(r.kind)&&!r.detail.appliedAt&&<button className="btn sm" disabled={busy} onClick={()=>{if(window.confirm(t('Tasdiqlangan davrni tabelga qo‘llaysizmi?')))run(()=>api(`/hr/workforce/records/${r.id}/apply`,{method:'POST',body:{version:r.version}}));}}>{t('Tabelga qo‘llash')}</button>}
      {decide&&r.status==='approved'&&['order','document','equipment'].includes(r.kind)&&<button className="btn sm" disabled={busy} onClick={()=>decision(r,'completed')}>{t('Yakunlash')}</button>}

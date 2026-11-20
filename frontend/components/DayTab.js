@@ -7,7 +7,7 @@ import Icon from "./Icon";
 import ExportMenu from "./ExportMenu";
 import NakladnoyDialog from "./NakladnoyDialog";
 import ReportSigners from "./ReportSigners";
-import Reconciliation from "./Reconciliation";
+
 import { addDaySheet, deliver, newWorkbook, pickRows } from "@/lib/excel";
 import { BRAK_REASONS, consumption, fmtDate, fmtN, lsGet, lsSet, productOptions, round, shiftDate, today } from "@/lib/calc";
 
@@ -400,7 +400,6 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
       </div>
 
       <ReportSigners settings={settings} canEdit={mayEdit} notify={notify} onSaved={onSaved}/>
-      {['admin','rahbar','pto','buxgalter'].includes(user?.role)&&<Reconciliation date={date} version={review.version}/>}
       {canDay && (
         <div className={`day-savebar no-print ${saving ? "is-saving" : dirty ? "is-dirty" : exists ? "is-saved" : ""}`}>
           <div className="day-save-state" role="status" aria-live="polite" aria-atomic="true">

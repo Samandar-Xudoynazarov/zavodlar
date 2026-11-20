@@ -18,12 +18,28 @@ export function cleanLogo(value){
  }
  return value;
 }
-export async function factoryProfile(factoryId,c){
- const row=await one('SELECT f.name,s.company,s.document_profile,s.document_version FROM factories f LEFT JOIN settings s ON s.factory_id=f.id WHERE f.id=$1',[factoryId],c);
- const p=row?.documentProfile||{};return {factoryId,version:row?.documentVersion||1,...p,company:p.company||row?.company||row?.name||'',logo:p.logo||''};
+export function documentCompany(profile = {}, legacyName = '', factoryCode = '') {
+  const normalized = value => String(value || '').trim().toLowerCase();
+  const aliases = [profile.shortName, factoryCode].map(normalized);
+  for (const candidate of [profile.company, legacyName]) {
+    const name = String(candidate || '').trim();
+    if (name && !aliases.includes(normalized(name))) return name;
+  }
+  return '';
 }
-export async function employerWithIdentity(factoryId,profile={},c){
- const p=await factoryProfile(factoryId,c),s=await one('SELECT document_profile FROM settings WHERE factory_id=$1',[factoryId],c);
- if(!s?.documentProfile?.company)return {...profile,company:profile.company||p.company,logo:p.logo};
- return {...profile,...Object.fromEntries(Object.entries(p).filter(([k])=>!['factoryId','version'].includes(k)))};
+
+export async function factoryProfile(factoryId, client, employer = {}) {
+  const row = await one(
+    'SELECT f.code, s.company, s.document_profile, s.document_version FROM factories f LEFT JOIN settings s ON s.factory_id=f.id WHERE f.id=$1',
+    [factoryId], client
+  );
+  const profile = row?.documentProfile || {};
+  const details = { ...employer, ...profile };
+  const company = documentCompany(details, row?.company, row?.code);
+  return { ...details, factoryId, version: row?.documentVersion || 1, company, logo: profile.logo || '' };
+}
+
+export async function employerWithIdentity(factoryId, employer = {}, client) {
+  const { factoryId: id, version, ...details } = await factoryProfile(factoryId, client, employer);
+  return details;
 }

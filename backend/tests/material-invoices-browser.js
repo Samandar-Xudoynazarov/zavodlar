@@ -36,10 +36,57 @@ try {
  await page.getByRole('heading',{name:'Material fakturalari',exact:true}).waitFor();await page.getByRole('button',{name:'+ Faktura kiritish',exact:true}).click();
  const dlg=page.locator('dialog[open]');await dlg.getByLabel('Faktura raqami',{exact:true}).fill('M-101');await dlg.getByLabel('Kontragent',{exact:true}).fill('Metall savdo');await dlg.getByLabel('Material 1',{exact:true}).selectOption(mat.id);await dlg.getByLabel('Miqdor 1',{exact:true}).fill('10.125');await dlg.getByLabel('QQS 1',{exact:true}).fill('12');await dlg.locator('input[type=file]').setInputFiles({name:'M-101.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\nUI test\n%%EOF')});
  await page.screenshot({path:path.join(artifacts,'form-desktop.png'),fullPage:true});await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(artifacts,'form-mobile.png'),fullPage:true});assert.ok(await dlg.evaluate(e=>e.getBoundingClientRect().width<=window.innerWidth));assert.ok(await dlg.evaluate(e=>e.scrollWidth<=e.clientWidth+1));await page.setViewportSize({width:1440,height:1000});
- await dlg.getByRole('button',{name:'Saqlash va omborga yozish',exact:true}).click();await dlg.waitFor({state:'hidden'});await page.getByText('M-101',{exact:true}).waitFor();const inv=await one('SELECT * FROM material_invoices');assert.equal(inv.amount,1134);assert.equal((await one('SELECT qty FROM movements')).qty,10.125);
+ await dlg.getByRole('combobox',{name:/^Omborga yozish/}).selectOption('withReceipt');await dlg.getByRole('button',{name:'Saqlash va omborga yozish',exact:true}).click();await dlg.waitFor({state:'hidden'});await page.getByText('M-101',{exact:true}).waitFor();const inv=await one('SELECT * FROM material_invoices');assert.equal(inv.amount,1134);assert.equal((await one('SELECT qty FROM movements')).qty,10.125);
  await page.getByRole('button',{name:'1 material · tafsilotlar',exact:true}).click();await page.getByRole('heading',{name:'Faktura №M-101 · Metall savdo'}).waitFor();
  const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Oylik Excel yuklash',exact:true}).click();const download=await downloadPromise;const wb=new ExcelJS.Workbook();await wb.xlsx.readFile(await download.path());assert.equal(wb.worksheets.length,2);assert.equal(wb.worksheets[0].getCell('F5').value,10.125);assert.equal(wb.worksheets[0].getCell('K5').value,1134);assert.equal(wb.worksheets[0].getCell('K6').value.result,1134);
  const pdfPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Yuklash',exact:true}).click();assert.equal((await pdfPromise).suggestedFilename(),'M-101.pdf');
  await page.screenshot({path:path.join(artifacts,'journal-desktop.png'),fullPage:true});await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(artifacts,'journal-mobile.png'),fullPage:true});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));
- await page.setViewportSize({width:1440,height:1000});await page.getByRole('button',{name:'Bekor qilish',exact:true}).click();await page.locator('dialog[open]').getByLabel('Sabab',{exact:true}).fill('Xato faktura');await page.locator('dialog[open]').getByRole('button',{name:'Saqlash',exact:true}).click();await page.locator('dialog[open]').waitFor({state:'hidden'});await page.getByText('Bekor qilingan: Xato faktura',{exact:true}).waitFor();assert.equal((await one('SELECT count(*) AS n FROM movements')).n,0);assert.deepEqual(errors,[]);console.log('PASS browser: invoice entry, stock, VAT, PDF download, Excel values and totals, void, desktop and mobile');await context.close();
+ // Exercise the finance workspace using the same invoice that reached the warehouse.
+ await page.setViewportSize({width:1440,height:1000});
+ assert.deepEqual((await page.locator('.nav-group-title span').allTextContents()).slice(0,5),
+   ['Ish stoli','Ishlab chiqarish','Ombor','Finansiviy','Kadrlar bo‘limi']);
+ await page.locator('#nav-tab-finance-home').click();
+ await page.getByRole('button',{name:'Hisob-kitobni ochish'}).click();
+ await page.getByRole('button',{name:/Metall savdo/}).click();
+ const saveForm=async()=>{
+   await dlg.getByRole('button',{name:'Saqlash',exact:true}).click();
+   await dlg.waitFor({state:'hidden'});
+ };
+ await page.getByRole('button',{name:'Boshlang‘ich qoldiq kiritish'}).click();
+ await dlg.getByLabel('Sana',{exact:true}).fill('2026-11-01');
+ await dlg.getByLabel('Qoldiq turi').selectOption('opening_advance');
+ await dlg.getByLabel('Summa',{exact:true}).fill('200');
+ await saveForm();
+ await page.getByRole('button',{name:'To‘lov va avanslar',exact:true}).click();
+ await page.getByRole('button',{name:'Avansni bog‘lash',exact:true}).click();
+ await saveForm();
+ await page.getByRole('button',{name:'+ To‘lov kiritish',exact:true}).click();
+ await dlg.getByLabel('To‘lov hujjati raqami').fill('PAY-12');
+ await dlg.getByLabel('Summa',{exact:true}).fill('300');
+ await dlg.getByLabel('Qaysi hujjat uchun?').selectOption(inv.id);
+ await saveForm();
+ await page.getByRole('button',{name:'Solishtirma dalolatnoma',exact:true}).click();
+ await page.locator('.settle-statement strong').filter({hasText:'634'}).waitFor();
+ const statementPromise=page.waitForEvent('download');
+ await page.getByRole('button',{name:'Dalolatnomani Excelga yuklash'}).click();
+ const statement=new ExcelJS.Workbook();
+ await statement.xlsx.readFile(await (await statementPromise).path());
+ const sheet=statement.worksheets[0];
+ let closingRow;
+ sheet.eachRow(row=>{if(row.getCell(2).value==='Yakuniy qoldiq')closingRow=row;});
+ assert.ok(closingRow);assert.equal(closingRow.getCell(3).value,634);assert.equal(closingRow.getCell(4).value,0);
+ await page.setViewportSize({width:390,height:844});
+ assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));
+ await page.setViewportSize({width:1440,height:1000});
+ await page.getByRole('button',{name:'Fakturalar va qarz'}).click();
+ await page.locator('.settle-docs summary').click();
+ for(const expected of [2,1]){
+   assert.equal(await page.getByRole('button',{name:'Ajratish',exact:true}).count(),expected);
+   await page.getByRole('button',{name:'Ajratish',exact:true}).first().click();
+   await dlg.getByLabel('Sabab').fill('Sinov yakunlandi');
+   await saveForm();
+   if(expected===2)await page.locator('.settle-docs details:not([open]) summary').click();
+ }
+ await page.locator('#nav-tab-finance-materials').click();
+ await page.setViewportSize({width:1440,height:1000});await page.getByRole('button',{name:'Bekor qilish',exact:true}).click();await page.locator('dialog[open]').getByLabel('Sabab',{exact:true}).fill('Xato faktura');await page.locator('dialog[open]').getByRole('button',{name:'Saqlash',exact:true}).click();await page.locator('dialog[open]').waitFor({state:'hidden'});await page.getByText('Bekor qilingan: Xato faktura',{exact:true}).waitFor();assert.equal((await one('SELECT count(*) AS n FROM movements')).n,0);assert.deepEqual(errors,[]);console.log('PASS browser: navigation order, invoice entry, stock, VAT, supplier opening advance, partial payment, reconciliation Excel balance, PDF, void, desktop and mobile');await context.close();
 } catch(e){if(browser){const p=browser.contexts()[0]?.pages()[0];if(p){await p.screenshot({path:path.join(artifacts,'failure.png'),fullPage:true}).catch(()=>{});console.log(await p.locator('body').innerText());}}throw e;}finally{if(browser)await browser.close();if(web)web.kill();if(server)await new Promise(r=>server.close(r));await getPool().end();await management.query('DROP SCHEMA '+schema+' CASCADE');await management.end();}

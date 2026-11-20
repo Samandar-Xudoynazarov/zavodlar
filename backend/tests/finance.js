@@ -74,4 +74,42 @@ try {
   console.log('PASS: full financial/PDF backup restore round trip');
  } finally {const resolved=path.resolve(dir);if(path.dirname(resolved)===path.resolve(os.tmpdir())&&path.basename(resolved).startsWith('zavodlar-finance-restore-'))await fs.rm(resolved,{recursive:true,force:true});}
 
+ // Original contract, material receipts and issued invoices have independent dates.
+ const contractPath='/finance/contracts';
+ const accountant=(path,method,body)=>call(path,method,body,users.buxgalter);
+ const save=async(path,body)=>{const r=await accountant(path,'POST',body);assert.equal(r.status,200,JSON.stringify(r.body));return r.body;};
+ const cement=await one("INSERT INTO materials(factory_id,name,unit) VALUES($1,'Sement','t') RETURNING id",[f.id]);
+ const contract={number:'C-9',date:'2026-09-01',contentBase64:pdf,name:'Shartnoma.pdf',counterparty:'Sement sinov',kind:'purchase',originalTotal:13200000,requestId:crypto.randomUUID(),items:[{name:'Sement',unit:'t',qty:20,price:660000,total:13200000,materialId:cement.id,factor:1}]};
+ const purchase=await save(contractPath,contract);
+ assert.equal((await save(contractPath,contract)).id,purchase.id);
+ const supplierAccount='/finance/supplier-settlements/'+purchase.supplierId;
+ const incoming=await one("INSERT INTO movements(factory_id,type,date,material_id,qty,supplier) VALUES($1,'in','2026-09-28',$2,12,$3) RETURNING id",[f.id,cement.id,contract.counterparty]);
+ await q("INSERT INTO movements(factory_id,type,date,material_id,qty) VALUES($1,'out','2026-09-29',$2,12)",[f.id,cement.id]);
+ const october=await save('/finance/material-invoices',{type:'in',stockMode:'invoiceOnly',date:'2026-10-03',counterparty:contract.counterparty,number:'F-3',requestId:crypto.randomUUID(),items:[{materialId:cement.id,qty:4,price:660000}]});
+ const match={materialId:cement.id,movementId:incoming.id,invoiceId:october.id,qty:4,requestId:crypto.randomUUID()};
+ assert.equal((await save(supplierAccount+'/material-matches',match)).id,(await save(supplierAccount+'/material-matches',match)).id);
+ await save(supplierAccount+'/entries',{kind:'payment',number:'A-5',date:'2026-10-03',amount:3300000,materialId:cement.id,contractId:purchase.id,requestId:crypto.randomUUID()});
+ const balances=(await accountant(supplierAccount)).body.materials;
+ assert.equal(balances.receipts[0].remaining,8);assert.equal(balances.advances[0].qty,5);
+ assert.equal(balances.matches[0].receiptDate,'2026-09-28');assert.equal(balances.matches[0].invoiceDate,'2026-10-03');
+ assert.equal((await one("SELECT sum(CASE WHEN type='in' THEN qty ELSE -qty END) AS stock FROM movements WHERE factory_id=$1 AND material_id=$2",[f.id,cement.id])).stock,0);
+ const futureInvoice=await save('/finance/material-invoices',{type:'in',stockMode:'invoiceOnly',date:'2026-10-04',counterparty:contract.counterparty,number:'F-4',requestId:crypto.randomUUID(),items:[{materialId:cement.id,qty:3,price:660000}]});
+ const later=await one("INSERT INTO movements(factory_id,type,date,material_id,qty,supplier) VALUES($1,'in','2026-11-06',$2,3,$3) RETURNING id",[f.id,cement.id,contract.counterparty]);
+ await save(supplierAccount+'/material-matches',{materialId:cement.id,movementId:later.id,invoiceId:futureInvoice.id,qty:3,requestId:crypto.randomUUID()});
+ const inline=await save('/finance/material-invoices',{type:'in',stockMode:'invoiceOnly',date:'2026-11-08',counterparty:contract.counterparty,number:'F-8',requestId:crypto.randomUUID(),items:[{materialId:cement.id,qty:2,price:660000,receiptId:incoming.id,matchQty:2}]});
+ assert.equal((await accountant(supplierAccount)).body.materials.receipts[0].remaining,6);
+ await save('/finance/material-invoices/'+inline.id+'/void',{reason:'Takroriy faktura'});
+ assert.equal((await accountant(supplierAccount)).body.materials.receipts[0].remaining,8);
+ const sales={...contract,number:'S-7',kind:'sale',requestId:crypto.randomUUID(),counterparty:'Sinov mijoz',status:'jarayonda',items:[{name:'Sinov plitasi',unit:'dona',qty:2,price:100,total:224,create:true}],originalTotal:336};
+ const sale=await save(contractPath,sales),repeated=await save(contractPath,sales);
+ assert.equal(sale.orderId,repeated.orderId);assert.equal(sale.originalTotal,336);
+ const savedOrder=(await accountant('/orders')).body.find(x=>x.id===sale.orderId);
+ const completed=await call('/products','POST',{code:'Sinov plitasi',name:'Sinov plitasi',calc:{items:[{materialId:cement.id,norm:2}]}},users.pto);
+ assert.equal(completed.status,201,JSON.stringify(completed.body));assert.equal(completed.body.id,savedOrder.items[0].productId);assert.equal(completed.body.costPending,false);
+ assert.equal(savedOrder.status,'jarayonda');assert.equal(savedOrder.items[0].price,112);
+ assert.equal((await one('SELECT name FROM products WHERE id=$1',[savedOrder.items[0].productId])).name,'Sinov plitasi');
+ assert.equal((await accountant(contractPath+'/'+sale.id+'/pdf')).body,Buffer.from(pdf,'base64').toString());
+ assert.equal((await call(contractPath+'/'+sale.id+'/pdf','GET',undefined,otherAdmin)).status,404);
+ console.log('PASS: sale/purchase contracts, catalog draft, delayed invoices, invoice-first receipts, 5 t advance and separate 8 t uninvoiced');
+
 } finally {if(server)await new Promise(resolve=>server.close(resolve));await getPool().end();await management.query('DROP SCHEMA '+schema+' CASCADE');await management.end();}

@@ -1,10 +1,11 @@
 import { newWorkbook, deliver } from './excel';
-import { shiftEntries,workingDay } from './attendance';
+import { shiftEntries,workingDay,compareTimesheetEmployees } from './attendance';
 
 const CODES = { work: 'I', off: 'D', leave: 'T', sick: 'K', absent: 'Y', trip: 'XS' };
 
 // Single-shift days are merged cells; only two-shift working days have two cells.
 export function buildTimesheet(wb,{ month, employees, doc, company, t, blank = false }) {
+  employees = [...employees].sort(compareTimesheetEmployees);
   const count = new Date(+month.slice(0, 4), +month.slice(5), 0).getDate();
   const last = count + 8;
   wb.calcProperties.fullCalcOnLoad=true;

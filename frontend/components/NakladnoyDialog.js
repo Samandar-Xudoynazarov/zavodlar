@@ -3,12 +3,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { tr, useT } from "@/lib/i18n";
 import { fmtDate, lsGet, lsSet } from "@/lib/calc";
 import { getFactory } from "@/lib/api";
-import { buildPlanPdf, deliverPdf } from "@/lib/plan-pdf";
-import { cyr, money, nakladnoyDefinition, nextNo } from "@/lib/nakladnoy-pdf";
+import { deliverPdf } from "@/lib/plan-pdf";
+import { cyr, money, buildNakladnoyPdf, nextNo } from "@/lib/nakladnoy-pdf";
 import Icon from "./Icon";
 import { fileBase64 } from "@/lib/finance-files";
 
-const KEY = () => `pto.nakl:${getFactory()}`; // har zavod uchun alohida — { lastNo, sender, sentBy, signature, drivers: { mashina: FIO }, copies, showSum }
+const KEY = () => `pto.nakl:${getFactory()}`; // har zavod uchun alohida — { lastNo, sentBy, signature, drivers: { mashina: FIO }, copies, showSum }
 const num = (v) => +String(v ?? "").replace(/\s/g, "").replace(",", ".") || 0;
 
 /**
@@ -59,7 +59,7 @@ export default function NakladnoyDialog({ ships, date, data, notify, onClose, on
     const receiver = g?.customer || ""; // ob'ekt nomi — jo'natishdagi «Qayerga» (qo'lda o'zgartiriladi)
     setF({
       num: nextNo(saved.lastNo, date),
-      sender: saved.sender || '"ЭКМ" МЧЖ',
+      sender: data.settings?.company || '',
       receiver,
       date,
       contract: g?.order?.contractNo || "",
@@ -75,7 +75,7 @@ export default function NakladnoyDialog({ ships, date, data, notify, onClose, on
       signature: saved.signature || "",
       toShip: saved.toShip !== false, // PDF tayyorlanganda mahsulotlarni jo'natishga yozish
     });
-  }, [gk, groups, date, prods, saved]);
+  }, [gk, groups, date, prods, saved, data.settings?.company]);
 
   // shakl to'lgandan keyin (birinchi renderda dialog hali yo'q) ochiladi
   useEffect(() => {
@@ -110,11 +110,10 @@ export default function NakladnoyDialog({ ships, date, data, notify, onClose, on
     setBusy(true);
     try {
       const items = f.items.filter((it) => it.name.trim() || num(it.qty)).map((it) => ({ name: cyr(it.name), unit: cyr(it.unit), qty: it.qty, sum: f.showSum ? (num(it.sum) && /^[\d\s.,]+$/.test(String(it.sum).trim()) ? money(num(it.sum)) : cyr(it.sum)) : "" }));
-      const def = nakladnoyDefinition({ ...f, items, total: f.showSum && total ? money(total) : "", totalQty });
-      const blob = await buildPlanPdf(def);
+      const blob = await buildNakladnoyPdf({ ...f, items, total: f.showSum && total ? money(total) : "", totalQty });
       const st = lsGet(KEY(), {});
       const plate = (f.car || "").replace(/\s+/g, "").toUpperCase();
-      lsSet(KEY(), { ...st, lastNo: f.num, sender: f.sender, sentBy: f.sentBy, copies: f.copies, showSum: f.showSum, signature: f.signature, drivers: { ...(st.drivers || {}), ...(plate && f.driver ? { [plate]: f.driver } : {}) } });
+      lsSet(KEY(), { ...st, lastNo: f.num, sentBy: f.sentBy, copies: f.copies, showSum: f.showSum, signature: f.signature, drivers: { ...(st.drivers || {}), ...(plate && f.driver ? { [plate]: f.driver } : {}) } });
       const r = await deliverPdf(blob, `Nakladnaya_${(f.num || "").replace(/[^\w-]+/g, "_")}_${fmtDate(f.date)}.pdf`, { share });
       if (r === "downloaded-fallback") notify("Bu qurilmada ulashish yo'q — fayl yuklab olindi");
       lsSet(KEY(), { ...lsGet(KEY(), {}), toShip: f.toShip });

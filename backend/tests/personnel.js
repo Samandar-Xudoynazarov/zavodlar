@@ -61,14 +61,20 @@ try{
  assert.equal((await issue(termination,users.rahbar)).status,403);assert.equal((await issue(termination,users.buxgalter)).status,403);assert.equal((await issue(termination,alien)).status,400);assert.equal((await issue(termination,users.kadrlar)).status,200);card=await ok(p);assert.equal(card.employee.endDate,'2026-11-01');assert.ok(card.history.some(h=>h.action==='personnel.document.issue'));
  // Central archive contains only this factory and excludes file bytes / document payloads.
  const center=await ok('/hr/personnel-documents');assert.equal(center.documents.length,5);assert.equal(center.files.length,1);assert.ok(center.documents.every(d=>d.hasSignedPdf));assert.ok(!JSON.stringify(center).includes('contentBase64'));assert.ok(!Object.hasOwn(center.documents[0],'payload'));
- for(const u of [users.buxgalter,users.usta])assert.equal((await call('/hr/personnel-documents','GET',undefined,u)).status,403);
+ for(const u of [users.buxgalter,users.usta]){
+  const archive=await ok('/hr/personnel-documents','GET',undefined,u);
+  assert.equal(archive.documents.length,5);assert.equal(archive.files.length,0);
+  assert.equal((await call(p,'GET',undefined,u)).status,403);
+ }
  assert.equal((await ok('/hr/personnel-documents','GET',undefined,alien)).documents.length,0);
  const original=await ok(`${p}/documents/${hire.id}`);assert.equal(original.payload.terms.sourceContractNumber,'S-001');assert.equal((await call(`${p}/documents/${hire.id}`,'GET',undefined,alien)).status,400);
  const companyPath='/hr/personnel-documents/company-files?'+new URLSearchParams({title:'Ichki tartib qoidalari',category:'policy',name:'Qoidalar.pdf',mime:'application/pdf',date:'2026-11-01'});
  const companyResponse=await fetch(base+companyPath,{method:'POST',headers:{Authorization:`Bearer ${issueToken(users.kadrlar)}`,'Content-Type':'application/octet-stream'},body:bytes});assert.equal(companyResponse.status,200);const company=await companyResponse.json();
  assert.equal((await ok('/hr/personnel-documents')).companyFiles.length,1);
  const companyBytes=await fetch(base+'/hr/personnel-documents/company-files/'+company.id,{headers:{Authorization:`Bearer ${issueToken(users.kadrlar)}`}});assert.deepEqual(Buffer.from(await companyBytes.arrayBuffer()),bytes);
- assert.equal((await call('/hr/personnel-documents/company-files/'+company.id,'GET',undefined,alien)).status,400);assert.equal((await call('/hr/personnel-documents/company-files/'+company.id,'GET',undefined,users.buxgalter)).status,403);
+ assert.equal((await call('/hr/personnel-documents/company-files/'+company.id,'GET',undefined,alien)).status,400);const publicFile=await fetch(base+'/hr/personnel-documents/company-files/'+company.id,{headers:{Authorization:'Bearer '+issueToken(users.buxgalter)}});
+ assert.equal(publicFile.status,200);assert.deepEqual(Buffer.from(await publicFile.arrayBuffer()),bytes);
+ assert.equal((await call('/hr/personnel-documents/company-files/'+company.id,'DELETE',{},users.buxgalter)).status,403);
  // Complete backup and restore retains linked documents and attachment bytes.
  const backup=await ok('/backup','GET',undefined,users.admin);assert.equal(backup.data.hr_employee_files.length,1);assert.equal(backup.data.hr_company_files.length,1);assert.equal(backup.data.hr_employment_docs.length,5);assert.equal(backup.data.hr_employment_docs.find(d=>d.id===termination.id).signed_pdf.contentBase64,signedPdf.contentBase64);
  const folder=fs.mkdtempSync(path.join(os.tmpdir(),'personnel-restore-'));

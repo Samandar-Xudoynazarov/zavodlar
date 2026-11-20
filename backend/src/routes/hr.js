@@ -12,7 +12,7 @@ const r=Router();
 const EMPLOYEE_ADMINS=['admin','kadrlar'];
 const actor=req=>({id:req.user.id,name:req.user.name||req.user.username});
 const guard=roles=>(req,res,next)=>roles.includes(req.user.role)?next():res.status(403).json({error:"Sizda bu amal uchun ruxsat yo'q"});
-r.use(guard(TIME_ROLES));
+
 r.use((_req,res,next)=>{res.set('Cache-Control','no-store');next();});
 r.use(tools);
 r.use(workforce);
@@ -179,7 +179,7 @@ r.put('/months/:month/settings',guard(HR_ROLES),write(async(c,req)=>{
   await event(c,req,'month.settings',m.month,{normHours:norm,taxRate:tax,workDays:days,holidays:b.holidays});
   const n=await bump(c,req.factoryId,m.month);return {version:n.version};
 }));
-r.put('/months/:month/attendance/:id',write(async(c,req)=>{
+r.put('/months/:month/attendance/:id',guard(TIME_ROLES),write(async(c,req)=>{
   const m=await getMonth(c,req.factoryId,req.params.month); draft(m);version(m,req.body||{});
   const e=await employee(c,req.factoryId,req.params.id);
   if (!inMonth(e,m.month)) throw new ValidationError("Xodim bu oyda ishlamagan");

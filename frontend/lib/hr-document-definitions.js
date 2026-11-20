@@ -10,7 +10,7 @@ function signature(name,label='Imzo'){return {text:`${label}: __________________
 function bodyOrder(doc,cyr){
  const {employee:e,employer:em,terms:t}=doc.payload,C=s=>cyr(s),name=C(e.name),job=C(t.position||e.position),company=C(em.company),effective=dt(doc.effectiveDate);
  const head={columns:[{width:'*',text:[{text:`«${val(em.company)}»\n`,bold:true},(em.legalForm||'')+'\n',`${val(em.address)}\nTel. ${val(em.phone)}`],fontSize:10,alignment:'center'},
- em.logo?{width:70,image:em.logo,fit:[70,60],alignment:'center'}:{width:70,text:C(em.shortName||''),bold:true,fontSize:16,color:'#43205d',alignment:'center',margin:[0,20,0,0]},
+ ...(em.logo?[{width:70,image:em.logo,fit:[70,60],alignment:'center'}]:[]),
  {width:'*',text:[{text:`«${company}»\n`,bold:true},C(em.legalForm||'')+'\n',`${C(val(em.address))}\nТел. ${val(em.phone)}`],fontSize:10,alignment:'center'}],columnGap:10};
  let text=[],basis='';
  if(doc.kind==='hire'){

@@ -508,7 +508,13 @@ function Factories({ openForm, notify, factories, reload }) {
 }
 
 /* ================= bo'lim ================= */
-export default function AdminTab({ data, openForm, notify, onImported }) {
+export default function AdminTab(props) {
+  const { isAdmin } = useUser();
+  if (!isAdmin) return <section className="sheet"><FactoryIdentity /></section>;
+  return <AdminSettings {...props} />;
+}
+
+function AdminSettings({ data, openForm, notify, onImported }) {
   const { isHQAdmin } = useUser();
   const [users, setUsers] = useState(null);
   const [factories, setFactories] = useState([]);

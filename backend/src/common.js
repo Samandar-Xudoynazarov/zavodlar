@@ -1,5 +1,6 @@
 // Barcha yo'llar uchun umumiy yordamchilar
 import { q, one, rows } from "./db.js";
+import { documentCompany } from './factory-profile.js';
 import { isId } from "./valid.js";
 
 export const todayTashkent = () => new Date(Date.now() + 5 * 36e5).toISOString().slice(0, 10);
@@ -16,7 +17,7 @@ const SETTINGS_OUT = (r) => ({
   key: "main",
   factoryId: r.factoryId,
   electrodePct: r.electrodePct,
-  company: r.documentProfile?.company || r.company,
+  company: documentCompany(r.documentProfile, r.company, r.factoryCode),
   documentProfile: r.documentProfile || {},
   logo: r.documentProfile?.logo || '',
   signers: r.signers || [],
@@ -28,8 +29,8 @@ const SETTINGS_OUT = (r) => ({
   updatedAt: r.updatedAt,
 });
 export async function getSettings(factoryId, client) {
-  let r = await one("SELECT * FROM settings WHERE factory_id = $1", [factoryId], client);
-  if (!r) r = await one("INSERT INTO settings (factory_id) VALUES ($1) ON CONFLICT (factory_id) DO UPDATE SET factory_id = EXCLUDED.factory_id RETURNING *", [factoryId], client);
+  let r = await one("SELECT s.*, f.code AS factory_code FROM settings s JOIN factories f ON f.id = s.factory_id WHERE s.factory_id = $1", [factoryId], client);
+  if (!r) r = await one("INSERT INTO settings (factory_id) VALUES ($1) ON CONFLICT (factory_id) DO UPDATE SET factory_id = EXCLUDED.factory_id RETURNING *, (SELECT code FROM factories WHERE id = $1) AS factory_code", [factoryId], client);
   return SETTINGS_OUT(r);
 }
 export async function openingOf(factoryId, client) {

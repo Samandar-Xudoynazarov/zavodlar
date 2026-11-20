@@ -175,6 +175,7 @@ r.delete("/movements/:id", async (req, res) => {
   const f = req.factoryId;
   const doc = await one("SELECT * FROM movements WHERE id = $1 AND factory_id = $2", [req.params.id, f]);
   if (!doc) return notFound(res);
+  if (await one("SELECT id FROM material_invoice_matches WHERE factory_id=$1 AND movement_id=$2",[f,doc.id]))return res.status(409).json({error:'Kirim fakturaga bog‘langan'});
   if (await one("SELECT id FROM material_invoices WHERE factory_id=$1 AND voided_at IS NULL AND items @> $2::jsonb", [f, JSON.stringify([{movementId:doc.id}])])) return res.status(409).json({error:'Bu harakat fakturaga bog‘langan. Uni Finansiviy → Material fakturalari bo‘limida bekor qiling'});
   const u = req.user;
   if (doc.reason === "inventar") return res.status(400).json({ error: "Bu inventarizatsiya to'g'rilashi — uni inventarizatsiya bo'limida bekor qiling" });
@@ -527,7 +528,10 @@ r.delete("/suppliers/:id", async (req, res) => {
   const f = req.factoryId;
   const doc = await one("SELECT * FROM suppliers WHERE id = $1 AND factory_id = $2", [req.params.id, f]);
   if (!doc) return notFound(res);
-  if ((await q(`SELECT 1 FROM movements WHERE factory_id = $1 AND type = 'in' AND ${NORM("supplier")} = ${NORM("$2")} LIMIT 1`, [f, doc.name])).rowCount) {
+  if ((await q(`SELECT 1 FROM movements WHERE factory_id=$1 AND type='in' AND ${NORM("supplier")}=${NORM("$2")}
+    UNION ALL SELECT 1 FROM material_invoices WHERE factory_id=$1 AND supplier_id=$3
+    UNION ALL SELECT 1 FROM finance_contracts WHERE factory_id=$1 AND supplier_id=$3
+    UNION ALL SELECT 1 FROM supplier_entries WHERE factory_id=$1 AND supplier_id=$3 LIMIT 1`, [f, doc.name, doc.id])).rowCount) {
     await q("UPDATE suppliers SET archived = true, updated_at = now() WHERE id = $1", [doc.id]);
     return res.json({ ok: true, archived: true });
   }

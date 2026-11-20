@@ -35,8 +35,13 @@
     "node": ">=20.12"
   },
   "dependencies": {
+    "@hyzyla/pdfium": "2.1.13",
+    "@tesseract.js-data/eng": "1.0.0",
+    "@tesseract.js-data/rus": "1.0.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
-    "pg": "^8.16.0"
+    "pg": "^8.16.0",
+    "pngjs": "7.0.0",
+    "tesseract.js": "6.0.1"
   }
 }

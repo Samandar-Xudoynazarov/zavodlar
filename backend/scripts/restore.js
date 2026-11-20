@@ -41,6 +41,9 @@ const hasFinance=FINANCE_TABLES.some(t=>Object.hasOwn(D,t));
 if(hasFinance&&FINANCE_TABLES.some(t=>!Array.isArray(D[t])))throw new Error('Moliyaviy zaxira to‘liq emas');
 const hasMaterialInvoices=Object.hasOwn(D,'material_invoices');
 if(hasMaterialInvoices&&!Array.isArray(D.material_invoices))throw new Error('Material fakturalari zaxirasi noto‘g‘ri');
+const settlementTables=['supplier_entries','supplier_allocations'];
+const hasSettlements=settlementTables.some(t=>Object.hasOwn(D,t));
+if(hasSettlements&&(!hasMaterialInvoices||settlementTables.some(t=>!Array.isArray(D[t]))))throw new Error('Ta’minotchilar hisob-kitobi zaxirasi to‘liq emas');
 const hasDispatch=Object.hasOwn(D,'dispatch_documents');
 if(hasDispatch&&!Array.isArray(D.dispatch_documents))throw new Error('Накладная arxivi noto‘g‘ri');
 const fids = (D.factories || []).map((f) => f.id);
@@ -77,6 +80,9 @@ const preserveEmployeeRows=hasHr&&(!hasNewHr||!hasPersonnel);
 if(hasDispatch)ORDER.push('dispatch_documents');
 if(hasFinance)ORDER.push(...FINANCE_TABLES);
 if(hasMaterialInvoices)ORDER.push('material_invoices');
+if(Array.isArray(D.finance_contracts))ORDER.push('finance_contracts');
+if(hasSettlements)ORDER.push(...settlementTables);
+if(Array.isArray(D.material_invoice_matches))ORDER.push('material_invoice_matches');
 if(Object.hasOwn(D,'factory_imports')){if(!Array.isArray(D.factory_imports))throw new Error('Import arxivi noto‘g‘ri');ORDER.push('factory_imports');}
 if(Object.hasOwn(D,'day_reviews')){if(!Array.isArray(D.day_reviews))throw new Error('Hisobot tasdiqlash tarixi noto‘g‘ri');ORDER.push('day_reviews');}
 const JSONB = new Set(["document_profile","signed_pdf","lines", "items", "rows", "customers", "extra_cols", "signers", "opening", "calc_template", "cost_schemes", "plan", "recipe", "writeoff", "norms", "calc", "notes", "production", "materials", "shipments", "created_by", "approved_by", "updated_by"]);
@@ -84,6 +90,11 @@ for (const key of ['history','source_data','previous_data','counts','work_days',
 try {
   await tx(async (c) => {
     if(!Object.hasOwn(D,'day_reviews')&&(await c.query('SELECT 1 FROM day_reviews WHERE factory_id=ANY($1::uuid[]) LIMIT 1',[fids])).rowCount)throw new Error('Bu eski zaxirada hisobot tasdiqlash tarixi yo‘q. Yangi to‘liq zaxiradan foydalaning.');
+    for(const t of ['finance_contracts','material_invoice_matches']){
+      if(Object.hasOwn(D,t)&&!Array.isArray(D[t]))throw new Error('Moliyaviy zaxira noto‘g‘ri: '+t);
+      if(!Object.hasOwn(D,t)&&(await c.query('SELECT 1 FROM '+t+' WHERE factory_id=ANY($1::uuid[]) LIMIT 1',[fids])).rowCount)throw new Error('Bu eski zaxirada shartnomalar yoki bog‘langan kirimlar yo‘q. To‘liq zaxiradan foydalaning.');
+    }
+    if(!hasSettlements&&(await c.query('SELECT 1 FROM supplier_entries WHERE factory_id=ANY($1::uuid[]) LIMIT 1',[fids])).rowCount)throw new Error('Bu eski zaxirada ta’minotchilar hisob-kitobi yo‘q. To‘liq zaxiradan foydalaning.');
     if(!hasMaterialInvoices&&(await c.query('SELECT 1 FROM material_invoices WHERE factory_id=ANY($1::uuid[]) LIMIT 1',[fids])).rowCount)throw new Error('Eski zaxirada material fakturalari yo‘q. Yangi to‘liq zaxiradan foydalaning.');
     if(!hasFinance){
       for(const table of FINANCE_TABLES){const existing=await c.query('SELECT 1 FROM '+table+' WHERE factory_id=ANY($1::uuid[]) LIMIT 1',[fids]);if(existing.rowCount)throw new Error('Bu eski zaxirada moliyaviy ma’lumotlar yo‘q. Faktura va to‘lovlar saqlanishi uchun yangi to‘liq zaxiradan foydalaning.');}

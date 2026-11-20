@@ -43,10 +43,19 @@ try {
     return {status:response.status,body:await response.json()};
   }
   async function ok(path,method,body,user){const result=await call(path,method,body,user);assert.equal(result.status,200,JSON.stringify(result));return result.body;}
-  for(const role of ['pto','omborchi','kuzatuvchi','kurator'])assert.equal((await call('/hr/employees','GET',undefined,users[role])).status,403);
   const e=await ok('/hr/employees','POST',{code:'001',name:'Sinov xodimi',hireDate:'2026-10-01',position:'Usta',department:'Sex'},users.kadrlar);
   assert.equal((await call('/hr/rates/'+e.id,'GET',undefined,users.kadrlar)).status,403);
-  assert.equal((await call('/materials','GET',undefined,users.kadrlar)).status,403);
+  await ok('/materials','GET',undefined,users.kadrlar);
+  assert.equal((await call('/materials','POST',{name:'Test'},users.kadrlar)).status,403);
+  for (const role of ['pto','omborchi','kuzatuvchi','kurator']) {
+    const staff = await call('/hr/employees','GET',undefined,users[role],other.id);
+    assert.equal(staff.status,200);
+    assert.deepEqual(staff.body.map(row=>row.id),[e.id]);
+    assert.ok(!('profile' in staff.body[0]));
+    assert.equal((await call('/hr/employees/'+e.id,'PUT',{},users[role])).status,403);
+    assert.equal((await call('/hr/months/2026-10/attendance/'+e.id,'PUT',{},users[role])).status,403);
+    assert.equal((await call('/users','GET',undefined,users[role])).status,403);
+  }
   assert.equal((await call('/hr/employees/'+e.id,'PUT',{...e,phone:'1'},hq,other.id)).status,400);
   assert.equal((await call('/hr/employees','GET',undefined,hq,other.id)).body.length,0);
   const firstRate=await ok('/hr/rates/'+e.id,'POST',{effectiveDate:'2026-10-01',salary:1600000,coefficient:247500});
@@ -59,7 +68,7 @@ try {
   const concurrent=await Promise.all([call('/hr/months/2026-10/attendance/'+e.id,'PUT',body,users.usta),call('/hr/months/2026-10/attendance/'+e.id,'PUT',body,users.kadrlar)]);
   assert.deepEqual(concurrent.map(x=>x.status).sort(),[200,409]);
   m=await ok('/hr/months/2026-10');assert.equal(m.payroll[0].balance,unit.balance);
-  for(const role of ['kadrlar','usta']){
+  for(const role of ['kadrlar','usta','pto','omborchi','kuzatuvchi','kurator']){
     const safe=await ok('/hr/months/2026-10','GET',undefined,users[role]);
     for(const key of ['snapshot','payroll','adjustments','taxRate','payments'])assert.ok(!Object.hasOwn(safe,key));
     assert.equal((await call('/hr/months/2026-10/approve','POST',{version:m.version},users[role])).status,403);

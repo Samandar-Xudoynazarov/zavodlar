@@ -59,10 +59,10 @@ async function checkApproval(c,f,v) {
   }
  }
 }
-r.get('/workforce',guard(HR_ROLES),async(req,res)=>{
+r.get('/workforce',async(req,res)=>{
  const data=await tx(async c=>{
   await c.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY');
-  const employees=await rows('SELECT * FROM hr_employees WHERE factory_id=$1 ORDER BY department,name',[req.factoryId],c);
+  const employees=await rows('SELECT id,code,name,position,department,hire_date,end_date FROM hr_employees WHERE factory_id=$1 ORDER BY department,name',[req.factoryId],c);
   const records=await rows('SELECT * FROM hr_records WHERE factory_id=$1 ORDER BY start_date DESC,created_at DESC',[req.factoryId],c);
   const allowances=await rows('SELECT * FROM hr_leave_allowances WHERE factory_id=$1 ORDER BY year DESC',[req.factoryId],c);
   const events=await rows("SELECT id,actor,action,entity_id,created_at FROM hr_events WHERE factory_id=$1 AND action LIKE 'workforce.%' ORDER BY created_at DESC,id DESC LIMIT 50",[req.factoryId],c);

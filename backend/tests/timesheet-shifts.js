@@ -1,17 +1,21 @@
 import assert from 'node:assert/strict';import crypto from 'node:crypto';import pg from 'pg';import fs from 'node:fs/promises';import {createRequire} from 'node:module';
 import {cleanAttendance} from '../src/attendance.js';
-const {emptyAttendance,updateAttendance,shiftEntries,workingDay}=await import(new URL('../../frontend/lib/attendance.js',import.meta.url));
+const {emptyAttendance,updateAttendance,shiftEntries,workingDay,compareTimesheetEmployees}=await import(new URL('../../frontend/lib/attendance.js',import.meta.url));
 const legacy={status:'work',hours:8,shift:'day'};assert.deepEqual(cleanAttendance(legacy),legacy);
 let two=updateAttendance(legacy,'shiftCount','2');two=updateAttendance(two,'secondHours',4);assert.equal(two.hours,12);assert.deepEqual(cleanAttendance(two),two);
 assert.throws(()=>cleanAttendance({...two,hours:8}));assert.throws(()=>cleanAttendance({...two,hours:28,shifts:[{shift:'day',hours:14},{shift:'night',hours:14}]}));assert.throws(()=>cleanAttendance({...two,shifts:[{shift:'day',hours:8},{shift:'day',hours:4}]}));
 const off=updateAttendance(two,'status','off');assert.equal(off.hours,0);assert.ok(off.shifts.every(s=>s.hours===0));assert.equal(cleanAttendance(off).hours,0);assert.equal(updateAttendance(two,'shiftCount',1).hours,12);
 // Inspect real XLSX merges and cached/formula totals, including February and blank forms.
 const requireFrontend=createRequire(new URL('../../frontend/package.json',import.meta.url));const Excel=requireFrontend('exceljs');
-const moduleSource=(await fs.readFile(new URL('../../frontend/lib/hr-timesheet.js',import.meta.url),'utf8')).replace(/^import .*/gm,'').replace(/export /g,'');const buildTimesheet=new Function('shiftEntries','workingDay',moduleSource+';return buildTimesheet;')(shiftEntries,workingDay);
+const moduleSource=(await fs.readFile(new URL('../../frontend/lib/hr-timesheet.js',import.meta.url),'utf8')).replace(/^import .*/gm,'').replace(/export /g,'');const buildTimesheet=new Function('shiftEntries','workingDay','compareTimesheetEmployees',moduleSource+';return buildTimesheet;')(shiftEntries,workingDay,compareTimesheetEmployees);
 const wb=new Excel.Workbook(),ws=buildTimesheet(wb,{month:'2026-11',employees:[{id:'e',code:'1',name:'Sinov',department:'Sex'}],doc:{normHours:168,status:'draft',attendance:{e:{1:legacy,2:two,16:{status:'work',shift:'night',hours:8,shiftCount:2,shifts:[{shift:'night',hours:3},{shift:'day',hours:5}]},3:{status:'off',hours:0,shift:'day'}}}},company:'Sinov zavodi',t:s=>s});
 assert.equal(ws.getCell('E7').master.address,'E6');assert.equal(ws.getCell('E6').value,8);assert.equal(ws.getCell('F6').value,8);assert.equal(ws.getCell('F7').value,4);assert.notEqual(ws.getCell('F7').master.address,'F6');assert.equal(ws.getCell('G7').master.address,'G6');assert.equal(ws.getCell('G6').value,'D');assert.equal(ws.getCell('AI6').value.result,3);assert.equal(ws.getCell('AJ6').value.result,28);assert.equal(ws.getCell('AK6').value.result,20);assert.equal(ws.getCell('AL6').value.result,8);
 const again=new Excel.Workbook();await again.xlsx.load(await wb.xlsx.writeBuffer());assert.equal(again.worksheets[0].getCell('E7').master.address,'E6');assert.equal(again.worksheets[0].getCell('F7').value,4);
 const blank=new Excel.Workbook();const feb=buildTimesheet(blank,{month:'2028-02',employees:[{id:'e',code:'1',name:'Sinov'}],doc:{attendance:{},normHours:168,status:'draft'},t:s=>s,blank:true});assert.equal(feb.getCell('E7').master.address,'E6');assert.equal(feb.getCell('AG4').value,29);
+const unsorted=['10','002','A10','','A2','1'].map((code,id)=>({id,code,name:'Xodim '+id}));
+const sorted=buildTimesheet(new Excel.Workbook(),{month:'2026-11',employees:unsorted,doc:{attendance:{},status:'draft',normHours:168},t:s=>s,blank:true});
+assert.deepEqual(unsorted.map((_,i)=>sorted.getCell(6+2*i,2).value),['1','002','10','A2','A10','']);
+assert.equal(unsorted[0].code,'10');
 console.log('PASS one/two shift validation, legacy compatibility, XLSX merged/split cells, totals, leap February and blank forms');
 const source=process.env.DATABASE_URL||process.env.POSTGRES_URL;
 if(!source)throw new Error('DATABASE_URL required');

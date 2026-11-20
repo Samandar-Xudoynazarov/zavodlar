@@ -29,7 +29,12 @@ try{
  async function ok(path,method,body,user){const r=await call(path,method,body,user);assert.equal(r.status,200,JSON.stringify(r));return r.body;}
  const e=await ok('/employees','POST',{code:'001',name:'Sinov xodimi',hireDate:'2026-01-01',profile:{birthDate:'1990-03-02',address:'Uzun',emergencyPhone:'123'}});
  assert.equal(e.profile.address,'Uzun');
- for(const role of ['usta','kuzatuvchi'])assert.equal((await call('/workforce','GET',undefined,users[role])).status,403);
+ for(const role of ['usta','kuzatuvchi']) {
+   const view=await ok('/workforce','GET',undefined,users[role]);
+   assert.deepEqual(view.employees.map(row=>row.id),[e.id]);
+   assert.ok(!('profile' in view.employees[0]));
+   assert.equal((await call('/workforce/records','POST',{},users[role])).status,403);
+ }
  const safe=await ok('/employees','GET',undefined,users.usta);assert.ok(!('profile' in safe[0]));
  await ok('/months','POST',{month:'2026-10',normHours:168});
  let allowance=await ok(`/workforce/allowances/${e.id}/2026`,'PUT',{days:20,usedBefore:2,version:0});

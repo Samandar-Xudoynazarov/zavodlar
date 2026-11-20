@@ -1,0 +1,38 @@
+.fin-home,.settlements {--ledger-green:#155b51;--ledger-wash:color-mix(in srgb,#459f8c 10%,var(--panel));}
+.fin-home {display:grid;gap:20px}
+.fin-spotlight {display:flex;align-items:center;justify-content:space-between;gap:20px;padding:clamp(20px,3vw,36px);border-radius:16px;background:linear-gradient(110deg,#123e39,#1b6156);color:white}
+.fin-spotlight h2 {font-size:15px;margin:0 0 10px;color:#ebfaf6}
+.fin-spotlight strong {font-size:clamp(30px,4vw,46px);line-height:1.15;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.fin-spotlight strong small {font-size:.42em;letter-spacing:0;color:#d4e9e3}
+.fin-spotlight p {margin:6px 0 0;color:#d2e9e2}
+.fin-spotlight button,.settle-tabs button,.settle-back {font:inherit;cursor:pointer}
+.fin-spotlight button {display:inline-flex;align-items:center;gap:8px;border:1px solid #8cb9aa;border-radius:9px;background:#fff;color:#124e42;padding:10px 14px;font-weight:700}
+.fin-actions {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:12px}
+.fin-actions button,.settle-list button {display:flex;align-items:center;gap:14px;min-width:0;padding:20px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:12px;text-align:left;cursor:pointer}
+.fin-actions button:hover,.settle-list button:hover {background:var(--ledger-wash);border-color:#75a995}
+.fin-actions button>span:nth-child(2),.settle-name {flex:1;min-width:0;overflow-wrap:anywhere}
+.fin-actions strong,.fin-actions small,.settle-list small,.settle-docs small {display:block}
+.fin-actions strong {font-size:16px}.fin-actions small,.settle-docs small,.settle-list small {color:var(--ink-2);margin-top:3px}
+.fin-action-icon,.settle-avatar {display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;background:var(--ledger-wash);border:1px solid var(--line);color:var(--ink);border-radius:10px}
+.settlements.finance-module .finance-heading h2 {color:var(--ink)}
+.settle-back {padding:0;margin:0 0 5px;border:0;background:transparent;color:var(--accent);font-weight:650}
+.settle-metrics {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:18px 0 22px}
+.settle-metric {min-width:0;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px}
+.settle-metric>div {display:flex;align-items:center;gap:7px;font-weight:650;color:var(--ink-2);font-size:13px}
+.settle-metric strong {display:block;overflow-wrap:anywhere;font-size:clamp(20px,2vw,30px);font-variant-numeric:tabular-nums;margin-top:8px;letter-spacing:-.025em}
+.settle-metric small {font-size:12px;font-weight:500}
+.settle-metric.advance {background:var(--ledger-wash)}.settle-metric.late {background:color-mix(in srgb,#e3ad48 10%,var(--panel))}
+.settle-list {display:grid;gap:6px}.settle-list button {padding:12px 14px}.settle-name {font-weight:700}.settle-avatar {height:34px;width:34px;flex-basis:34px;font-weight:750}.settle-amount {text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.settle-tabs {display:flex;flex-wrap:wrap;border-bottom:1px solid var(--line);margin:12px 0 16px;gap:4px}
+.settle-tabs button {border:0;background:transparent;color:var(--ink-2);padding:10px 12px;border-bottom:3px solid transparent;font-weight:650}
+.settle-tabs button[aria-pressed=true] {border-color:#439781;color:var(--ink)}
+.settle-docs {display:grid;gap:8px;margin-top:12px}.settle-docs article {border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--panel)}
+.settle-line,.settle-link {display:flex;gap:12px;align-items:center;justify-content:space-between}.settle-line>div {min-width:0;overflow-wrap:anywhere}
+.settle-docs details {color:var(--ink-2);font-size:13px;margin-top:9px}.settle-docs summary {cursor:pointer;width:fit-content}.settle-docs details[open] summary {margin-bottom:10px}.settle-link {padding:6px 0}.settle-docs article>.btn {margin-top:8px}
+.settle-statement p strong {margin-left:10px}
+@media(max-width:620px){
+ .fin-spotlight {align-items:flex-start;flex-direction:column;gap:12px}.fin-actions button {padding:14px}
+ .settle-metrics {grid-template-columns:1fr;gap:5px;margin:12px 0}
+ .settle-metric {display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px}
+ .settle-metric strong {margin:0;font-size:18px}.settle-metric>div {font-size:12px}.settle-list button {padding:10px;gap:8px}.settle-tabs button {padding:8px 6px;font-size:12px}
+}

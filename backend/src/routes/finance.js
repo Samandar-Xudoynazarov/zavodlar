@@ -6,9 +6,13 @@ import { FINANCE_ROLES,pdfContent,sendPdf,actor } from '../dispatch.js';
 import { itemsOf,orderView } from '../orders.js';
 import { shippedByOrder } from './production.js';
 import { audit } from '../audit.js';
+import supplierSettlements from './supplier-settlements.js';
+import contracts from './contracts.js';
 const r=Router();
 r.use((req,res,next)=>FINANCE_ROLES.includes(req.user.role)?next():res.status(403).json({error:'Bu bo‘lim faqat admin, buxgalter va rahbar uchun'}));
 r.use((req,res,next)=>{res.set('Cache-Control','no-store');next();});
+r.use('/supplier-settlements', supplierSettlements);
+r.use('/contracts',contracts);
 const invoiceCols='id,order_id,number,date,items,amount,note,name,size_bytes,created_at,voided_at,void_reason';
 const receiptCols='id,order_id,invoice_id,date,amount,note,created_at,voided_at,void_reason';
 const scopedOrder=async(c,req)=>{
@@ -26,8 +30,12 @@ r.get('/orders',async(req,res)=>res.json(await tx(async c=>{
  const fid=[req.factoryId];
  const orders=await rows('SELECT * FROM orders WHERE factory_id=$1 ORDER BY no DESC',fid,c);
  const shipped=await shippedByOrder(req.factoryId,null,c);
- return {orders:orders.map(o=>orderView(o,shipped)),progress:await rows('SELECT * FROM finance_order_progress WHERE factory_id=$1',fid,c),invoices:await rows('SELECT '+invoiceCols+' FROM finance_invoices WHERE factory_id=$1 ORDER BY date DESC,created_at DESC',fid,c),receipts:await rows('SELECT '+receiptCols+' FROM finance_receipts WHERE factory_id=$1 ORDER BY date DESC,created_at DESC',fid,c)};
+ return {contracts:await rows("SELECT id,order_id,number,original_total,items,name FROM finance_contracts WHERE factory_id=$1 AND order_id IS NOT NULL",fid,c),orders:orders.map(o=>orderView(o,shipped)),progress:await rows('SELECT * FROM finance_order_progress WHERE factory_id=$1',fid,c),invoices:await rows('SELECT '+invoiceCols+' FROM finance_invoices WHERE factory_id=$1 ORDER BY date DESC,created_at DESC',fid,c),receipts:await rows('SELECT '+receiptCols+' FROM finance_receipts WHERE factory_id=$1 ORDER BY date DESC,created_at DESC',fid,c)};
 })));
+r.put('/orders/:id/status',mutate(async(c,req,o)=>{
+ if(!['yangi','jarayonda','topshirildi','tayyor'].includes(req.body.status))throw new ValidationError('Holatni tanlang');
+ return one('UPDATE orders SET status=$3,updated_at=now() WHERE factory_id=$1 AND id=$2 RETURNING id,status',[req.factoryId,o.id,req.body.status],c);
+}));
 r.put('/orders/:id/progress',mutate(async(c,req,o)=>{
  if(!Array.isArray(req.body.items)||req.body.items.length>100)throw new ValidationError('Mahsulotlar noto‘g‘ri');
  const shipped=orderView(o,await shippedByOrder(req.factoryId,[o.id],c));const seen=new Set();

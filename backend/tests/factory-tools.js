@@ -29,7 +29,16 @@ try {
 
 
  const logo='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
- let identity=await ok('/factory-profile');assert.equal(identity.company,'Payroll test');
+ let identity=await ok('/factory-profile');assert.equal(identity.company,'');
+ // Imported settings can contain only the factory code, even without a document short name.
+ await q('INSERT INTO settings(factory_id,company) VALUES($1,$2) ON CONFLICT(factory_id) DO UPDATE SET company=EXCLUDED.company',[f.id,f.code.toUpperCase()]);
+ assert.equal((await ok('/settings')).company,'');
+ assert.equal((await ok('/factory-profile')).company,'');
+ await ok('/settings','PUT',{electrodePct:2});
+ assert.equal((await one('SELECT company FROM settings WHERE factory_id=$1',[f.id])).company,f.code.toUpperCase());
+ await q('UPDATE settings SET company=$2 WHERE factory_id=$1',[f.id,'Sinov zavodi MChJ']);
+ assert.equal((await ok('/factory-profile')).company,'Sinov zavodi MChJ');
+
  identity=await ok('/factory-profile','PUT',{...identity,company:'Birinchi zavod',logo,address:'Manzil A',director:'Rahbar A'});
  assert.equal(identity.logo,logo);
  for(const role of ['kadrlar','pto','buxgalter','usta','kuzatuvchi'])assert.equal((await call('/factory-profile','PUT',identity,users[role])).status,403);
@@ -51,10 +60,10 @@ try {
  assert.equal((await ok('/hr/staff-positions'))[0].occupied,2);
  assert.equal((await call('/hr/staff-positions','POST',{department:'Ishlab chiqarish',position:'muhandis',slots:1})).status,409);
  assert.equal((await call('/hr/staff-positions/'+position.id,'PUT',{...position,slots:9},hq,other.id)).status,400);
- assert.equal((await call('/hr/staff-positions','GET',undefined,users.usta)).status,403);
+ assert.equal((await call('/hr/staff-positions','GET',undefined,users.usta)).status,200);
  const dept=(await ok('/hr/departments')).find(d=>d.name==='Ishlab chiqarish');await ok('/hr/departments/'+dept.id,'PUT',{name:'Yangi sex',version:dept.version});assert.equal((await ok('/hr/staff-positions'))[0].occupied,2);
  assert.ok((await ok('/hr/reminders')).items.some(x=>x.employeeId===employee.id&&x.days<0));
- assert.equal((await call('/hr/reminders','GET',undefined,users.buxgalter)).status,403);
+ assert.equal((await call('/hr/reminders','GET',undefined,users.buxgalter)).status,200);
  const backup=await ok('/backup');assert.equal(backup.data.hr_staff_positions.length,1);assert.equal(backup.data.settings[0].document_profile.logo,logo);
  // Actual scheduled backup and decryption against this isolated test schema.
  const folder=await fs.mkdtemp(path.join(os.tmpdir(),'zavodlar-backup-test-'));

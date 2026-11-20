@@ -273,9 +273,9 @@ async function loadPdfMake() {
 }
 
 /** PDF Blob */
-export async function buildPlanPdf(def) {
+export async function buildPlanPdf(def, { letterhead = true } = {}) {
   const pdfMake = await loadPdfMake();
-  def=pdfBrand(def,await loadBrand());
+  if (letterhead) def = pdfBrand(def, await loadBrand());
   return new Promise((resolve, reject) => {
     try {
       pdfMake.createPdf(def).getBlob(resolve);

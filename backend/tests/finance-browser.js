@@ -22,7 +22,7 @@ process.env.DATABASE_URL=url.toString();process.env.AUTH_SECRET=crypto.randomByt
 const {one,q,migrate,getPool}=await import('../src/db.js');
 const {issueToken,hashPassword}=await import('../src/auth.js');
 const {default:app}=await import('../src/app.js');let server,web,browser;
-const artifacts=path.join(root,'design-review/finance');fs.mkdirSync(artifacts,{recursive:true});
+const artifacts=process.env.FINANCE_TEST_ARTIFACTS||path.join(root,'design-review/finance');fs.mkdirSync(artifacts,{recursive:true});
 try {
  await migrate();const f=await one("INSERT INTO factories(code,name) VALUES('fin-demo','Energoqurilishmahsulot') RETURNING *");
  const hash=await hashPassword('Demo123!');const admin=await one("INSERT INTO users(username,name,role,factory_id,password_hash) VALUES('fin-admin','Buxgalter','admin',$1,$2) RETURNING *",[f.id,hash]);
@@ -37,15 +37,27 @@ try {
  for(let i=0;i<60;i++){if(web.exitCode!==null)throw new Error(output);try{if((await fetch('http://127.0.0.1:3102')).ok)break;}catch{}await new Promise(r=>setTimeout(r,500));if(i===59)throw new Error(output);}
  browser=await chromium.launch({executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});const errors=[];const context=await browser.newContext({viewport:{width:1600,height:1000},acceptDownloads:true});
  await context.addInitScript(({token})=>{if(!localStorage.getItem('pto.token'))localStorage.setItem('pto.token',token);localStorage.setItem('pto.lang','uz');if(!localStorage.getItem('pto.tab'))localStorage.setItem('pto.tab',JSON.stringify('finance-payroll'));},{token:issueToken(admin)});
- await context.route('**/api/**',async route=>{const u=new URL(route.request().url());try{const response=await route.fetch({url:backend+u.pathname+u.search});await route.fulfill({response});}catch(e){errors.push(e.message);await route.abort();}});
+ await context.route('**/api/**',async route=>{const u=new URL(route.request().url());try{const response=await route.fetch({url:backend+u.pathname+u.search,timeout:150000});await route.fulfill({response});}catch(e){errors.push(e.message);await route.abort();}});
  const page=await context.newPage();page.setDefaultTimeout(15000);await page.clock.setFixedTime(new Date('2026-11-11T12:00:00+05:00'));page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
  await page.goto('http://127.0.0.1:3102');await page.locator('.finance-payroll tbody tr').first().waitFor();assert.equal(await page.locator('.finance-payroll tbody tr').count(),12);
  await page.screenshot({path:path.join(artifacts,'payroll-desktop.png'),fullPage:true});
  await page.getByLabel('Batafsil hisob-kitob',{exact:true}).check();assert.equal(await page.locator('.finance-payroll thead th').count(),16);await page.getByLabel('Batafsil hisob-kitob',{exact:true}).uncheck();
  await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(artifacts,'payroll-mobile.png'),fullPage:true});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));await page.setViewportSize({width:1600,height:1000});
- await page.locator('.finance-payroll tbody tr').first().getByRole('button',{name:'To‘lov',exact:true}).click();const form=page.locator('dialog[open]');await form.getByLabel('Summa',{exact:true}).fill('1000000');await form.getByRole('button',{name:'Saqlash',exact:true}).click();await form.waitFor({state:'hidden'});await page.locator('.finance-payroll tbody tr').first().waitFor();
+ await page.locator('.finance-payroll tbody tr').first().getByRole('button').click();await page.getByRole('button',{name:'+ To‘lov kiritish',exact:true}).click();const form=page.locator('dialog[open]');await form.getByLabel('Summa',{exact:true}).fill('1000000');await form.getByRole('button',{name:'Saqlash',exact:true}).click();await form.waitFor({state:'hidden'});await page.locator('.finance-payroll tbody tr').first().waitFor();
  const ms=await one('SELECT * FROM hr_payments WHERE factory_id=$1',[f.id]);assert.equal(ms.amount,1000000);
- await page.locator('#nav-tab-finance-orders').click();await page.getByRole('heading',{name:'Shartnomadan to‘lovgacha'}).waitFor();await page.getByRole('button',{name:'+ To‘lov qabul qilish'}).click();await page.locator('dialog[open]').getByLabel('Kelib tushgan summa').fill('25000000');await page.locator('dialog[open]').getByRole('button',{name:'Saqlash',exact:true}).click();await page.locator('dialog[open]').waitFor({state:'hidden'});await page.getByRole('heading',{name:'Shartnomadan to‘lovgacha'}).waitFor();
+ await page.locator('#nav-tab-finance-orders').click();await page.getByRole('heading',{name:'Buyurtma moliyasi'}).waitFor();if(process.env.CONTRACT_TEST_PDF){
+   await page.getByRole('button',{name:'+ Shartnoma qo‘shish'}).click();
+   const review=page.getByRole('dialog',{name:'Shartnomani tekshirish'});await review.locator('input[type=file]').setInputFiles(process.env.CONTRACT_TEST_PDF);
+   const lines=review.locator('.contract-line');await lines.first().waitFor({timeout:120000});
+   assert.equal(await review.getByLabel('Shartnoma №',{exact:true}).inputValue(),'7',await review.innerText());
+   assert.equal(await lines.count(),4);
+   await lines.nth(2).getByLabel('Miqdor',{exact:true}).focus();
+   await review.locator('.contract-source span').waitFor();
+   assert.equal(await lines.nth(2).getByLabel('Miqdor',{exact:true}).inputValue(),'60');
+   assert.equal(Number(await review.getByLabel('PDF bo‘yicha jami, so‘m').inputValue()),1147200000);
+   await review.getByRole('button',{name:'Yopish',exact:true}).click();
+ }
+ await page.getByRole('button',{name:'+ To‘lov qabul qilish'}).click();await page.locator('dialog[open]').getByLabel('Kelib tushgan summa').fill('25000000');await page.locator('dialog[open]').getByRole('button',{name:'Saqlash',exact:true}).click();await page.locator('dialog[open]').waitFor({state:'hidden'});await page.getByRole('heading',{name:'Buyurtma moliyasi'}).waitFor();
  // Create a persisted dispatch via the actual day/PDF workflow.
  await page.locator('.nav-group').count().catch(()=>0);
  await page.evaluate(()=>{localStorage.setItem('pto.tab',JSON.stringify('day'));});await page.reload();await page.getByRole('button',{name:'Накладная (PDF)',exact:false}).first().waitFor();
@@ -64,7 +76,7 @@ try {
  await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(artifacts,'orders-mobile.png'),fullPage:true});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));
  await page.setViewportSize({width:1600,height:1000});await page.evaluate(()=>localStorage.setItem('pto.tab',JSON.stringify('ord')));await page.reload();await page.locator('.ord-chip').first().click();await page.locator('dialog[open]').getByText('75 A 123 AA',{exact:true}).waitFor();assert.equal(await page.locator('dialog[open]').getByRole('button',{name:'№ 101 · PDF ↗',exact:true}).count(),1);await page.keyboard.press('Escape');
  const limited=await one('INSERT INTO users(username,role,factory_id,password_hash) VALUES($1,$2,$3,$4) RETURNING *',['limited-pto','pto',f.id,hash]);
- await page.evaluate(token=>{localStorage.setItem('pto.token',token);localStorage.setItem('pto.tab',JSON.stringify('finance-orders'));},issueToken(limited));await page.reload();await page.getByText('ПТО muhandisi',{exact:true}).waitFor();assert.equal(await page.locator('#nav-group-finance').count(),0);assert.equal(await page.getByRole('heading',{name:'Shartnomadan to‘lovgacha'}).count(),0);
+ await page.evaluate(token=>{localStorage.setItem('pto.token',token);localStorage.setItem('pto.tab',JSON.stringify('finance-orders'));},issueToken(limited));await page.reload();await page.getByText('ПТО muhandisi',{exact:true}).waitFor();assert.equal(await page.locator('#nav-group-finance').count(),0);assert.equal(await page.getByRole('heading',{name:'Buyurtma moliyasi'}).count(),0);
  assert.deepEqual(errors,[]);console.log('PASS browser: all employees, salary payment, customer receipt, invoice upload and download, progress, shipment modal/PDF, desktop and mobile');
  await context.close();
 } catch(e) {if(browser){const pg=browser.contexts()[0]?.pages()[0];if(pg){await pg.screenshot({path:path.join(artifacts,'failure.png'),fullPage:true}).catch(()=>{});console.log('UI FAILURE',await pg.locator('body').innerText().catch(()=>''));}}throw e;} finally {if(browser)await browser.close();if(web)web.kill();if(server)await new Promise(r=>server.close(r));await getPool().end();await management.query('DROP SCHEMA '+schema+' CASCADE');await management.end();}

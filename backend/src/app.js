@@ -175,11 +175,6 @@ app.use("/api/finance/material-invoices", materialInvoices);
 app.use("/api/finance", finance);
 app.use("/api/admin/factory-imports", factoryImport);
 app.use('/api/acct-reports',(req,res,next)=>['admin','rahbar','buxgalter'].includes(req.user.role)?next():res.status(403).json({error:'Material hisoboti faqat admin, buxgalter va rahbar uchun'}));
-app.use("/api", (req, res, next) => {
-  if (req.user.role === "kadrlar" && !/^\/me(\/password)?$/.test(req.path))
-    return res.status(403).json({ error: "Sizda bu amal uchun ruxsat yo'q" });
-  next();
-});
 
 // Yozish huquqlari:
 //   admin, rahbar — hammasi, shu jumladan foydalanuvchilar, zaxira va o'zgarishlar tarixi

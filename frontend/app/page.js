@@ -32,6 +32,8 @@ import DashTab from "@/components/DashTab";
 import OverviewTab from "@/components/OverviewTab";
 import AcctTab from "@/components/AcctTab";
 import HrTab from "@/components/HrTab";
+import SupplierSettlements from "@/components/SupplierSettlements";
+import FinanceHome from "@/components/FinanceHome";
 import FinancePayroll from "@/components/FinancePayroll";
 import MaterialInvoices from "@/components/MaterialInvoices";
 import FinanceOrders from "@/components/FinanceOrders";
@@ -39,56 +41,58 @@ import ShareReady from "@/components/ShareReady";
 import NotificationCenter from "@/components/NotificationCenter";
 
 // [kalit, nomi, izoh, kimlarga (bo'sh — hammaga)]
-const NO_STORE = ["admin", "rahbar", "pto", "buxgalter", "kuzatuvchi", "kurator"]; // buxgalter hammasini ko'radi, faqat material hisobotini yozadi
-const WITH_USTA = [...NO_STORE, "usta"]; // sex boshlig'i: kunlik va oylik hisobot, ombor qoldig'i
 const TABS = [
   // bosh ofis (zavodga bog'lanmagan) foydalanuvchilar uchun — tabsFor() da tekshiriladi
-  ["all", "Umumiy panel", "Barcha zavodlar: bugun, oylik natija, solishtirish, ombor va buyurtmalar", NO_STORE, "hq"],
-  ["day", "Kunlik hisobot", "Reja / fakt, xomashyo sarfi, jo'natish", WITH_USTA],
-  ["month", "Oylik hisobot", "Reja bajarilishi, haqiqiy sarf va norma farqi", WITH_USTA],
+  ["all", "Umumiy panel", "Barcha zavodlar: bugun, oylik natija, solishtirish, ombor va buyurtmalar", null, "hq"],
+  ["day", "Kunlik hisobot", "Reja / fakt, xomashyo sarfi, jo'natish"],
+  ["month", "Oylik hisobot", "Reja bajarilishi, haqiqiy sarf va norma farqi"],
   ["acct", "Material hisoboti", "Oyda quyilgan mahsulotlar ro'yxati — Word (DOCX) shaklida", ["admin","rahbar","buxgalter"]],
-  ["dash", "Grafiklar", "Oyma-oy asosiy ko'rsatkichlar", NO_STORE],
+  ["dash", "Grafiklar", "Oyma-oy asosiy ko'rsatkichlar"],
   ["wh", "Ombor", "Materiallar qoldig'i, kirim va chiqim"],
-  ["moves", "Kirim-chiqim tarixi", "Ombordagi barcha harakatlar", [...NO_STORE, "omborchi"]],
-  ["inv", "Inventarizatsiya", "Omborni sanash: kamomad va ortiqcha", [...NO_STORE, "omborchi"]],
-  ["sup", "Ta'minotchilar", "Kimdan qancha olindi, narxlar qanday o'zgardi", [...NO_STORE, "omborchi"]],
-  ["stock", "Qoldiq va ehtiyoj", "Material va tayyor mahsulot qiymati, buyurtmalar uchun ehtiyoj", NO_STORE],
-  ["fg", "Tayyor mahsulot", "Qoldiq, buyurtmalarga band va brak hisobi", WITH_USTA],
-  ["ord", "Buyurtmalar", "Buyurtmachilar, muddatlar va jo'natish holati", NO_STORE],
-  ["plan", "Buyurtmalar rejasi", "Dastur prognozi va tasdiqlangan oylik reja (Excel / qo'lda)", WITH_USTA],
-  ["cost", "Kalkulyatsiya", "Tannarx va sotuv narxi — Excel tartibida", NO_STORE],
-  ["cat", "Katalog", "Mahsulotlar, sarf normalari va kalkulyatsiya kartalari", NO_STORE],
-  ["mat", "Materiallar", "Narxlar, beton retseptlari va sozlamalar", NO_STORE],
-  ["veh", "Texnika hisobi", "Yoqilg'i sarfi normaga nisbatan, ta'mir va texnik xizmat", [...NO_STORE, "omborchi"]],
-  ["targets", "Sex va texnika", "Chiqim manzillari: bo'limlar va mashinalar", [...NO_STORE, "omborchi"]],
-  ["admin", "Boshqaruv", "Foydalanuvchilar, zaxira nusxa va o'zgarishlar tarixi", ["admin", "rahbar"]],
-  ["hr", "Xodimlar", "Xodimlar, tabel, oylik hisoblash va to'lovlar", ["admin", "rahbar", "buxgalter", "kadrlar", "usta"]],
+  ["moves", "Kirim-chiqim tarixi", "Ombordagi barcha harakatlar"],
+  ["inv", "Inventarizatsiya", "Omborni sanash: kamomad va ortiqcha"],
+  ["sup", "Ta'minotchilar", "Kimdan qancha olindi, narxlar qanday o'zgardi"],
+  ["stock", "Qoldiq va ehtiyoj", "Material va tayyor mahsulot qiymati, buyurtmalar uchun ehtiyoj"],
+  ["fg", "Tayyor mahsulot", "Qoldiq, buyurtmalarga band va brak hisobi"],
+  ["ord", "Buyurtmalar", "Buyurtmachilar, muddatlar va jo'natish holati"],
+  ["plan", "Buyurtmalar rejasi", "Dastur prognozi va tasdiqlangan oylik reja (Excel / qo'lda)"],
+  ["cost", "Kalkulyatsiya", "Tannarx va sotuv narxi — Excel tartibida"],
+  ["cat", "Katalog", "Mahsulotlar, sarf normalari va kalkulyatsiya kartalari"],
+  ["mat", "Materiallar", "Narxlar, beton retseptlari va sozlamalar"],
+  ["veh", "Texnika hisobi", "Yoqilg'i sarfi normaga nisbatan, ta'mir va texnik xizmat"],
+  ["targets", "Sex va texnika", "Chiqim manzillari: bo'limlar va mashinalar"],
+  ["admin", "Boshqaruv", "Zavod rekvizitlari"],
+  ["hr", "Xodimlar", "Xodimlar, tabel, oylik hisoblash va to'lovlar"],
 ];
-TABS.push(["hr-time", "Tabel", "Davomat va ish soati", ["admin","rahbar","buxgalter","kadrlar","usta"]], ["hr-payroll", "Oylik hisoblash", "Oylik hisoblash", ["admin","rahbar","buxgalter"]], ["hr-payments", "To'lovlar", "Avans va oylik", ["admin","rahbar","buxgalter"]], ["hr-reports", "Hisobotlar", "Kadrlar hisobotlari", ["admin","rahbar","buxgalter","kadrlar","usta"]]);
+TABS.push(["hr-time", "Tabel", "Davomat va ish soati"], ["hr-payroll", "Oylik hisoblash", "Oylik hisoblash", ["admin","rahbar","buxgalter"]], ["hr-payments", "To'lovlar", "Avans va oylik", ["admin","rahbar","buxgalter"]], ["hr-reports", "Hisobotlar", "Kadrlar hisobotlari"]);
 
-TABS.push(...[['overview','Kadrlar nazorati'],['leaves','Ta’tillar'],['shifts','Smena rejasi'],['orders','Buyruqlar'],['documents','Hujjat muddatlari'],['equipment','Himoya vositalari']].map(([key,label])=>[`hr-${key}`,label,label,['admin','rahbar','buxgalter','kadrlar']]));
+TABS.push(...[['overview','Kadrlar nazorati'],['leaves','Ta’tillar'],['shifts','Smena rejasi'],['orders','Buyruqlar'],['documents','Hujjat muddatlari'],['equipment','Himoya vositalari'],['staff','Shtat jadvali'],['reminders','Muddat eslatmalari']].map(([key,label])=>[`hr-${key}`,label,label]));
 
-TABS.push(["hr-archive","Hujjatlar","Tabel, shartnomalar, buyruqlar va hujjatlar arxivi",["admin","rahbar","kadrlar"]]);
+TABS.push(["hr-archive","Hujjatlar","Tabel, shartnomalar, buyruqlar va hujjatlar arxivi"]);
 
-TABS.push(['finance-payroll','Oylik vedomosti','Barcha xodimlarning maoshi, to‘lovlari va qoldig‘i',['admin','rahbar','buxgalter']],['finance-orders','Buyurtmalar moliyasi','Jo‘natish, faktura PDF, tushum va qoldiq',['admin','rahbar','buxgalter']]);
+TABS.push(['finance-payroll','Oylik hisob-kitobi','Barcha xodimlarning maoshi, to‘lovlari va qoldig‘i',['admin','rahbar','buxgalter']],['finance-orders','Buyurtmalar moliyasi','Jo‘natish, faktura PDF, tushum va qoldiq',['admin','rahbar','buxgalter']]);
 TABS.push(['finance-materials','Material fakturalari','Materiallar kirim-chiqimi, faktura PDF va oylik Excel',['admin','rahbar','buxgalter']]);
+const financeRoles = ["admin","rahbar","buxgalter"];
+TABS.push(["finance-home","Moliya ish stoli","Hisob-kitoblar va moliyaviy hujjatlar",financeRoles],
+  ["finance-settlements","Ta’minotchilar bilan hisob-kitob","Fakturalar, to‘lovlar va avanslar",financeRoles]);
+const financeIcons = {"finance-home":"grid","finance-settlements":"sup","finance-payroll":"hr","finance-orders":"ord","finance-materials":"acct"};
 const NAV_GROUPS = [
-  { id:'finance',label:'Finansiviy',keys:['finance-materials','finance-payroll','finance-orders','hr-payroll','hr-payments','acct'] },
-  { id: "personnel", label: "Kadrlar bo‘limi", keys: ["hr-overview", "hr", "hr-time", "hr-archive", "hr-leaves", "hr-shifts", "hr-orders", "hr-documents", "hr-equipment", "hr-reports"] },
   { id: "overview", label: "Ish stoli", keys: ["all", "dash"] },
   { id: "production", label: "Ishlab chiqarish", keys: ["day", "fg", "cat"] },
-  { id: "warehouse", label: "Ombor va ta'minot", keys: ["wh", "moves", "inv", "sup", "stock", "mat"] },
+  { id: "warehouse", label: "Ombor", keys: ["wh", "moves", "inv", "sup", "stock", "mat"] },
+  { id:'finance',label:'Finansiviy',keys:['finance-home','finance-settlements','finance-orders','finance-materials','finance-payroll','hr-payroll','hr-payments','acct'] },
+  { id: "personnel", label: "Kadrlar bo‘limi", keys: ["hr-overview", "hr", "hr-time", "hr-archive", "hr-leaves", "hr-shifts", "hr-orders", "hr-documents", "hr-equipment", "hr-staff", "hr-reminders", "hr-reports"] },
   { id: "orders", label: "Buyurtmalar", keys: ["ord", "plan", "cost"] },
   { id: "reports", label: "Hisobotlar", keys: ["month"] },
   { id: "management", label: "Boshqaruv", keys: ["veh", "targets", "admin"] },
 ];
 const groupFor = (key) => NAV_GROUPS.find((group) => group.keys.includes(key));
-const tabsFor = (user) => TABS.filter((t) => (user?.role !== "kadrlar" || t[0].startsWith("hr")) && (!t[3] || t[3].includes(user?.role)) && (t[4] !== "hq" || (user && !user.factoryId && (user.factories?.length || 0) > 1)));
+const tabsFor = (user) => TABS.filter((t) => (!t[3] || t[3].includes(user?.role)) && (t[4] !== "hq" || (user && !user.factoryId && (user.factories?.length || 0) > 1)));
 // Telefondagi pastki menyu: rol bo'yicha 4 ta asosiy bo'lim (+ o'rtada «+» tugmasi)
 const BOTTOM = {
   kadrlar: ["hr-overview", "hr", "hr-time"],
   omborchi: ["wh", "moves", "targets"],
-  buxgalter: ["finance-payroll", "finance-orders", "acct", "hr"],
+  buxgalter: ["finance-home", "finance-settlements", "finance-payroll", "acct"],
   usta: ["day", "plan", "hr"],
   admin: ["all", "day", "wh", "moves"],
   pto: ["day", "wh", "moves"],
@@ -96,11 +100,11 @@ const BOTTOM = {
   kuzatuvchi: ["all", "dash", "day", "plan", "wh"],
   kurator: ["all", "dash", "day", "plan", "wh"],
 };
-const DEFAULT_TAB = { kadrlar: "hr-overview", buxgalter: "finance-payroll", omborchi: "wh", rahbar: "dash", kuzatuvchi: "dash", kurator: "dash" };
+const DEFAULT_TAB = { kadrlar: "hr-overview", buxgalter: "finance-home", admin: "dash", omborchi: "wh", rahbar: "dash", kuzatuvchi: "dash", kurator: "dash" };
 // bosh ofis rahbari tizimga kirganda — umumiy panel
-const HQ_DEFAULT = { rahbar: "all", kuzatuvchi: "all", kurator: "all" };
+const HQ_DEFAULT = { admin: "all", rahbar: "all", kuzatuvchi: "all", kurator: "all" };
 // pastki menyuda sig'adigan qisqa nomlar
-const SHORT = { "finance-payroll":"Oylik", "finance-orders":"Moliya", "hr-overview":"Nazorat", hr:"Xodimlar", "hr-time":"Tabel", all: "Umumiy", day: "Kunlik", month: "Oylik", moves: "Tarix", targets: "Sex/texnika", stock: "Qoldiq", ord: "Buyurtma", plan: "Reja", inv: "Sanash", sup: "Ta'minot", fg: "Tayyor", veh: "Texnika", dash: "Grafik", acct: "Hisobot", cost: "Tannarx" };
+const SHORT = { "finance-home":"Moliya","finance-settlements":"Hisob-kitob", "finance-payroll":"Oylik", "finance-orders":"Moliya", "hr-overview":"Nazorat", hr:"Xodimlar", "hr-time":"Tabel", all: "Umumiy", day: "Kunlik", month: "Oylik", moves: "Tarix", targets: "Sex/texnika", stock: "Qoldiq", ord: "Buyurtma", plan: "Reja", inv: "Sanash", sup: "Ta'minot", fg: "Tayyor", veh: "Texnika", dash: "Grafik", acct: "Hisobot", cost: "Tannarx" };
 
 function LangSwitch({ dark }) {
   const { lang, setLang } = useI18n();
@@ -256,10 +260,6 @@ function App() {
         setPhase("password");
         return;
       }
-      if (me.role === "kadrlar") {
-        setMaterials([]); setProducts([]); setOrders([]); setTargets([]); setSettings({});
-        setPhase("ready"); return;
-      }
       const [m, p, o, s, tg] = await Promise.all([api("/materials"), api("/products"), api("/orders"), api("/settings"), api("/targets")]);
       setTargets(tg);
       setMaterials(m);
@@ -360,7 +360,7 @@ function App() {
   const tabs = tabsFor(user);
   const current = tabs.find(([k]) => k === tab) || tabs.find(([k]) => k === HQ_DEFAULT[user?.role]) || tabs.find(([k]) => k === DEFAULT_TAB[user?.role]) || tabs[0];
   const active = current[0];
-  const canMove = canStoreRole(user?.role) && !active.startsWith("hr");
+  const canMove = canStoreRole(user?.role) && !active.startsWith("hr") && groupFor(active)?.id !== "finance";
   const bottom = (BOTTOM[user?.role] || BOTTOM.kuzatuvchi).map((k) => tabs.find((x) => x[0] === k)).filter(Boolean);
 
   const factories = user?.factories || [];
@@ -444,7 +444,7 @@ function App() {
                   <div id={`nav-group-${group.id}`} className="nav-group-items" role="tablist" aria-label={t(group.label)} hidden={!expanded}>
                     {visibleTabs.map(([key, label]) => (
                       <button key={key} id={`nav-tab-${key}`} type="button" role="tab" aria-selected={active === key} onClick={() => chooseTab(key)}>
-                        <Icon name={key.startsWith("finance") ? "cost" : key.startsWith("hr") ? "hr" : key} size={19} /><span>{t(label)}</span>
+                        <Icon name={financeIcons[key] || (key.startsWith("hr") ? "hr" : key)} size={19} /><span>{t(label)}</span>
                       </button>
                     ))}
                   </div>
@@ -524,11 +524,13 @@ function App() {
             <Fragment key={factory?.id || "-"}>
               {active === "day" && <DayTab key={dayFocus} data={data} notify={notify} onSaved={reloadOrders} onDirtyChange={onDirtyChange} version={version} />}
               {active === "month" && <MonthTab data={data} notify={notify} />}
+              {active === "finance-home" && <FinanceHome navigate={chooseTab} />}
+              {active === "finance-settlements" && <SupplierSettlements factoryData={data} company={settings?.company} notify={notify} openForm={openForm} />}
               {active === "finance-payroll" && <FinancePayroll data={data} notify={notify} openForm={openForm} onManage={()=>chooseTab('hr-payroll')}/>}
               {active === "finance-materials" && <MaterialInvoices data={data} notify={notify} openForm={openForm} onSaved={bump}/>}
-              {active === "finance-orders" && <FinanceOrders data={data} notify={notify} openForm={openForm}/>}
+              {active === "finance-orders" && <FinanceOrders onImported={()=>Promise.all([reloadProducts(),reloadOrders()])} data={data} notify={notify} openForm={openForm}/>}
               {active === "acct" && <AcctTab data={data} notify={notify} />}
-              {active.startsWith("hr") && <HrTab initialView={active === "hr" ? "employees" : active.slice(3)} onViewChange={v=>chooseTab(v === "employees" ? "hr" : `hr-${v}`)} notify={notify} openForm={openForm} />}
+              {active.startsWith("hr") && <HrTab company={settings?.company} initialView={active === "hr" ? "employees" : active.slice(3)} onViewChange={v=>chooseTab(v === "employees" ? "hr" : `hr-${v}`)} notify={notify} openForm={openForm} />}
               {active === "wh" && <WarehouseTab data={data} notify={notify} version={version} openMove={setMove} reloadMaterials={reloadMaterials} />}
               {active === "moves" && <MovesTab data={data} notify={notify} version={version} onChanged={bump} />}
               {active === "stock" && <StockTab data={data} notify={notify} reloadSettings={reloadSettings} version={version} />}
@@ -582,7 +584,7 @@ function App() {
           <nav className="bnav no-print" aria-label={t("Asosiy bo'limlar")}>
             {bottom.slice(0, canMove ? 2 : 4).map(([k, l]) => (
               <button key={k} aria-current={active === k ? "page" : undefined} onClick={() => chooseTab(k)}>
-                <Icon name={k} size={22} />
+                <Icon name={financeIcons[k] || k} size={22} />
                 <span>{t(SHORT[k] || l)}</span>
               </button>
             ))}
@@ -594,7 +596,7 @@ function App() {
             {canMove &&
               bottom.slice(2, 3).map(([k, l]) => (
                 <button key={k} aria-current={active === k ? "page" : undefined} onClick={() => chooseTab(k)}>
-                  <Icon name={k} size={22} />
+                  <Icon name={financeIcons[k] || k} size={22} />
                   <span>{t(SHORT[k] || l)}</span>
                 </button>
               ))}

@@ -74,6 +74,7 @@ export default function CatalogTab({ data, notify, reload, onEdit }) {
                 <tr key={p.id}>
                   <td>
                     <span className="code">{p.code}</span>
+                    {p.costPending&&<span className="sub warn-text">{tr("PTO hisobini kutmoqda")}</span>}
                     {p.notes?.length ? <span className="sub warn-text">{p.notes[0]}</span> : null}
                   </td>
                   <td>{p.name}</td>
@@ -96,7 +97,7 @@ export default function CatalogTab({ data, notify, reload, onEdit }) {
                   <td>
                     {canEdit && (
                       <div className="acts">
-                        <button className="btn sm" onClick={() => onEdit(p)}>{tr("Tahrirlash")}</button>
+                        <button className="btn sm" onClick={() => onEdit(p)}>{tr(p.costPending?"Kalkulyatsiya kiritish":"Tahrirlash")}</button>
                         <DeleteButton onConfirm={() => del(p.id)} />
                       </div>
                     )}

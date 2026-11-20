@@ -24,3 +24,10 @@ export function updateAttendance(value,key,input){
  if(key==='hours')return updateAttendance(v,'firstHours',input);
  return {...v,[key]:input};
 }
+
+const byNumber = new Intl.Collator('uz', { numeric: true, sensitivity: 'base' });
+export function compareTimesheetEmployees(a, b) {
+  const left = String(a.code ?? '').trim(), right = String(b.code ?? '').trim();
+  return Number(!left) - Number(!right) || byNumber.compare(left, right)
+    || byNumber.compare(a.name || '', b.name || '') || String(a.id).localeCompare(String(b.id));
+}

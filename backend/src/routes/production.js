@@ -380,7 +380,7 @@ r.delete("/orders/:id", async (req, res) => {
   const f = req.factoryId;
   const doc = await tx(async (c) => {
     await financeLock(c,f);
-    if((await c.query('SELECT 1 FROM finance_invoices WHERE factory_id=$1 AND order_id=$2 UNION ALL SELECT 1 FROM finance_receipts WHERE factory_id=$1 AND order_id=$2 LIMIT 1',[f,req.params.id])).rowCount)throw new ConflictError('Faktura yoki to‘lovlari bor buyurtmani o‘chirib bo‘lmaydi');
+    if((await c.query('SELECT 1 FROM finance_contracts WHERE factory_id=$1 AND order_id=$2 UNION ALL SELECT 1 FROM finance_invoices WHERE factory_id=$1 AND order_id=$2 UNION ALL SELECT 1 FROM finance_receipts WHERE factory_id=$1 AND order_id=$2 LIMIT 1',[f,req.params.id])).rowCount)throw new ConflictError('Shartnoma, faktura yoki to‘lovlari bor buyurtmani o‘chirib bo‘lmaydi');
     await c.query('DELETE FROM finance_order_progress WHERE factory_id=$1 AND order_id=$2',[f,req.params.id]);
     const d = await one("DELETE FROM orders WHERE id = $1 AND factory_id = $2 RETURNING *", [req.params.id, f], c);
     if (!d) return null;

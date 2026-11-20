@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { tr, useT } from "@/lib/i18n";
 import { useUser } from "@/lib/role";
 import { fmt, fmtDate, fmtN, shiftDate, today } from "@/lib/calc";
+import ContractReview from "./ContractReview";
 import DeleteButton from "./DeleteButton";
 import ExportButtons from "./ExportButtons";
 import Icon from "./Icon";
@@ -20,7 +21,8 @@ const pct = (a, b) => (a && b ? ((a - b) / b) * 100 : null);
 /** Ta'minotchilar: kontaktlar, kimdan qancha olindi, narxlar qanday o'zgardi */
 export default function SuppliersTab({ data, openForm, notify }) {
   const t = useT();
-  const { canEdit, canStore } = useUser();
+  const { user,canEdit, canStore } = useUser();
+  const [contractOpen,setContractOpen]=useState(false);
   const { mats } = data;
   const [period, setPeriod] = useState("90");
   const [list, setList] = useState(null);
@@ -93,6 +95,7 @@ export default function SuppliersTab({ data, openForm, notify }) {
 
   return (
     <section className="sheet">
+      {contractOpen&&<ContractReview data={data} initialKind="purchase" lockKind onClose={()=>setContractOpen(false)} onSaved={()=>{setContractOpen(false);load();notify("Shartnoma saqlandi")}}/>}
       <div className="kpis kpis-3">
         <div className="kpi">
           <div className="k">{t("Xaridlar")}</div>
@@ -118,6 +121,7 @@ export default function SuppliersTab({ data, openForm, notify }) {
         </div>
         <div className="r">
           <ExportButtons company={data.settings?.company} notify={notify} disabled={!shown.length} build={() => supExcel(shown, mats, period)} />
+          {["admin","rahbar","buxgalter"].includes(user?.role)&&<button className="btn" onClick={()=>setContractOpen(true)}>+ Ta’minotchi va shartnoma</button>}
           {canStore && (
             <button className="btn primary" onClick={() => form(null)}>
               {t("+ Ta'minotchi")}
