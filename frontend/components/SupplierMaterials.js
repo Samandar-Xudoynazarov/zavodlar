@@ -1,4 +1,5 @@
 "use client";
+import { show } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import { openPdf } from "@/lib/finance-files";
 import { fmtN, fmtDate } from "@/lib/calc";
@@ -61,7 +62,7 @@ export default function SupplierMaterials({ account, materials, refresh, notify,
           </summary>
           {c.items.map((i) => (
             <p key={i.materialId}>
-              {i.name} · {fmtN(i.qty, 6)} {i.unit} × {fmtN(i.price, 2)} so‘m
+              {show(i.name)} · {fmtN(i.qty, 6)} {i.unit} × {fmtN(i.price, 2)} so‘m
             </p>
           ))}
           <button
@@ -87,7 +88,7 @@ export default function SupplierMaterials({ account, materials, refresh, notify,
           <tbody>
             {ids.map((id) => (
               <tr key={id}>
-                <td>{byId.get(id)?.name}</td>
+                <td>{show(byId.get(id)?.name)}</td>
                 <td>{byId.get(id)?.unit}</td>
                 {[receipts, invoices, advances].map((ls, i) => (
                   <td key={i} className="n">
@@ -119,7 +120,7 @@ export default function SupplierMaterials({ account, materials, refresh, notify,
               <option value="">Tanlang</option>
               {invoices.map((i) => (
                 <option key={i.id + i.materialId} value={i.id + ":" + i.materialId}>
-                  {i.date} · № {i.number} · {byId.get(i.materialId)?.name} · {i.remaining}
+                  {i.date} · № {i.number} · {show(byId.get(i.materialId)?.name)} · {i.remaining}
                 </option>
               ))}
             </select>
@@ -172,7 +173,7 @@ export default function SupplierMaterials({ account, materials, refresh, notify,
           {matches.map((m) => (
             <p key={m.id}>
               {fmtDate(m.receiptDate)} kirim ← № {m.number} ({fmtDate(m.invoiceDate)}) ·{" "}
-              {byId.get(m.materialId)?.name} · {m.qty} {byId.get(m.materialId)?.unit}
+              {show(byId.get(m.materialId)?.name)} · {m.qty} {byId.get(m.materialId)?.unit}
             </p>
           ))}
         </details>

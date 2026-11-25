@@ -1,4 +1,6 @@
 "use client";
+import { show } from "@/lib/i18n";
+import { matches } from "@/lib/script";
 import { tr } from "@/lib/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { costCard, fmt, lsGet, lsSet, today } from "@/lib/calc";
@@ -53,7 +55,7 @@ export default function OfferDialog({ open, onClose, data, notify }) {
     return { ...x, sel };
   });
   const s = q.trim().toLowerCase();
-  const shown = products.filter((p) => !s || `${p.code} ${p.name} ${p.group}`.toLowerCase().includes(s));
+  const shown = products.filter((p) => !s || matches(`${p.code} ${p.name} ${p.group}`, s));
   const groups = [...new Set(shown.map((p) => p.group || ""))];
   const setMany = (ids, on) => setF((x) => {
     const sel = new Set(x.sel);
@@ -166,7 +168,7 @@ export default function OfferDialog({ open, onClose, data, notify }) {
                             <input value={f.names[p.id] ?? nameOf(p)} onChange={(e) => set({ names: { ...f.names, [p.id]: e.target.value } })} aria-label={tr("Hujjatdagi nomi")} />
                           ) : (
                             <label htmlFor={`of-c-${p.id}`} className="offer-name">
-                              <span className="code">{p.code}</span> <span className="muted">{p.name}</span>
+                              <span className="code">{p.code}</span> <span className="muted">{show(p.name)}</span>
                             </label>
                           )}
                         </td>

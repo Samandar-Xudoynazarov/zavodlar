@@ -14,10 +14,11 @@
     "restore": "node --env-file-if-exists=.env scripts/restore.js",
     "import-mongo": "node --env-file-if-exists=.env scripts/import-mongo.js",
     "import-products": "node --env-file-if-exists=.env scripts/import-products.js",
-    "test": "node --env-file-if-exists=.env tests/regression.js && node --env-file-if-exists=.env tests/notifications.js && node --env-file-if-exists=.env tests/telegram.js && node --env-file-if-exists=.env tests/payroll.js && node --env-file-if-exists=.env tests/workforce.js && node --env-file-if-exists=.env tests/personnel.js && node --env-file-if-exists=.env tests/finance.js && node --env-file-if-exists=.env tests/factory-import.js && node --env-file-if-exists=.env tests/material-invoices.js && node --env-file-if-exists=.env tests/factory-import-employees.js && node --env-file-if-exists=.env tests/departments.js && node --env-file-if-exists=.env tests/factory-tools.js && node --env-file-if-exists=.env tests/timesheet-shifts.js && node --env-file-if-exists=.env tests/operations-flow.js",
+    "test": "node --env-file-if-exists=.env tests/regression.js && node --env-file-if-exists=.env tests/notifications.js && node --env-file-if-exists=.env tests/telegram.js && node --env-file-if-exists=.env tests/payroll.js && node --env-file-if-exists=.env tests/workforce.js && node --env-file-if-exists=.env tests/personnel.js && node --env-file-if-exists=.env tests/finance.js && node --env-file-if-exists=.env tests/factory-import.js && node --env-file-if-exists=.env tests/material-invoices.js && node --env-file-if-exists=.env tests/factory-import-employees.js && node --env-file-if-exists=.env tests/departments.js && node --env-file-if-exists=.env tests/factory-tools.js && node --env-file-if-exists=.env tests/timesheet-shifts.js && node --env-file-if-exists=.env tests/operations-flow.js && node --env-file-if-exists=.env tests/sales-archive.js && node --env-file-if-exists=.env tests/finance-ledger.js && node --env-file-if-exists=.env tests/cash-profit-quality.js && node --env-file-if-exists=.env tests/glossary.js && node --env-file-if-exists=.env tests/pulse-observer.js",
     "test:payroll": "node --env-file-if-exists=.env tests/payroll.js",
     "test:notifications": "node --env-file-if-exists=.env tests/notifications.js",
     "test:telegram": "node --env-file-if-exists=.env tests/telegram.js",
+    "test:pulse": "node --env-file-if-exists=.env tests/pulse-observer.js",
     "test:workforce": "node --env-file-if-exists=.env tests/workforce.js",
     "test:personnel": "node --env-file-if-exists=.env tests/personnel.js",
     "test:finance": "node --env-file-if-exists=.env tests/finance.js",
@@ -29,7 +30,11 @@
     "backup:decrypt": "node --env-file-if-exists=.env scripts/backup-decrypt.js",
     "test:factory-tools": "node --env-file-if-exists=.env tests/factory-tools.js",
     "test:timesheet-shifts": "node --env-file-if-exists=.env tests/timesheet-shifts.js",
-    "test:operations": "node --env-file-if-exists=.env tests/operations-flow.js"
+    "test:operations": "node --env-file-if-exists=.env tests/operations-flow.js",
+    "test:sales-archive": "node --env-file-if-exists=.env tests/sales-archive.js",
+    "test:finance-ledger": "node --env-file-if-exists=.env tests/finance-ledger.js",
+    "test:cash-quality": "node --env-file-if-exists=.env tests/cash-profit-quality.js",
+    "test:glossary": "node --env-file-if-exists=.env tests/glossary.js"
   },
   "engines": {
     "node": ">=20.12"

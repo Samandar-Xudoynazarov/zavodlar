@@ -1,4 +1,5 @@
 "use client";
+import { show } from "@/lib/i18n";
 import { tr } from "@/lib/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@/lib/role";
@@ -516,7 +517,7 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
                         </td>
                         <td className={`n day-prod-percent ${pct === null ? "" : pct >= 100 ? "ok" : "warn"}`}>{pct === null ? "—" : `${fmtN(pct, 0)} %`}</td>
                         <td className="day-prod-note">
-                          <input id={`dp-note-${i}`} value={r.note || ""} onChange={(e) => setProdRow(i, { note: e.target.value })} aria-label={tr("Izoh")} />
+                          <input id={`dp-note-${i}`} list="phrase-list" value={r.note || ""} onChange={(e) => setProdRow(i, { note: e.target.value })} aria-label={tr("Izoh")} />
                         </td>
                         <td className="no-print day-prod-remove">
                           <button className="btn sm danger" aria-label={tr("Qatorni o'chirish")} onClick={touch(() => setProd((rows) => rows.filter((_, j) => j !== i)))}>
@@ -566,7 +567,7 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
                 )}
               </div>
             </div>
-            {quickEntry&&<fieldset className='plain day-quick-cards no-print' disabled={!canDay}>{matRows.map(({m,norm,v,end})=><div className='hr-card' key={m.id}><strong>{m.name}</strong><p className='hint'>{tr('Norma bo‘yicha')}: {fmtN(norm,3)} {m.unit}</p><label>{tr('Amaldagi sarf')}<input type='number' inputMode='decimal' min='0' step='0.001' value={v.sarf||''} onChange={e=>setMat(m.id,'sarf',e.target.value)}/></label><p className={end<0?'err':'hint'}>{tr('Qoldiq')}: {fmtN(end,3)} {m.unit}</p></div>)}</fieldset>}
+            {quickEntry&&<fieldset className='plain day-quick-cards no-print' disabled={!canDay}>{matRows.map(({m,norm,v,end})=><div className='hr-card' key={m.id}><strong>{show(m.name)}</strong><p className='hint'>{tr('Norma bo‘yicha')}: {fmtN(norm,3)} {m.unit}</p><label>{tr('Amaldagi sarf')}<input type='number' inputMode='decimal' min='0' step='0.001' value={v.sarf||''} onChange={e=>setMat(m.id,'sarf',e.target.value)}/></label><p className={end<0?'err':'hint'}>{tr('Qoldiq')}: {fmtN(end,3)} {m.unit}</p></div>)}</fieldset>}
             <div className={quickEntry?'tbl-wrap quick-table':'tbl-wrap'} style={{ marginTop: 8 }}>
               <fieldset className="plain" disabled={!canDay}><table className="edit">
                 <thead>
@@ -594,7 +595,7 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
                     return (
                       <tr key={m.id}>
                         <td>
-                          {m.name} <span className="unit-s">{m.unit}</span>
+                          {show(m.name)} <span className="unit-s">{m.unit}</span>
                         </td>
                         <td className="hide-s">{m.unit}</td>
                         <td className="n">{fmtN(start, 3)}</td>
@@ -727,7 +728,7 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
                                 const it = o.items.find((x) => x.productId === r.productId);
                                 return (
                                   <option key={o.id} value={o.id}>
-                                    №{o.no} {o.customer}
+                                    №{o.no} {show(o.customer)}
                                     {o.contractNo ? ` (${o.contractNo})` : ""}
                                     {it ? ` — ${tr("qoldi {n}", { n: fmtN(it.left) })}` : ""}
                                   </option>

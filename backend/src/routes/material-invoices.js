@@ -8,6 +8,7 @@ import { pdfContent, sendPdf, actor, FINANCE_ROLES } from '../dispatch.js';
 import { todayTashkent, openingOf } from '../common.js';
 import { lockMaterial, minBalanceFrom } from './store.js';
 import { audit } from '../audit.js';
+import { assertMonthOpen } from '../finance-period-lock.js';
 const r = Router();
 const cols = 'id,type,number,date,due_date,supplier_id,counterparty,items,amount,note,name,size_bytes,created_at,voided_at,void_reason';
 r.use((req,res,next)=>FINANCE_ROLES.includes(req.user.role)?next():res.status(403).json({error:'Material fakturalari faqat admin, rahbar va buxgalter uchun'}));
@@ -25,6 +26,7 @@ r.post('/',async(req,res)=>{
   const old=await one('SELECT '+cols+' FROM material_invoices WHERE factory_id=$1 AND request_id=$2',[f,b.requestId],c);
   if(old)return old;
   if(!['in','out'].includes(b.type)||!validDate(b.date)||b.date>todayTashkent())throw new ValidationError('Harakat turi yoki sana noto‘g‘ri');
+  await assertMonthOpen(c,f,b.date);
   if(b.stockMode!=null&&!['withReceipt','invoiceOnly'].includes(b.stockMode))throw new ValidationError('Omborga yozish usulini tanlang');
   const opening=await openingOf(f,c);if((b.type==='out'||b.stockMode!=='invoiceOnly')&&opening.date&&b.date<opening.date)throw new ValidationError('Sana boshlang‘ich qoldiq sanasidan oldin bo‘lmasin');
   const dueDate=b.type==='in' && b.dueDate ? b.dueDate : null;
@@ -72,6 +74,7 @@ r.post('/:id/void',async(req,res)=>{
   await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,9473))',[req.factoryId]);
   const doc=await one('SELECT * FROM material_invoices WHERE factory_id=$1 AND id=$2 FOR UPDATE',[req.factoryId,req.params.id],c);
   if(!doc||doc.voidedAt)throw new ConflictError('Faktura topilmadi yoki bekor qilingan');
+  await assertMonthOpen(c,req.factoryId,doc.date);
   if(await one('SELECT id FROM supplier_allocations WHERE factory_id=$1 AND invoice_id=$2 AND voided_at IS NULL LIMIT 1',[req.factoryId,doc.id],c))throw new ConflictError('Avval ta’minotchi hisobida fakturaga bog‘langan to‘lovni ajrating.');
   for(const item of [...doc.items].sort((a,b)=>a.materialId.localeCompare(b.materialId)))await lockMaterial(c,item.materialId);
   for(const item of doc.items){

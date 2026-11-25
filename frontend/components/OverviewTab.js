@@ -1,4 +1,5 @@
 "use client";
+import { show } from "@/lib/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { tr, useT } from "@/lib/i18n";
@@ -268,7 +269,7 @@ export default function OverviewTab({ notify, onOpenFactory }) {
                       <div className="ov-card-title">
                         <Icon name="all" size={22} />
                         <div>
-                          <span className="strong">{f.factory.name}</span>
+                          <span className="strong">{show(f.factory.name)}</span>
                           <span className="sub">{t(KIND[f.factory.kind] || f.factory.kind)}</span>
                         </div>
                       </div>
@@ -323,7 +324,7 @@ export default function OverviewTab({ notify, onOpenFactory }) {
               {list.map((f) => (
                 <details key={f.factory.id} className="ov-day" open={list.length <= 2 || undefined}>
                   <summary>
-                    <span className="strong">{f.factory.name}</span>
+                    <span className="strong">{show(f.factory.name)}</span>
                     <span className="sub">
                       {f.dayLines.length
                         ? t("fakt {f} / reja {p} dona · {m} m³ · jo'natildi {s}", { f: fmt(f.today.fact), p: fmt(f.today.plan), m: fmtN(f.dayM3, 1), s: fmt(f.today.shipped) })
@@ -350,7 +351,7 @@ export default function OverviewTab({ notify, onOpenFactory }) {
                               <tr key={x.id}>
                                 <td>
                                   <span className="strong">{x.product?.code || t("o'chirilgan")}</span>
-                                  {x.product?.name && <span className="sub">{x.product.name}</span>}
+                                  {x.product?.name && <span className="sub">{show(x.product.name)}</span>}
                                 </td>
                                 <td className="num">{fmt(x.plan)}</td>
                                 <td className="num">{fmt(x.fact)}</td>
@@ -371,7 +372,7 @@ export default function OverviewTab({ notify, onOpenFactory }) {
                     </div>
                   )}
                   {!f.dayLines.length && <p className="hint ov-day-empty">{t("Bu kun uchun mahsulot va jo'natish ma'lumotlari kiritilmagan.")}</p>}
-                  {f.day?.note && <p className="hint">{t("Izoh")}: {f.day.note}</p>}
+                  {f.day?.note && <p className="hint">{t("Izoh")}: {show(f.day.note)}</p>}
                 </details>
               ))}
             </div>
@@ -403,7 +404,7 @@ export default function OverviewTab({ notify, onOpenFactory }) {
                 <tbody>
                   {list.map((f) => (
                     <tr key={f.factory.id}>
-                      <td className="strong">{f.factory.name}</td>
+                      <td className="strong">{show(f.factory.name)}</td>
                       <td className="num">{fmt(f.cur.fact)}</td>
                       <td className="num">{fmtN(f.cur.m3, 1)}</td>
                       <td className="num">{f.cur.planPct == null ? "—" : `${fmtN(f.cur.planPct, 0)} %`}</td>
@@ -477,7 +478,7 @@ export default function OverviewTab({ notify, onOpenFactory }) {
                           <th>{t("Mahsulot")}</th>
                           {list.map((f) => (
                             <th key={f.factory.id} className="num">
-                              {f.factory.name}
+                              {show(f.factory.name)}
                             </th>
                           ))}
                           <th className="num">{t("Farq")}</th>
@@ -488,7 +489,7 @@ export default function OverviewTab({ notify, onOpenFactory }) {
                           <tr key={x.code}>
                             <td>
                               <span className="strong">{x.code}</span>
-                              {x.name && <span className="sub">{x.name}</span>}
+                              {x.name && <span className="sub">{show(x.name)}</span>}
                             </td>
                             {list.map((f) => {
                               const v = x.by.get(f.factory.id);
@@ -534,7 +535,7 @@ export default function OverviewTab({ notify, onOpenFactory }) {
                 <tbody>
                   {list.map((f) => (
                     <tr key={f.factory.id}>
-                      <td className="strong">{f.factory.name}</td>
+                      <td className="strong">{show(f.factory.name)}</td>
                       <td className="num">{mln(f.stockValue)}</td>
                       <td className="num">{mln(f.fgValue)}</td>
                       <td>
@@ -575,9 +576,9 @@ export default function OverviewTab({ notify, onOpenFactory }) {
                     {list.flatMap((f) =>
                       [...f.late, ...f.risk].map((o) => (
                         <tr key={o.id}>
-                          <td>{f.factory.name}</td>
+                          <td>{show(f.factory.name)}</td>
                           <td>
-                            №{o.no} {o.customer}
+                            №{o.no} {show(o.customer)}
                           </td>
                           <td>{o.product?.code || "—"}</td>
                           <td className="num">{fmt(o.remaining)}</td>

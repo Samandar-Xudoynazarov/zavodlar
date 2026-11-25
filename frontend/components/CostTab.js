@@ -1,12 +1,19 @@
 "use client";
+import { show } from "@/lib/i18n";
+import { matches } from "@/lib/script";
 import { tr } from "@/lib/i18n";
-import ExportButtons from "./ExportButtons";
-import { fileDate } from "@/lib/xlsx-export";
+import ExportMenu from "./ExportMenu";
+import { exportSheets, fileDate } from "@/lib/xlsx-export";
 import { useUser } from "@/lib/role";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ROW_TYPES, costCard, fmt, fmtDate, fmtN, lsGet, lsSet, schemeName, today } from "@/lib/calc";
 import SchemesEditor from "./SchemesEditor";
 import OfferDialog from "./OfferDialog";
+import Icon from "./Icon";
+import { useNoMoney, stripMoneySheets } from "@/lib/money";
+import { newWorkbook, deliver } from "@/lib/excel";
+import { buildCostWorkbook } from "@/lib/cost-excel";
+import { downloadCostPdf } from "@/lib/cost-pdf";
 
 const typeHint = (r, card) => {
   if (r.type === "m3") return `${fmt(r.value)} × ${fmtN(card.V, 3)} m³`;
@@ -45,7 +52,7 @@ export function CostCard({ product, mats }) {
           </tr>
           {c.prodRows.map((r, i) => (
             <tr key={`p${i}`}>
-              <td>{r.name}</td>
+              <td>{show(r.name)}</td>
               <td colSpan={3} className="muted">
                 {typeHint(r, c)}
               </td>
@@ -58,7 +65,7 @@ export function CostCard({ product, mats }) {
           </tr>
           {c.otherRows.map((r, i) => (
             <tr key={`o${i}`}>
-              <td>{r.name}</td>
+              <td>{show(r.name)}</td>
               <td colSpan={3} className="muted">
                 {typeHint(r, c)}
               </td>
@@ -125,7 +132,7 @@ export default function CostTab({ data, onEdit, notify, onSchemesSaved }) {
     [products, mats]
   );
   const shown = rows.filter(
-    (r) => (activeGroup === "all" || r.p.group === activeGroup) && (!q || `${r.p.code} ${r.p.name} ${r.p.group}`.toLowerCase().includes(q.toLowerCase()))
+    (r) => (activeGroup === "all" || r.p.group === activeGroup) && matches(`${r.p.code} ${r.p.name} ${r.p.group}`, q)
   );
   // «Hammasi»da ro'yxat guruhlarga bo'lib ko'rsatiladi (guruhsizlar — oxirida)
   const sections = useMemo(() => {
@@ -157,6 +164,71 @@ export default function CostTab({ data, onEdit, notify, onSchemesSaved }) {
   // kartalar: tanlanganlar, bo'lmasa — ochiq turgan karta
   const cardTarget = picked.size ? target.filter((r) => r.has) : cur?.has ? [cur] : [];
 
+  // Excel kalkulyatsiya (namunaviy shakl) va PDF — pulni ko'rmaydigan rollarga berilmaydi
+  const noMoney = useNoMoney();
+  const [busy, setBusy] = useState("");
+  const pricesSpec = () => (
+{
+              filename: `Narxlar_${fileDate()}.xlsx`,
+              sheets: [
+                {
+                  name: tr("Narxlar ro'yxati"),
+                  title: tr("Mahsulotlar narxlari (kalkulyatsiya bo'yicha)"),
+                  subtitle: picked.size ? tr("{n} ta tanlangan mahsulot", { n: target.length }) : activeGroup !== "all" ? `${tr("Guruh")}: ${activeGroup}` : undefined,
+                  columns: [
+                    { header: tr("Marka"), key: "code", width: 18 },
+                    { header: tr("Nomi"), key: "name", width: 30 },
+                    { header: tr("Guruh"), key: "group", width: 18 },
+                    { header: tr("Beton, m³"), key: "v", type: "num", width: 11 },
+                    { header: tr("Materiallar"), key: "mat", type: "money", width: 15 },
+                    { header: tr("Tannarx"), key: "ss", type: "money", width: 15 },
+                    { header: tr("Narx QQSsiz"), key: "novat", type: "money", width: 15 },
+                    { header: tr("Narx QQS bilan"), key: "final", type: "money", width: 16 },
+                  ],
+                  rows: target.map(({ p, c, has }) => ({
+                    code: p.code, name: p.name, group: p.group,
+                    v: has ? Math.round(c.V * 1000) / 1000 : null,
+                    mat: has ? Math.round(c.materials) : null, ss: has ? Math.round(c.itogo) : null,
+                    novat: has ? Math.round(c.noVat) : null, final: has ? Math.round(c.final) : null,
+                    _cell: has ? { final: "bold" } : { name: "warn" },
+                  })),
+                  notes: [tr("Narx bo'sh bo'lsa — kalkulyatsiya kiritilmagan.")],
+                },
+              ],
+            });
+  async function runPrices(share) {
+    setBusy("prices");
+    try {
+      const built = pricesSpec();
+      const r = await exportSheets({ ...(noMoney ? stripMoneySheets(built) : built), company: data.settings?.company, share });
+      if (r === "downloaded-fallback") notify?.("Bu qurilmada ulashish yo'q — fayl yuklab olindi");
+    } catch (e) {
+      notify?.(e.message || "Excel faylni tayyorlab bo'lmadi");
+    } finally {
+      setBusy("");
+    }
+  }
+  async function runExport(kind, list, share = false) {
+    if (noMoney || !list.length) return;
+    setBusy(kind);
+    try {
+      let r;
+      if (kind === "pdf") {
+        r = await downloadCostPdf(list, { mats, schemes: data.schemes, company: data.settings?.company }, { share });
+      } else {
+        const wb = await newWorkbook();
+        buildCostWorkbook(wb, list, { mats, company: data.settings?.company });
+        const name = list.length === 1 ? `Kalkulyatsiya_${String(list[0].p.code || "").replace(/[\\/:*?"<>|\s]+/g, "_")}_${fileDate()}.xlsx` : `Kalkulyatsiya_${fileDate()}.xlsx`;
+        r = await deliver(wb, name, { share });
+      }
+      if (r === "downloaded-fallback") notify?.("Bu qurilmada ulashish yo'q — fayl yuklab olindi");
+    } catch (e) {
+      notify?.(e.message || (kind === "pdf" ? "PDF faylni tayyorlab bo'lmadi" : "Excel faylni tayyorlab bo'lmadi"));
+    } finally {
+      setBusy("");
+    }
+  }
+
   // chop etish: "list" — narxlar jadvali, "cards" — kalkulyatsiya kartalari
   const [printMode, setPrintMode] = useState(null);
   useEffect(() => {
@@ -187,10 +259,10 @@ export default function CostTab({ data, onEdit, notify, onSchemesSaved }) {
             <div className="bar">
               <div>
                 <h3 style={{ margin: 0 }}>
-                  {cur.p.name} {cur.p.code}
+                  {show(cur.p.name)} {cur.p.code}
                 </h3>
                 <p className="hint">
-                  {cur.p.group}
+                  {show(cur.p.group)}
                   {schemeName(cur.p, data.schemes) ? ` · ${tr("andoza")}: ${schemeName(cur.p, data.schemes)}` : ` · ${tr("xarajatlar alohida")}`}
                 </p>
               </div>
@@ -242,7 +314,7 @@ export default function CostTab({ data, onEdit, notify, onSchemesSaved }) {
                   <tr key={p.id}>
                     <td>{i + 1}</td>
                     <td>{p.code}</td>
-                    <td>{p.name}</td>
+                    <td>{show(p.name)}</td>
                     <td className="n">{has ? fmtN(c.V, 3) : ""}</td>
                     <td className="n">{has ? fmt(c.itogo) : "—"}</td>
                     <td className="n">{has ? fmt(c.noVat) : "—"}</td>
@@ -255,10 +327,10 @@ export default function CostTab({ data, onEdit, notify, onSchemesSaved }) {
             cardTarget.map(({ p }) => (
               <div key={p.id} className="print-card">
                 <h3>
-                  {p.name} {p.code}
+                  {show(p.name)} {p.code}
                 </h3>
                 <p className="hint">
-                  {p.group}
+                  {show(p.group)}
                   {schemeName(p, data.schemes) ? ` · ${tr("andoza")}: ${schemeName(p, data.schemes)}` : ""}
                 </p>
                 <CostCard product={p} mats={mats} />
@@ -280,54 +352,31 @@ export default function CostTab({ data, onEdit, notify, onSchemesSaved }) {
               {tr("Xarajat andozalari")}
             </button>
           )}
-          <ExportButtons
-            label={picked.size ? "Tanlanganlar narxi (Excel)" : "Narxlar ro'yxati (Excel)"}
-            company={data.settings?.company}
-            notify={notify}
-            build={() => ({
-              filename: `Narxlar_${fileDate()}.xlsx`,
-              sheets: [
-                {
-                  name: tr("Narxlar ro'yxati"),
-                  title: tr("Mahsulotlar narxlari (kalkulyatsiya bo'yicha)"),
-                  subtitle: picked.size ? tr("{n} ta tanlangan mahsulot", { n: target.length }) : activeGroup !== "all" ? `${tr("Guruh")}: ${activeGroup}` : undefined,
-                  columns: [
-                    { header: tr("Marka"), key: "code", width: 18 },
-                    { header: tr("Nomi"), key: "name", width: 30 },
-                    { header: tr("Guruh"), key: "group", width: 18 },
-                    { header: tr("Beton, m³"), key: "v", type: "num", width: 11 },
-                    { header: tr("Materiallar"), key: "mat", type: "money", width: 15 },
-                    { header: tr("Tannarx"), key: "ss", type: "money", width: 15 },
-                    { header: tr("Narx QQSsiz"), key: "novat", type: "money", width: 15 },
-                    { header: tr("Narx QQS bilan"), key: "final", type: "money", width: 16 },
-                  ],
-                  rows: target.map(({ p, c, has }) => ({
-                    code: p.code, name: p.name, group: p.group,
-                    v: has ? Math.round(c.V * 1000) / 1000 : null,
-                    mat: has ? Math.round(c.materials) : null, ss: has ? Math.round(c.itogo) : null,
-                    novat: has ? Math.round(c.noVat) : null, final: has ? Math.round(c.final) : null,
-                    _cell: has ? { final: "bold" } : { name: "warn" },
-                  })),
-                  notes: [tr("Narx bo'sh bo'lsa — kalkulyatsiya kiritilmagan.")],
-                },
-              ],
-            })}
-          />
           <button className="btn primary" onClick={() => setOfferOpen(true)}>{tr("Tijorat taklifi (Word)")}</button>
-          <ExportButtons
-            label="Kartalar (Excel)"
-            shareLabel="Kartalarni ulashish"
-            company={data.settings?.company}
-            notify={notify}
-            disabled={!cardTarget.length}
-            build={() => cardsExcel(cardTarget, mats, data.schemes)}
-          />
-          <button className="btn" onClick={() => setPrintMode("list")} disabled={!target.length}>
-            {tr("Narxlarni chop etish")}
-          </button>
-          <button className="btn" onClick={() => setPrintMode("cards")} disabled={!cardTarget.length}>
-            {tr("Kartalarni chop etish")}
-          </button>
+          <ExportMenu label={busy ? "Tayyorlanmoqda…" : "Yuklab olish"} disabled={Boolean(busy)}>
+            {!noMoney && (
+              <button type="button" className="btn" onClick={() => runExport("xlsx", cardTarget)} disabled={!cardTarget.length}>
+                <Icon name="download" /> {tr("Excel kalkulyatsiya")}
+              </button>
+            )}
+            {!noMoney && (
+              <button type="button" className="btn" onClick={() => runExport("pdf", cardTarget)} disabled={!cardTarget.length}>
+                <Icon name="download" /> {tr("Kalkulyatsiya PDF")}
+              </button>
+            )}
+            <button type="button" className="btn" onClick={() => runPrices(false)} disabled={!target.length}>
+              <Icon name="download" /> {tr(picked.size ? "Tanlanganlar narxi (Excel)" : "Narxlar ro'yxati (Excel)")}
+            </button>
+            <button type="button" className="btn" onClick={() => setPrintMode("cards")} disabled={!cardTarget.length}>
+              <Icon name="print" /> {tr("Kartalarni chop etish")}
+            </button>
+            <button type="button" className="btn" onClick={() => setPrintMode("list")} disabled={!target.length}>
+              <Icon name="print" /> {tr("Narxlarni chop etish")}
+            </button>
+            <button type="button" className="btn" onClick={() => (noMoney ? runPrices(true) : runExport("xlsx", cardTarget, true))} disabled={noMoney ? !target.length : !cardTarget.length}>
+              <Icon name="share" /> {tr("Ulashish")}
+            </button>
+          </ExportMenu>
         </div>
       </div>
       {groups.length > 0 && (
@@ -381,7 +430,7 @@ export default function CostTab({ data, onEdit, notify, onSchemesSaved }) {
                     </td>
                     <td>
                       <span className="code">{p.code}</span>
-                      <span className="sub">{p.name}</span>
+                      <span className="sub">{show(p.name)}</span>
                     </td>
                     <td className="n">{has ? fmtN(c.V, 3) : ""}</td>
                     <td className="n">{has ? fmt(c.itogo) : "—"}</td>
@@ -412,41 +461,4 @@ export default function CostTab({ data, onEdit, notify, onSchemesSaved }) {
       <p className="hint">{tr("Qator turlari:")} {ROW_TYPES.map(([, l]) => tr(l)).join(" · ")}.</p>
     </section>
   );
-}
-
-/* ---------- Excel: tanlangan mahsulotlarning kalkulyatsiya kartalari (har biri alohida varaqda) ---------- */
-function cardsExcel(list, mats, schemes) {
-  const r0 = (v) => Math.round(v || 0);
-  const sheets = list.slice(0, 60).map(({ p }) => {
-    const c = costCard(p, mats);
-    const rows = [
-      ...c.items.map((it) => ({ name: it.m?.name || tr("— o'chirilgan —"), unit: it.m?.unit || "", norm: Math.round(it.norm * 1000) / 1000, price: Math.round(it.price * 10) / 10, sum: r0(it.sum) })),
-      { name: "Итого СС. материалов", sum: r0(c.materials), _style: "bold" },
-      ...c.prodRows.map((r) => ({ name: r.name, unit: typeHint(r, c), sum: r0(r.amount) })),
-      { name: "Производственная СС.", sum: r0(c.prodSS), _style: "bold" },
-      ...c.otherRows.map((r) => ({ name: r.name, unit: typeHint(r, c), sum: r0(r.amount) })),
-      { name: tr("Другие затраты, jami"), sum: r0(c.other), _style: "bold" },
-      { name: tr("Итого (tannarx)"), sum: r0(c.itogo), _style: "bold" },
-      { name: "Маржа", unit: `${fmtN(c.margin, 2)} %`, sum: r0(c.marginAmt) },
-      { name: "Цена без НДС", sum: r0(c.noVat), _style: "bold" },
-      { name: "НДС", unit: `${fmtN(c.vat, 2)} %`, sum: r0(c.vatAmt) },
-      { name: "Цена с НДС", sum: r0(c.final), _style: "bold" },
-    ];
-    const sch = schemeName(p, schemes);
-    return {
-      name: p.code,
-      title: `${p.name || ""} ${p.code}`.trim(),
-      subtitle: [p.group, sch && `${tr("andoza")}: ${sch}`].filter(Boolean).join(" · "),
-      columns: [
-        { header: tr("Nomi"), key: "name", width: 34 },
-        { header: tr("Birlik"), key: "unit", width: 20 },
-        { header: tr("Norma"), key: "norm", type: "num", width: 11 },
-        { header: tr("Narx"), key: "price", type: "num", width: 13 },
-        { header: tr("Summa, so'm"), key: "sum", type: "money", width: 15 },
-      ],
-      rows,
-      noTotal: true,
-    };
-  });
-  return { filename: `Kalkulyatsiya_kartalari_${fileDate()}.xlsx`, sheets };
 }

@@ -1,5 +1,5 @@
 import tools from './hr-tools.js';
-import { ensureDepartment as department } from '../hr-departments.js';
+import { ensureDepartment as department,EMPLOYEE_ORDER } from '../hr-departments.js';
 import { Router } from 'express';
 import { one, rows, tx } from '../db.js';
 import { isId, validDate, validMonth, ValidationError, ConflictError } from '../valid.js';
@@ -36,7 +36,7 @@ async function getMonth(c,f,m) {
 function draft(m) { if (m.status!=='draft') throw new ConflictError("Tasdiqlangan oy tahrirlanmaydi"); }
 async function bump(c,f,m) { return one('UPDATE hr_months SET version=version+1,updated_at=now() WHERE factory_id=$1 AND month=$2 RETURNING *',[f,m],c); }
 async function monthData(c,f,m) {
-  const employees=await rows('SELECT * FROM hr_employees WHERE factory_id=$1 ORDER BY department,name',[f],c);
+  const employees=await rows('SELECT * FROM hr_employees WHERE factory_id=$1 ORDER BY '+EMPLOYEE_ORDER,[f],c);
   const rates=await rows('SELECT * FROM hr_rates WHERE factory_id=$1 ORDER BY effective_date',[f],c);
   const payments=await rows('SELECT * FROM hr_payments WHERE factory_id=$1 AND month=$2 ORDER BY created_at DESC,id',[f,m.month],c);
   const prev=await one('SELECT * FROM hr_months WHERE factory_id=$1 AND month<$2 ORDER BY month DESC LIMIT 1',[f,m.month],c);
@@ -52,7 +52,7 @@ async function frozenThrough(c,f) { const x=await one("SELECT max(month) AS mont
 const write=fn=>async(req,res)=>res.json(await tx(async c=>{await lock(c,req.factoryId);return fn(c,req);}));
 
 r.get('/employees',async(req,res)=>{
-  const list=await rows('SELECT * FROM hr_employees WHERE factory_id=$1 ORDER BY department,name',[req.factoryId]);
+  const list=await rows('SELECT * FROM hr_employees WHERE factory_id=$1 ORDER BY '+EMPLOYEE_ORDER,[req.factoryId]);
   const full=HR_ROLES.includes(req.user.role);
   res.json(list.map(e=>full?e:({id:e.id,code:e.code,name:e.name,position:e.position,department:e.department,hireDate:e.hireDate,endDate:e.endDate})));
 });

@@ -1,4 +1,5 @@
 "use client";
+import { show } from "@/lib/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { tr, useT } from "@/lib/i18n";
@@ -910,7 +911,7 @@ function Summary({ plan, editing, showFact, factOf, products, prods, mats, chang
                       <span className="code">{codeOf(r, prods)}</span>
                     )}
                     <span className="sub">
-                      {r.name}
+                      {show(r.name)}
                       {!r.productId && !editing ? ` · ${t("katalogda yo'q")}` : ""}
                     </span>
                   </td>
@@ -1042,7 +1043,7 @@ function ImportDialog({ imp, setImp, products, busy, onClose, onOpen, onSave }) 
               {imp.rows.map((r, i) => (
                 <tr key={i} className={r.productId ? "" : "mp-unlinked"}>
                   <td className="num muted">{r._excelRow}</td>
-                  <td>{r.name}</td>
+                  <td>{show(r.name)}</td>
                   <td className="wide">
                     <select value={r.productId} onChange={(e) => setRow(i, e.target.value)} className={r.productId ? "" : "need"} aria-label={t("Katalogdagi mahsulot")}>
                       <option value="">{t("— bog'lanmagan (faqat nomi) —")}</option>

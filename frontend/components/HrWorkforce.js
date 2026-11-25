@@ -1,4 +1,6 @@
 "use client";
+import { show } from '@/lib/i18n';
+import { matches } from '@/lib/script';
 import HrNavigation from './HrNavigation';
 import HrDeadlineNotice from './HrDeadlineNotice';
 import { useCallback,useEffect,useRef,useState } from 'react';
@@ -34,8 +36,8 @@ export default function HrWorkforce({view,onViewChange,notify,openForm,canWrite,
  const employees=data?.employees||[],records=data?.records||[],date=data?.date||today();
  const name=id=>employees.find(e=>e.id===id)?.name||'—';
  const kind=TYPES[view]?.[0];
- const searched=e=>`${e.name} ${e.code} ${e.department}`.toLowerCase().includes(query.toLowerCase());
- const filtered=records.filter(r=>r.kind===kind&&(status==='all'||r.status===status)&&`${r.title} ${r.detail.number||''} ${name(r.employeeId)}`.toLowerCase().includes(query.toLowerCase()));
+ const searched=e=>matches([e.name,e.code,e.department],query);
+ const filtered=records.filter(r=>r.kind===kind&&(status==='all'||r.status===status)&&matches([r.title,r.detail.number,name(r.employeeId)],query));
  const due=records.filter(r=>r.status==='approved'&&['document','equipment'].includes(r.kind)&&r.endDate<=new Date(Date.parse(date)+30*86400000).toISOString().slice(0,10)).sort((a,b)=>a.endDate.localeCompare(b.endDate));
  function recordForm(existing){
   const k=existing?.kind||kind,detail=existing?.detail||{};
@@ -91,7 +93,7 @@ export default function HrWorkforce({view,onViewChange,notify,openForm,canWrite,
     <div className="hr-pending-list">{records.filter(r=>r.status==='draft').slice(0,20).map(r=><button className="btn" key={r.id} onClick={()=>onViewChange(Object.keys(TYPES).find(k=>TYPES[k][0]===r.kind))}>{name(r.employeeId)} · {r.title}</button>)}</div>
     {!data.summary.pending&&<p className="empty">{t('Tasdiq kutayotgan yozuv yo‘q')}</p>}
     <h3>{t('Oxirgi amallar')}</h3>
-    <div className="tbl-wrap"><table><thead><tr>{['Sana','Mas’ul','Xodim','Amal'].map(x=><th key={x}>{t(x)}</th>)}</tr></thead><tbody>{(data.events||[]).slice(0,15).map(e=><tr key={e.id}><td>{new Date(e.createdAt).toLocaleString('ru-RU',{timeZone:'Asia/Tashkent'})}</td><td>{e.actor.name}</td><td>{name(e.entityId)}</td><td>{t({'workforce.create':'Kadrlar yozuvi yaratildi','workforce.update':'Kadrlar yozuvi o‘zgardi','workforce.decision':'Kadrlar yozuvi holati o‘zgardi','workforce.apply':'Reja tabelga qo‘llandi','workforce.allowance':'Ta’til limiti o‘zgardi'}[e.action]||e.action)}</td></tr>)}</tbody></table></div>
+    <div className="tbl-wrap"><table><thead><tr>{['Sana','Mas’ul','Xodim','Amal'].map(x=><th key={x}>{t(x)}</th>)}</tr></thead><tbody>{(data.events||[]).slice(0,15).map(e=><tr key={e.id}><td>{new Date(e.createdAt).toLocaleString('ru-RU',{timeZone:'Asia/Tashkent'})}</td><td>{show(e.actor.name)}</td><td>{name(e.entityId)}</td><td>{t({'workforce.create':'Kadrlar yozuvi yaratildi','workforce.update':'Kadrlar yozuvi o‘zgardi','workforce.decision':'Kadrlar yozuvi holati o‘zgardi','workforce.apply':'Reja tabelga qo‘llandi','workforce.allowance':'Ta’til limiti o‘zgardi'}[e.action]||e.action)}</td></tr>)}</tbody></table></div>
    </>:<>
     <div className="hr-toolbar"><input type="search" aria-label={t('Qidirish')} placeholder={t('Qidirish')} value={query} onChange={e=>setQuery(e.target.value)}/><label>{t('Holat')}<select value={status} onChange={e=>setStatus(e.target.value)}><option value="all">{t('Barchasi')}</option>{Object.entries(STATES).map(([k,l])=><option key={k} value={k}>{t(l)}</option>)}</select></label>{canWrite&&<button className="btn primary" disabled={busy||!employees.length} onClick={()=>recordForm()}>{t('Yangi yozuv')}</button>}</div>
     {view==='leaves'&&<>
@@ -99,12 +101,12 @@ export default function HrWorkforce({view,onViewChange,notify,openForm,canWrite,
      <label>{t('Yil')} <input type="number" min="1900" max="2200" value={year} onChange={e=>setYear(+e.target.value)}/></label>
      <div className="tbl-wrap"><table><thead><tr>{['Xodim','Yillik limit','Avval ishlatilgan','Tasdiqlangan kunlar','Qoldiq','Amallar'].map(x=><th key={x}>{t(x)}</th>)}</tr></thead><tbody>{employees.filter(searched).map(e=>{
       const a=data.allowances.find(a=>a.employeeId===e.id&&a.year===year),used=records.filter(r=>r.employeeId===e.id).reduce((s,r)=>s+usedDays(r,year),0);
-      return <tr key={e.id}><td>{e.name}</td><td>{a?.days??t('Belgilanmagan')}</td><td>{a?.usedBefore??'—'}</td><td>{used}</td><td>{a?a.days-a.usedBefore-used:'—'}</td><td>{decide&&<button className="btn sm" disabled={busy} onClick={()=>allowance(e)}>{t('Limitni belgilash')}</button>}</td></tr>;
+      return <tr key={e.id}><td>{show(e.name)}</td><td>{a?.days??t('Belgilanmagan')}</td><td>{a?.usedBefore??'—'}</td><td>{used}</td><td>{a?a.days-a.usedBefore-used:'—'}</td><td>{decide&&<button className="btn sm" disabled={busy} onClick={()=>allowance(e)}>{t('Limitni belgilash')}</button>}</td></tr>;
      })}</tbody></table></div>
     </>}
     {view==='shifts'&&<p className="hint">{t('Smena rejasi haqiqiy davomatdan alohida yuritiladi. Tasdiqlangach bo‘sh tabelga namuna sifatida qo‘llanadi; haqiqiy soatlar tekshirib saqlanadi.')}</p>}
     {view==='orders'&&<p className="hint">{t('Buyruqlar reyestri. Lavozim, ish sanalari va maoshdagi o‘zgarishlar tegishli xodim kartochkasida alohida qayd etiladi.')}</p>}
-    <div className="tbl-wrap"><table className="hr-records-table"><thead><tr>{['Xodim','Nomi','Davr','Holat','Amallar'].map(x=><th key={x}>{t(x)}</th>)}</tr></thead><tbody>{filtered.map(r=><tr key={r.id}><td>{name(r.employeeId)}</td><td><strong>{r.title}</strong><div className="hint">{details(r)}{r.detail.number&&` · ${r.detail.number}`}</div>{r.detail.note&&<div className="hint">{r.detail.note}</div>}</td><td>{r.startDate}<br/>{r.endDate}</td><td><span className="pill">{t(STATES[r.status])}</span>{r.detail.appliedAt&&<p className="hint">{t('Tabelga qo‘llangan')}</p>}{r.reason&&<p className="hint">{r.reason}</p>}</td><td><div className="acts">
+    <div className="tbl-wrap"><table className="hr-records-table"><thead><tr>{['Xodim','Nomi','Davr','Holat','Amallar'].map(x=><th key={x}>{t(x)}</th>)}</tr></thead><tbody>{filtered.map(r=><tr key={r.id}><td>{name(r.employeeId)}</td><td><strong>{r.title}</strong><div className="hint">{details(r)}{r.detail.number&&` · ${r.detail.number}`}</div>{r.detail.note&&<div className="hint">{show(r.detail.note)}</div>}</td><td>{r.startDate}<br/>{r.endDate}</td><td><span className="pill">{t(STATES[r.status])}</span>{r.detail.appliedAt&&<p className="hint">{t('Tabelga qo‘llangan')}</p>}{r.reason&&<p className="hint">{r.reason}</p>}</td><td><div className="acts">
      {canWrite&&r.status==='draft'&&<button className="btn sm" disabled={busy} onClick={()=>recordForm(r)}>{t('Tahrirlash')}</button>}
      {decide&&r.status==='draft'&&<button className="btn sm primary" disabled={busy} onClick={()=>decision(r,'approved')}>{t('Tasdiqlash')}</button>}
      {decide&&r.status==='approved'&&['leave','shift'].includes(r.kind)&&!r.detail.appliedAt&&<button className="btn sm" disabled={busy} onClick={()=>{if(window.confirm(t('Tasdiqlangan davrni tabelga qo‘llaysizmi?')))run(()=>api(`/hr/workforce/records/${r.id}/apply`,{method:'POST',body:{version:r.version}}));}}>{t('Tabelga qo‘llash')}</button>}

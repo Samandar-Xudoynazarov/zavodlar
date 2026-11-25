@@ -1,4 +1,5 @@
 "use client";
+import { matches } from "@/lib/script";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { tr, useT } from "@/lib/i18n";
@@ -196,7 +197,7 @@ function InventoryDoc({ doc, data, notify, onBack, onChanged, onDirtyChange }) {
   );
   const s = q.trim().toLowerCase();
   const shown = rows
-    .filter((r) => !s || (r.m?.name || "").toLowerCase().includes(s) || (r.m?.code || "").toLowerCase().includes(s))
+    .filter((r) => !s || matches([r.m?.name, r.m?.code], s))
     .filter((r) => (filter === "left" ? r.actual === null : filter === "diff" ? r.diff !== null && Math.abs(r.diff) > 1e-9 : true));
   const nCounted = rows.filter((r) => r.actual !== null).length;
   const shortage = rows.reduce((a, r) => a + (r.sum < 0 ? -r.sum : 0), 0);
@@ -413,7 +414,7 @@ function invExcel(doc, rows, data) {
           { header: tr("Farq, so'm"), key: "sum", type: "money", total: "sum", width: 15 },
         ]),
   ];
-  const signers = data.settings?.signers?.length ? data.settings.signers : [tr("Omborchi"), tr("ПТО muhandisi"), tr("Rahbar")];
+  const signers = data.settings?.signers?.length ? data.settings.signers : [tr("Omborchi"), tr("PTO muhandisi"), tr("Rahbar")];
   return {
     filename: `Inventarizatsiya_${doc.no}_${fileDate()}.xlsx`,
     sheets: [

@@ -1,0 +1,45 @@
+/* Foyda va zarar, Kassa va bank, Sifat nazorati sahifalari uchun qo'shimcha uslublar */
+.fl-neg{color:#b42318}
+.fl-pos{color:#067647}
+.fl-inline{display:inline-flex;gap:8px;align-items:center;font-size:14px}
+.fl-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 12px}
+.fl-filters input,.fl-filters select{min-height:36px}
+.fl-accounts{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin:8px 0 14px}
+.fl-account{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:4px;text-align:left}
+.fl-account[aria-pressed="true"]{border-color:var(--accent,#2563eb);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent,#2563eb) 20%,transparent)}
+.fl-account small{color:var(--ink-2)}
+.fl-account strong{font-size:18px}
+.finance-module tr.is-void td{text-decoration:line-through;opacity:.55}
+/* Foyda va zarar — jadvalsiz ko'rinish */
+.fl-warnline{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0 0;font-size:13.5px;color:var(--ink-2)}
+.pl-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:12px;margin-top:12px}
+.pl-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:grid;gap:12px;align-content:start}
+.pl-card-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pl-nav{display:flex;gap:4px}
+.pl-chart{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;height:220px}
+.pl-col{display:grid;grid-template-rows:auto 1fr auto;gap:6px;background:none;border:1px solid transparent;border-radius:10px;padding:6px 4px;cursor:pointer;font:inherit;color:inherit;min-width:0}
+.pl-col:hover{background:color-mix(in srgb,var(--line) 40%,transparent)}
+.pl-col[aria-pressed="true"]{border-color:var(--accent,#2563eb);background:color-mix(in srgb,var(--accent,#2563eb) 7%,transparent)}
+.pl-val{font-size:12px;font-weight:700;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl-bars{display:flex;align-items:flex-end;justify-content:center;gap:4px;min-height:0}
+.pl-bars i{display:block;width:38%;max-width:22px;border-radius:5px 5px 0 0;min-height:2px}
+.pl-rev,.fl-legend i.pl-rev{background:#12b76a}
+.pl-cost,.fl-legend i.pl-cost{background:#f04438}
+.pl-mon{font-size:12px;text-align:center;color:var(--ink-2)}
+.pl-list{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.pl-list li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center}
+.pl-list li small{display:block;color:var(--ink-2);font-size:12px}
+.pl-list li strong{text-align:right}
+.pl-list li strong small{text-align:right}
+.pl-share{grid-column:1/-1;display:block;height:6px;border-radius:4px;background:var(--line);overflow:hidden}
+.pl-share i{display:block;height:100%;background:#f79009;border-radius:4px}
+.pl-share i.bad{background:#f04438}
+.pl-factory .pl-share i{background:#12b76a}
+.pl-total{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);padding-top:10px}
+.pl-total strong{font-size:20px}
+.pl-h3{margin:18px 0 8px}
+.pl-factories{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.pl-factory{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:4px}
+.pl-factory strong{font-size:20px}
+.pl-factory small{color:var(--ink-2)}
+@media(max-width:900px){.pl-grid{grid-template-columns:1fr}.pl-chart{height:190px;gap:3px}.pl-col{padding:4px 2px}.pl-val{white-space:normal;font-size:10.5px;line-height:1.15;overflow:visible}}

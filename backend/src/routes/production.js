@@ -291,10 +291,15 @@ export const shippedByOrder = async (f, orderIds = null, client = null) =>
   new Map(
     (
       await q(
-        `SELECT s->>'orderId' AS oid, s->>'productId' AS pid, sum((s->>'qty')::numeric) AS qty
-           FROM days, jsonb_array_elements(shipments) s
-          WHERE factory_id = $1 AND s->>'orderId' IS NOT NULL ${orderIds ? "AND s->>'orderId' = ANY($2::text[])" : ""}
-          GROUP BY 1, 2`,
+        `SELECT oid, pid, sum(qty) AS qty FROM (
+           SELECT s->>'orderId' AS oid, s->>'productId' AS pid, (s->>'qty')::numeric AS qty
+             FROM days, jsonb_array_elements(shipments) s
+            WHERE factory_id = $1 AND s->>'orderId' IS NOT NULL ${orderIds ? "AND s->>'orderId' = ANY($2::text[])" : ""}
+           UNION ALL -- eski (tizimdan oldingi) jo'natmalar, накладная bilan
+           SELECT order_id::text, product_id::text, qty
+             FROM legacy_shipments
+            WHERE factory_id = $1 AND voided_at IS NULL ${orderIds ? "AND order_id::text = ANY($2::text[])" : ""}
+          ) x GROUP BY 1, 2`,
         orderIds ? [f, orderIds] : [f],
         client
       )
@@ -326,7 +331,9 @@ r.get('/orders/:id/products/:productId/shipments', async(req,res)=>{
  FROM days d CROSS JOIN LATERAL jsonb_array_elements(d.shipments) WITH ORDINALITY s(line,idx)
  LEFT JOIN dispatch_documents doc ON doc.id::text=s.line->>'dispatchId' AND doc.factory_id=d.factory_id
  WHERE d.factory_id=$1 AND s.line->>'orderId'=$2 AND s.line->>'productId'=$3 ORDER BY d.date DESC,s.idx DESC`,[req.factoryId,order.id,req.params.productId]);
- res.json({shippedBefore:+itemsOf(order).find(i=>i.productId===req.params.productId).shippedBefore||0,shipments:days.map(d=>({date:d.date,...d.shipment,dispatchId:d.documentId||null,dispatchNo:d.dispatchNo||d.shipment.dispatchNo||''}))});
+ const legacy=await rows(`SELECT id,date,qty,dispatch_no,vehicle,receiver,note,name,size_bytes,created_by,created_at,voided_at,void_reason
+ FROM legacy_shipments WHERE factory_id=$1 AND order_id=$2 AND product_id=$3 ORDER BY date DESC,created_at DESC`,[req.factoryId,order.id,req.params.productId]);
+ res.json({shippedBefore:+itemsOf(order).find(i=>i.productId===req.params.productId).shippedBefore||0,shipments:days.map(d=>({date:d.date,...d.shipment,dispatchId:d.documentId||null,dispatchNo:d.dispatchNo||d.shipment.dispatchNo||''})),legacy});
 });
 r.get('/dispatch-documents/:id/pdf',async(req,res)=>{
  if(!isId(req.params.id))return notFound(res);
@@ -362,6 +369,8 @@ r.put("/orders/:id", async (req, res) => {
         [f, before.id, gone],c
       );
       if (used.rowCount) throw new ValidationError("Olib tashlanayotgan mahsulot kunlik hisobotda shu buyurtma bo'yicha jo'natilgan — avval o'sha jo'natishni boshqa buyurtmaga bog'lang");
+      if ((await q("SELECT 1 FROM legacy_shipments WHERE factory_id = $1 AND order_id = $2 AND product_id::text = ANY($3::text[]) AND voided_at IS NULL LIMIT 1", [f, before.id, gone], c)).rowCount)
+        throw new ValidationError("Olib tashlanayotgan mahsulot bo'yicha eski jo'natma kiritilgan — avval uni bekor qiling");
     }
   }
   if (!Object.keys(data).length) return {before,doc:before};
@@ -381,6 +390,7 @@ r.delete("/orders/:id", async (req, res) => {
   const doc = await tx(async (c) => {
     await financeLock(c,f);
     if((await c.query('SELECT 1 FROM finance_contracts WHERE factory_id=$1 AND order_id=$2 UNION ALL SELECT 1 FROM finance_invoices WHERE factory_id=$1 AND order_id=$2 UNION ALL SELECT 1 FROM finance_receipts WHERE factory_id=$1 AND order_id=$2 LIMIT 1',[f,req.params.id])).rowCount)throw new ConflictError('Shartnoma, faktura yoki to‘lovlari bor buyurtmani o‘chirib bo‘lmaydi');
+    if((await c.query('SELECT 1 FROM legacy_shipments WHERE factory_id=$1 AND order_id=$2 LIMIT 1',[f,req.params.id])).rowCount)throw new ConflictError('Eski jo‘natmalari kiritilgan buyurtmani o‘chirib bo‘lmaydi');
     await c.query('DELETE FROM finance_order_progress WHERE factory_id=$1 AND order_id=$2',[f,req.params.id]);
     const d = await one("DELETE FROM orders WHERE id = $1 AND factory_id = $2 RETURNING *", [req.params.id, f], c);
     if (!d) return null;

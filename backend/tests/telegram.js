@@ -16,6 +16,7 @@ process.env.TELEGRAM_BOT_TOKEN = 'test-only-token';
 process.env.TELEGRAM_BOT_USERNAME = 'test_plan_bot';
 process.env.TELEGRAM_WEBHOOK_SECRET = 'test_secret_1234567890123456789012';
 process.env.APP_PUBLIC_URL = 'http://localhost:3002';
+process.env.TELEGRAM_PLAN_ALERTS = '1'; // eski «reja qo'yildi» xabarlari yo'li ham sinovda qoladi
 const nativeFetch = globalThis.fetch;
 const sends = [];
 let sendMode = 'ok';

@@ -1,3 +1,4 @@
+import { show } from "./i18n";
 /* ================= umumiy ================= */
 export const STATUSES = [
   ["yangi", "Yangi"],
@@ -97,7 +98,7 @@ export function lidLinks(products) {
   }
   return out;
 }
-export const productLabel = (p) => (p ? `${p.code}${p.name ? " — " + p.name : ""}` : "— o'chirilgan —");
+export const productLabel = (p) => (p ? `${p.code}${p.name ? " — " + show(p.name) : ""}` : "— o'chirilgan —");
 export const productOptions = (products) => products.map((p) => [p.id, productLabel(p)]);
 export const materialOptions = (materials, filter = () => true) =>
   materials.filter(filter).map((m) => [m.id, `${m.name} (${m.unit})`]);

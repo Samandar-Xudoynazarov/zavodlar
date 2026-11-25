@@ -1,4 +1,6 @@
 "use client";
+import { show } from "@/lib/i18n";
+import { matches } from "@/lib/script";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { tr, useT } from "@/lib/i18n";
@@ -47,7 +49,7 @@ export default function SuppliersTab({ data, openForm, notify }) {
     () =>
       (list || [])
         .filter((x) => !x.archived || x.stats)
-        .filter((x) => !s || `${x.name} ${x.phone} ${x.inn} ${x.contact}`.toLowerCase().includes(s))
+        .filter((x) => !s || matches([x.name, x.phone, x.inn, x.contact], s))
         .sort((a, b) => (b.stats?.total || 0) - (a.stats?.total || 0) || a.name.localeCompare(b.name)),
     [list, s]
   );
@@ -143,7 +145,7 @@ export default function SuppliersTab({ data, openForm, notify }) {
           <ul className="rises">
             {rises.map((r, i) => (
               <li key={i}>
-                {mats.get(r.materialId)?.name || "—"} — {r.supplier}: {fmt(r.prevPrice)} → <strong>{fmt(r.lastPrice)}</strong> {t("so'm")} <span className="late">+{fmtN(r.p, 1)}%</span>
+                {mats.get(r.materialId)?.name || "—"} — {show(r.supplier)}: {fmt(r.prevPrice)} → <strong>{fmt(r.lastPrice)}</strong> {t("so'm")} <span className="late">+{fmtN(r.p, 1)}%</span>
               </li>
             ))}
           </ul>
@@ -163,7 +165,7 @@ export default function SuppliersTab({ data, openForm, notify }) {
               <li key={k} className={x.archived ? "archived" : ""}>
                 <button className="sup-item" onClick={() => setOpen(isOpen ? null : k)} aria-expanded={isOpen}>
                   <span className="card-main">
-                    <strong>{x.name}</strong>
+                    <strong>{show(x.name)}</strong>
                     <span className="muted">
                       {[x.phone, x.contact, x.inn && `${t("STIR")} ${x.inn}`].filter(Boolean).join(" · ") || t("kontakt kiritilmagan")}
                       {x.archived ? ` · ${t("arxivda")}` : ""}
@@ -213,7 +215,7 @@ export default function SuppliersTab({ data, openForm, notify }) {
                         </table>
                       </div>
                     )}
-                    {x.note && <p className="hint">{x.note}</p>}
+                    {x.note && <p className="hint">{show(x.note)}</p>}
                     <div className="acts">
                       {x.phone && (
                         <a className="btn sm" href={`tel:${x.phone.replace(/[^\d+]/g, "")}`}>

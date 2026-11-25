@@ -17,6 +17,10 @@ import overview from "./routes/overview.js";
 import reports from "./routes/reports.js";
 import hr from "./routes/hr.js";
 import finance from "./routes/finance.js";
+import quality from "./routes/quality.js";
+import glossary from "./routes/glossary.js";
+import { noMoneyGuard } from "./no-money.js";
+import pulse from "./routes/pulse.js";
 import materialInvoices from "./routes/material-invoices.js";
 import factoryImport from "./routes/factory-import.js";
 import notifications from "./routes/notifications.js";
@@ -164,6 +168,9 @@ app.use("/api", async (req, res, next) => {
   next();
 });
 
+// Kuzatuvchi va kurator pulni ko'rmaydi (no-money.js)
+app.use("/api", noMoneyGuard);
+
 // Kuzatuvchi xabarni o'qilgan deb belgilashi mumkin; umumiy yozish huquqi talab qilinmaydi.
 app.use("/api", notifications);
 app.use("/api", telegramSettings);
@@ -173,6 +180,8 @@ app.use('/api',factoryIdentity);
 app.use("/api/hr", hr);
 app.use("/api/finance/material-invoices", materialInvoices);
 app.use("/api/finance", finance);
+app.use("/api/quality", quality);
+app.use("/api/glossary", glossary);
 app.use("/api/admin/factory-imports", factoryImport);
 app.use('/api/acct-reports',(req,res,next)=>['admin','rahbar','buxgalter'].includes(req.user.role)?next():res.status(403).json({error:'Material hisoboti faqat admin, buxgalter va rahbar uchun'}));
 
@@ -404,6 +413,7 @@ app.use("/api", catalog);
 app.use("/api", production);
 app.use("/api", store);
 app.use("/api", overview);
+app.use("/api", pulse);
 app.use("/api", reports);
 app.use("/api", reconciliation);
 

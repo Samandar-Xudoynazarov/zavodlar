@@ -8,13 +8,24 @@ import { shippedByOrder } from './production.js';
 import { audit } from '../audit.js';
 import supplierSettlements from './supplier-settlements.js';
 import contracts from './contracts.js';
+import salesArchive from './sales-archive.js';
+import customers,{createReceipt,voidReceipt,receiptCols} from './finance-customers.js';
+import periods from './finance-periods.js';
+import cash from './finance-cash.js';
+import profit from './finance-profit.js';
+import { assertMonthOpen } from '../finance-period-lock.js';
+import { validMonth } from '../valid.js';
 const r=Router();
 r.use((req,res,next)=>FINANCE_ROLES.includes(req.user.role)?next():res.status(403).json({error:'Bu bo‘lim faqat admin, buxgalter va rahbar uchun'}));
 r.use((req,res,next)=>{res.set('Cache-Control','no-store');next();});
 r.use('/supplier-settlements', supplierSettlements);
 r.use('/contracts',contracts);
-const invoiceCols='id,order_id,number,date,items,amount,note,name,size_bytes,created_at,voided_at,void_reason';
-const receiptCols='id,order_id,invoice_id,date,amount,note,created_at,voided_at,void_reason';
+r.use('/archive',salesArchive);
+r.use('/customers',customers);
+r.use('/periods',periods);
+r.use('/cash',cash);
+r.use('/profit',profit);
+const invoiceCols='id,order_id,number,date,due_date,items,net,vat,amount,note,name,size_bytes,created_at,voided_at,void_reason';
 const scopedOrder=async(c,req)=>{
  if(!isId(req.params.id))throw new ValidationError('Buyurtma topilmadi');
  const o=await one('SELECT * FROM orders WHERE factory_id=$1 AND id=$2 FOR UPDATE',[req.factoryId,req.params.id],c);
@@ -48,33 +59,47 @@ r.post('/orders/:id/invoices',mutate(async(c,req,o)=>{
  const b=req.body;if(!isId(b.requestId))throw new ValidationError('So‘rov raqami noto‘g‘ri');
  const old=await one('SELECT '+invoiceCols+' FROM finance_invoices WHERE factory_id=$1 AND request_id=$2',[req.factoryId,b.requestId],c);if(old){if(old.orderId!==o.id)throw new ConflictError('So‘rov boshqa buyurtmaga tegishli');return old;}
  const no=text(b.number,80);if(!no||!validDate(b.date))throw new ValidationError('Faktura raqami va sanasi majburiy');
+ const dueDate=b.dueDate||null;if(dueDate&&(!validDate(dueDate)||dueDate<b.date))throw new ValidationError('To‘lov muddati faktura sanasidan oldin bo‘lmasin');
+ await assertMonthOpen(c,req.factoryId,b.date);
  if(!Array.isArray(b.items)||!b.items.length||b.items.length>100)throw new ValidationError('Faktura mahsulotlarini kiriting');
  const pdf=pdfContent(b.contentBase64);const view=orderView(o,await shippedByOrder(req.factoryId,[o.id],c));
  const invoices=await rows('SELECT items FROM finance_invoices WHERE factory_id=$1 AND order_id=$2 AND voided_at IS NULL',[req.factoryId,o.id],c);
  const seen=new Set(),items=[];
  for(const it of b.items){const line=view.items.find(l=>l.productId===it.productId);if(!line||seen.has(it.productId))throw new ValidationError('Faktura mahsuloti noto‘g‘ri');seen.add(it.productId);
- const qty=number(it.qty,'Soni',.001,1e9),price=number(it.price,'Narx',0,1e12);
+ const qty=number(it.qty,'Soni',.001,1e9),price=number(it.price,'Narx',0,1e12),vatRate=number(it.vatRate??b.vatRate??0,'QQS stavkasi',0,100),inclusive=!!(it.priceIncludesVat??b.priceIncludesVat);
+ if(!(price>0))throw new ValidationError('Sotuv narxi kiritilmagan. Faktura uchun har bir mahsulot narxini kiriting');
  const used=invoices.reduce((sum,x)=>sum+x.items.filter(i=>i.productId===it.productId).reduce((s,i)=>s+i.qty,0),0);
  if(qty+used>line.shipped+.00001)throw new ValidationError('Faktura soni jo‘natilgan, hali faktura qilinmagan sondan oshmasin');
- items.push({productId:it.productId,qty,price,amount:money(qty*price)});}
- const amount=money(items.reduce((s,i)=>s+i.amount,0));if(amount<=0)throw new ValidationError('Faktura summasi noldan katta bo‘lsin');
- const doc=await one('INSERT INTO finance_invoices(factory_id,order_id,request_id,number,date,items,amount,note,name,content_base64,size_bytes,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING '+invoiceCols,[req.factoryId,o.id,b.requestId,no,b.date,JSON.stringify(items),amount,text(b.note,1000),text(b.name,160)||'Faktura.pdf',b.contentBase64,pdf.length,actor(req)],c);return doc;
+ items.push({productId:it.productId,qty,price,...vatLine(qty,price,vatRate,inclusive)});}
+ const amount=money(items.reduce((s,i)=>s+i.amount,0)),net=money(items.reduce((s,i)=>s+i.net,0)),vat=money(amount-net);if(amount<=0)throw new ValidationError('Faktura summasi noldan katta bo‘lsin');
+ const doc=await one('INSERT INTO finance_invoices(factory_id,order_id,request_id,number,date,items,amount,net,vat,due_date,note,name,content_base64,size_bytes,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING '+invoiceCols,[req.factoryId,o.id,b.requestId,no,b.date,JSON.stringify(items),amount,net,vat,dueDate,text(b.note,1000),text(b.name,160)||'Faktura.pdf',b.contentBase64,pdf.length,actor(req)],c);return doc;
 }));
 r.get('/invoices/:id/pdf',async(req,res)=>{
  if(!isId(req.params.id))throw new ValidationError('Faktura topilmadi');
  const file=await one('SELECT * FROM finance_invoices WHERE factory_id=$1 AND id=$2',[req.factoryId,req.params.id]);if(!file)return res.status(404).json({error:'Faktura topilmadi'});sendPdf(res,file);
 });
-r.post('/orders/:id/receipts',mutate(async(c,req,o)=>{
- const b=req.body;if(!isId(b.requestId)||!validDate(b.date))throw new ValidationError('Sana yoki so‘rov raqami noto‘g‘ri');
- const old=await one('SELECT '+receiptCols+' FROM finance_receipts WHERE factory_id=$1 AND request_id=$2',[req.factoryId,b.requestId],c);if(old){if(old.orderId!==o.id)throw new ConflictError('So‘rov boshqa buyurtmaga tegishli');return old;}
- let invoiceId=null;
- if(b.invoiceId){if(!isId(b.invoiceId))throw new ValidationError('Faktura noto‘g‘ri');const invoice=await one('SELECT id FROM finance_invoices WHERE factory_id=$1 AND order_id=$2 AND id=$3 AND voided_at IS NULL',[req.factoryId,o.id,b.invoiceId],c);if(!invoice)throw new ValidationError('Faktura topilmadi yoki bekor qilingan');invoiceId=invoice.id;}
- return one('INSERT INTO finance_receipts(factory_id,order_id,invoice_id,request_id,date,amount,note,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING '+receiptCols,[req.factoryId,o.id,invoiceId,b.requestId,b.date,number(b.amount,'To‘lov',.01,1e12),text(b.note,1000),actor(req)],c);
-}));
-for(const [path,table] of [['invoices','finance_invoices'],['receipts','finance_receipts']])r.post('/orders/:id/'+path+'/:entryId/void',mutate(async(c,req,o)=>{
+r.post('/orders/:id/receipts',mutate((c,req,o)=>createReceipt(c,req,req.body||{},o)));
+r.post('/orders/:id/receipts/:entryId/void',mutate((c,req,o)=>voidReceipt(c,req,req.params.entryId,req.body?.reason,o.id)));
+r.post('/orders/:id/invoices/:entryId/void',mutate(async(c,req,o)=>{
  if(!isId(req.params.entryId)||!text(req.body.reason,500))throw new ValidationError('Bekor qilish sababi majburiy');
- if(path==='invoices'&&(await one('SELECT id FROM finance_receipts WHERE factory_id=$1 AND invoice_id=$2 AND voided_at IS NULL',[req.factoryId,req.params.entryId],c)))throw new ConflictError('Avval shu fakturaga bog‘langan to‘lovlarni bekor qiling');
- const entry=await one('UPDATE '+table+' SET voided_at=now(),void_reason=$4 WHERE factory_id=$1 AND order_id=$2 AND id=$3 AND voided_at IS NULL RETURNING id',[req.factoryId,o.id,req.params.entryId,text(req.body.reason,500)],c);
- if(!entry)throw new ConflictError('Yozuv topilmadi yoki bekor qilingan');return entry;
+ if(await one('SELECT id FROM finance_receipts WHERE factory_id=$1 AND invoice_id=$2 AND voided_at IS NULL',[req.factoryId,req.params.entryId],c))throw new ConflictError('Avval shu fakturaga bog‘langan to‘lovlarni bekor qiling');
+ const inv=await one('SELECT id,date FROM finance_invoices WHERE factory_id=$1 AND order_id=$2 AND id=$3 AND voided_at IS NULL FOR UPDATE',[req.factoryId,o.id,req.params.entryId],c);
+ if(!inv)throw new ConflictError('Yozuv topilmadi yoki bekor qilingan');
+ await assertMonthOpen(c,req.factoryId,inv.date);
+ return one('UPDATE finance_invoices SET voided_at=now(),void_reason=$3 WHERE factory_id=$1 AND id=$2 RETURNING id',[req.factoryId,inv.id,text(req.body.reason,500)],c);
 }));
+// Oylik: ish beruvchi to'laydigan ijtimoiy soliq foizi (faqat ko'rsatish uchun, sof maosh o'zgarmaydi)
+r.put('/payroll/:month/social-tax',async(req,res)=>{
+ if(!validMonth(req.params.month))throw new ValidationError('Oy formati YYYY-MM');
+ const rate=number(req.body?.rate,'Ijtimoiy soliq foizi',0,100);
+ const m=await one("UPDATE hr_months SET social_tax_rate=$3 WHERE factory_id=$1 AND month=$2 AND status<>'closed' RETURNING month,social_tax_rate",[req.factoryId,req.params.month,rate]);
+ if(!m)throw new ConflictError('Oy topilmadi yoki yopilgan');
+ await audit(req,{action:'update',entity:'finance',entityId:m.month,label:'Ijtimoiy soliq foizi · '+m.month,changes:[{p:'socialTaxRate',a:null,b:rate}]});
+ res.json(m);
+});
+/** QQS: narx QQSsiz (inclusive=false) yoki QQS bilan (inclusive=true) */
+export function vatLine(qty,price,vatRate,inclusive=false){
+ if(inclusive){const amount=money(qty*price),vat=money(amount*vatRate/(100+vatRate));return {vatRate,priceIncludesVat:true,net:money(amount-vat),vat,amount};}
+ const net=money(qty*price),vat=money(net*vatRate/100);return {vatRate,priceIncludesVat:false,net,vat,amount:money(net+vat)};
+}
 export default r;

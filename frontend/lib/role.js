@@ -5,7 +5,7 @@ import { createContext, useContext } from "react";
 export const ROLES = [
   ["admin", "Administrator"],
   ["rahbar", "Zavod rahbari (to'liq huquq)"],
-  ["pto", "ПТО muhandisi"],
+  ["pto", "PTO muhandisi"],
   ["usta", "Sex boshlig'i (usta)"],
   ["omborchi", "Omborchi"],
   ["buxgalter", "Buxgalter (hisobot va oylik)"],

@@ -1,10 +1,13 @@
 "use client";
+import { show } from "@/lib/i18n";
+import { matches } from "@/lib/script";
 import { tr } from "@/lib/i18n";
 import { useState } from "react";
 import { useUser } from "@/lib/role";
 import { api } from "@/lib/api";
 import { concreteVolume, fmtN, lidLinks } from "@/lib/calc";
 import DeleteButton from "./DeleteButton";
+import "./product-cards.css";
 
 export default function CatalogTab({ data, notify, reload, onEdit }) {
   const { canEdit } = useUser();
@@ -15,7 +18,7 @@ export default function CatalogTab({ data, notify, reload, onEdit }) {
   const lids = lidLinks(products);
 
   const list = products.filter(
-    (p) => (group === "all" || p.group === group) && (!q || `${p.code} ${p.name}`.toLowerCase().includes(q.toLowerCase()))
+    (p) => (group === "all" || p.group === group) && matches(`${p.code} ${p.name}`, q)
   );
 
   async function del(id) {
@@ -48,41 +51,45 @@ export default function CatalogTab({ data, notify, reload, onEdit }) {
           </button>
         ))}
       </div>
-      <div className="tbl-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>{tr("Marka")}</th>
-              <th>{tr("Nomi")}</th>
-              <th>{tr("Beton")}</th>
-              <th className="n">{tr("Beton, m³")}</th>
-              <th className="n">{tr("Metall, kg")}</th>
-              <th className="n">{tr("Og'irligi, t")}</th>
-              <th className="n">{tr("Quvvat, dona/kun")}</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((p) => {
-              const v = concreteVolume(p, mats);
-              const grade = p.norms.map((l) => mats.get(l.materialId)).find((m) => m?.group === "beton");
-              const metal = p.norms.reduce((s, l) => {
-                const m = mats.get(l.materialId);
-                return s + (m?.group === "metall" && m.unit === "кг" ? +l.norm || 0 : 0);
-              }, 0);
-              return (
-                <tr key={p.id}>
-                  <td>
-                    <span className="code">{p.code}</span>
-                    {p.costPending&&<span className="sub warn-text">{tr("PTO hisobini kutmoqda")}</span>}
-                    {p.notes?.length ? <span className="sub warn-text">{p.notes[0]}</span> : null}
-                  </td>
-                  <td>{p.name}</td>
-                  <td>{grade?.name.replace("Бетон ", "") || "—"}</td>
-                  <td className="n">{v ? fmtN(v, 3) : "—"}</td>
-                  <td className="n">{metal ? fmtN(metal, 1) : "—"}</td>
-                  <td className="n">{v ? fmtN(v * 2.5 + metal / 1000, 2) : "—"}</td>
-                  <td className="n">
+      <ul className="pgrid">
+        {list.map((p) => {
+          const v = concreteVolume(p, mats);
+          const grade = p.norms.map((l) => mats.get(l.materialId)).find((m) => m?.group === "beton");
+          const metal = p.norms.reduce((s, l) => {
+            const m = mats.get(l.materialId);
+            return s + (m?.group === "metall" && m.unit === "кг" ? +l.norm || 0 : 0);
+          }, 0);
+          return (
+            <li key={p.id} className="pcard">
+              <div className="pcard-head">
+                <div className="pcard-title">
+                  <span className="code">{p.code}</span>
+                  {p.name && <span className="name">{show(p.name)}</span>}
+                </div>
+                {p.group && <span className="hint">{p.group}</span>}
+              </div>
+              {p.costPending && <span className="pcard-note">{tr("PTO hisobini kutmoqda")}</span>}
+              {p.notes?.length ? <span className="pcard-note">{p.notes[0]}</span> : null}
+              <dl className="pcard-stats">
+                <div>
+                  <dt>{tr("Beton")}</dt>
+                  <dd>{grade?.name.replace("Бетон ", "") || "—"}</dd>
+                </div>
+                <div>
+                  <dt>{tr("Beton, m³")}</dt>
+                  <dd>{v ? fmtN(v, 3) : "—"}</dd>
+                </div>
+                <div>
+                  <dt>{tr("Metall, kg")}</dt>
+                  <dd>{metal ? fmtN(metal, 1) : "—"}</dd>
+                </div>
+                <div>
+                  <dt>{tr("Og'irligi, t")}</dt>
+                  <dd>{v ? fmtN(v * 2.5 + metal / 1000, 2) : "—"}</dd>
+                </div>
+                <div>
+                  <dt>{tr("Quvvat, dona/kun")}</dt>
+                  <dd>
                     {lids.has(p.id) ? (
                       <>
                         {tr("{n} / quyish", { n: lids.get(p.id).batch })}
@@ -93,21 +100,20 @@ export default function CatalogTab({ data, notify, reload, onEdit }) {
                     ) : (
                       "—"
                     )}
-                  </td>
-                  <td>
-                    {canEdit && (
-                      <div className="acts">
-                        <button className="btn sm" onClick={() => onEdit(p)}>{tr(p.costPending?"Kalkulyatsiya kiritish":"Tahrirlash")}</button>
-                        <DeleteButton onConfirm={() => del(p.id)} />
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                  </dd>
+                </div>
+              </dl>
+              {canEdit && (
+                <div className="pcard-acts">
+                  <button className="btn sm" onClick={() => onEdit(p)}>{tr(p.costPending ? "Kalkulyatsiya kiritish" : "Tahrirlash")}</button>
+                  <DeleteButton onConfirm={() => del(p.id)} />
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {!list.length && <div className="empty">{tr("Hech narsa topilmadi")}</div>}
       <p className="hint">{tr("Og'irlik taxminan: beton hajmi × 2,5 t/m³ + metall.")}</p>
     </section>
   );

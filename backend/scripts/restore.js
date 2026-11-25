@@ -83,9 +83,15 @@ if(hasMaterialInvoices)ORDER.push('material_invoices');
 if(Array.isArray(D.finance_contracts))ORDER.push('finance_contracts');
 if(hasSettlements)ORDER.push(...settlementTables);
 if(Array.isArray(D.material_invoice_matches))ORDER.push('material_invoice_matches');
+if(Object.hasOwn(D,'legacy_shipments')){if(!Array.isArray(D.legacy_shipments))throw new Error('Eski jo‘natmalar zaxirasi noto‘g‘ri');ORDER.push('legacy_shipments');}
 if(Object.hasOwn(D,'factory_imports')){if(!Array.isArray(D.factory_imports))throw new Error('Import arxivi noto‘g‘ri');ORDER.push('factory_imports');}
 if(Object.hasOwn(D,'day_reviews')){if(!Array.isArray(D.day_reviews))throw new Error('Hisobot tasdiqlash tarixi noto‘g‘ri');ORDER.push('day_reviews');}
+// Tabel PDF arxivi: eski zaxirada bo'lmasa, mavjud fayllar o'chirilmaydi
+if(Object.hasOwn(D,'hr_timesheet_files')){if(!Array.isArray(D.hr_timesheet_files))throw new Error('Tabel arxivi zaxirasi noto‘g‘ri');ORDER.push('hr_timesheet_files');}
+// Moliya: yopilgan oylar va mijozlarning boshlang'ich qoldig'i (eski zaxirada bo'lmasa — mavjudlari saqlanadi)
+for(const t of ['finance_period_locks','finance_customer_openings','finance_cash_accounts','finance_cash_entries','quality_tests','glossary'])if(Object.hasOwn(D,t)){if(!Array.isArray(D[t]))throw new Error('Moliyaviy zaxira noto‘g‘ri: '+t);ORDER.push(t);}
 const JSONB = new Set(["document_profile","signed_pdf","lines", "items", "rows", "customers", "extra_cols", "signers", "opening", "calc_template", "cost_schemes", "plan", "recipe", "writeoff", "norms", "calc", "notes", "production", "materials", "shipments", "created_by", "approved_by", "updated_by"]);
+for (const key of ['locked_by','reopened_by']) JSONB.add(key);
 for (const key of ['history','source_data','previous_data','counts','work_days','holidays','attendance','adjustments','snapshot','closed_by','voided_by','actor','detail','profile','decided_by','payload','issued_by','uploaded_by']) JSONB.add(key);
 try {
   await tx(async (c) => {
@@ -95,6 +101,7 @@ try {
       if(!Object.hasOwn(D,t)&&(await c.query('SELECT 1 FROM '+t+' WHERE factory_id=ANY($1::uuid[]) LIMIT 1',[fids])).rowCount)throw new Error('Bu eski zaxirada shartnomalar yoki bog‘langan kirimlar yo‘q. To‘liq zaxiradan foydalaning.');
     }
     if(!hasSettlements&&(await c.query('SELECT 1 FROM supplier_entries WHERE factory_id=ANY($1::uuid[]) LIMIT 1',[fids])).rowCount)throw new Error('Bu eski zaxirada ta’minotchilar hisob-kitobi yo‘q. To‘liq zaxiradan foydalaning.');
+    if(!Object.hasOwn(D,'legacy_shipments')&&(await c.query('SELECT 1 FROM legacy_shipments WHERE factory_id=ANY($1::uuid[]) LIMIT 1',[fids])).rowCount)throw new Error('Bu eski zaxirada eski jo‘natmalar yo‘q. Yangi to‘liq zaxiradan foydalaning.');
     if(!hasMaterialInvoices&&(await c.query('SELECT 1 FROM material_invoices WHERE factory_id=ANY($1::uuid[]) LIMIT 1',[fids])).rowCount)throw new Error('Eski zaxirada material fakturalari yo‘q. Yangi to‘liq zaxiradan foydalaning.');
     if(!hasFinance){
       for(const table of FINANCE_TABLES){const existing=await c.query('SELECT 1 FROM '+table+' WHERE factory_id=ANY($1::uuid[]) LIMIT 1',[fids]);if(existing.rowCount)throw new Error('Bu eski zaxirada moliyaviy ma’lumotlar yo‘q. Faktura va to‘lovlar saqlanishi uchun yangi to‘liq zaxiradan foydalaning.');}

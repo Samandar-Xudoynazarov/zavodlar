@@ -1,4 +1,6 @@
 "use client";
+import { show } from "@/lib/i18n";
+import { matches } from "@/lib/script";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { tr } from "@/lib/i18n";
@@ -92,7 +94,7 @@ export default function SchemesEditor({ open, onClose, data, notify, onSaved }) 
     }
   }
 
-  const shown = raw.filter((p) => !q || `${p.code} ${p.name} ${p.group}`.toLowerCase().includes(q.toLowerCase()));
+  const shown = raw.filter((p) => matches(`${p.code} ${p.name} ${p.group}`, q));
 
   return (
     <dialog ref={ref} onClose={onClose} className="wide-dlg">
@@ -110,7 +112,7 @@ export default function SchemesEditor({ open, onClose, data, notify, onSaved }) 
           <div className="chips">
             {list.map((x) => (
               <button key={x.id} type="button" className="chip" aria-pressed={sel === x.id} onClick={() => setSel(x.id)}>
-                {x.name} · {count(x.id)}
+                {show(x.name)} · {count(x.id)}
               </button>
             ))}
             <button type="button" className="chip" onClick={addScheme}>
@@ -167,7 +169,7 @@ export default function SchemesEditor({ open, onClose, data, notify, onSaved }) 
             <select value={bulk.scheme} onChange={(e) => setBulk({ ...bulk, scheme: e.target.value })} aria-label={tr("Andoza")}>
               {list.map((x) => (
                 <option key={x.id} value={x.id}>
-                  {x.name}
+                  {show(x.name)}
                 </option>
               ))}
               <option value="">{tr("Alohida")}</option>
@@ -201,14 +203,14 @@ export default function SchemesEditor({ open, onClose, data, notify, onSaved }) 
                     <tr key={p.id} className={diff ? "row-warn" : ""}>
                       <td>
                         <span className="code">{p.code}</span>
-                        {p.name && <span className="sub">{p.name}</span>}
+                        {p.name && <span className="sub">{show(p.name)}</span>}
                       </td>
-                      <td>{p.group}</td>
+                      <td>{show(p.group)}</td>
                       <td>
                         <select value={assign[p.id] || ""} onChange={(e) => setAssign((a) => ({ ...a, [p.id]: e.target.value }))} aria-label={tr("Andoza")}>
                           {list.map((x) => (
                             <option key={x.id} value={x.id}>
-                              {x.name}
+                              {show(x.name)}
                             </option>
                           ))}
                           <option value="">{tr("Alohida")}</option>

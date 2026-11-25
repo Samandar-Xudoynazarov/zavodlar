@@ -5,6 +5,7 @@ import { actor } from '../dispatch.js';
 import { number, text } from '../payroll.js';
 import { notFound, todayTashkent } from '../common.js';
 import { audit } from '../audit.js';
+import { assertMonthOpen } from '../finance-period-lock.js';
 
 import {supplierMaterials,matchReceipt} from '../supplier-materials.js';
 const r = Router();
@@ -90,6 +91,7 @@ r.post('/:id/entries', edit('Ta’minotchi hisobidagi yozuv', async(c,req,b,para
   if (!['payment','opening_debt','opening_advance'].includes(kind) || !validDate(b.date) || b.date>todayTashkent()) {
     throw new ValidationError('Yozuv turi yoki sana noto‘g‘ri');
   }
+  await assertMonthOpen(c,req.factoryId,b.date);
   const opening=await one("SELECT date FROM supplier_entries WHERE factory_id=$1 AND supplier_id=$2 AND kind!='payment' AND voided_at IS NULL",params,c);
   const isPayment=kind==='payment';
   if (opening && (!isPayment || b.date<opening.date)) throw new ConflictError('Boshlang‘ich qoldiq allaqachon kiritilgan. To‘lov sanasi undan oldin bo‘la olmaydi.');
@@ -138,6 +140,8 @@ r.post('/:id/cancel',edit('Ta’minotchi yozuvini bekor qilish',async(c,req,b,pa
   } else {
     const active=await one('SELECT id FROM supplier_allocations WHERE factory_id=$1 AND (source_id=$2 OR opening_id=$2) AND voided_at IS NULL LIMIT 1',[req.factoryId,b.id],c);
     if (active) throw new ConflictError('Avval hujjatga bog‘langan summani ajrating.');
+    const entry=await one('SELECT date FROM supplier_entries WHERE factory_id=$1 AND supplier_id=$2 AND id=$3 AND voided_at IS NULL',[...params,b.id],c);
+    if (entry) await assertMonthOpen(c,req.factoryId,entry.date);
     const changed=await one('UPDATE supplier_entries SET voided_at=now(),void_reason=$4 WHERE factory_id=$1 AND supplier_id=$2 AND id=$3 AND voided_at IS NULL RETURNING id',[...params,b.id,reason],c);
     if (!changed) throw new ConflictError('Yozuv topilmadi');
   }

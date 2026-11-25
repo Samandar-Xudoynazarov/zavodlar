@@ -4,6 +4,7 @@ import { tr } from "@/lib/i18n";
 import { exportSheets } from "@/lib/xlsx-export";
 import Icon from "./Icon";
 import ExportMenu from "./ExportMenu";
+import { useNoMoney, stripMoneySheets } from "@/lib/money";
 
 /**
  * «Excel» (yuklab olish) va «Ulashish» (Telegram, pochta…) tugmalari — barcha rollar uchun.
@@ -11,11 +12,13 @@ import ExportMenu from "./ExportMenu";
  */
 export default function ExportButtons({ build, company, notify, disabled, label = "Excel", shareLabel = "Ulashish" }) {
   const [busy, setBusy] = useState(false);
+  const noMoney = useNoMoney();
   async function run(share) {
     setBusy(true);
     try {
-      const spec = await build();
-      if (!spec) return;
+      const built = await build();
+      if (!built) return;
+      const spec = noMoney ? stripMoneySheets(built) : built;
       const r = await exportSheets({ ...spec, company, share });
       if (r === "downloaded-fallback") notify?.("Bu qurilmada ulashish yo'q — fayl yuklab olindi");
     } catch (e) {

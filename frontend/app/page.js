@@ -37,6 +37,17 @@ import FinanceHome from "@/components/FinanceHome";
 import FinancePayroll from "@/components/FinancePayroll";
 import MaterialInvoices from "@/components/MaterialInvoices";
 import FinanceOrders from "@/components/FinanceOrders";
+import FinanceCustomers from "@/components/FinanceCustomers";
+import FinanceClose from "@/components/FinanceClose";
+import FinanceProfit from "@/components/FinanceProfit";
+import FinanceCash from "@/components/FinanceCash";
+import QualityTab from "@/components/QualityTab";
+import DirectorHome from "@/components/DirectorHome";
+import ObserverCenter from "@/components/ObserverCenter";
+import { isNoMoney } from "@/lib/money";
+import GlossaryTab from "@/components/GlossaryTab";
+import PhraseList from "@/components/PhraseList";
+import { loadGlossary } from "@/lib/glossary";
 import ShareReady from "@/components/ShareReady";
 import NotificationCenter from "@/components/NotificationCenter";
 
@@ -73,38 +84,50 @@ TABS.push(["hr-archive","Hujjatlar","Tabel, shartnomalar, buyruqlar va hujjatlar
 TABS.push(['finance-payroll','Oylik hisob-kitobi','Barcha xodimlarning maoshi, to‘lovlari va qoldig‘i',['admin','rahbar','buxgalter']],['finance-orders','Buyurtmalar moliyasi','Jo‘natish, faktura PDF, tushum va qoldiq',['admin','rahbar','buxgalter']]);
 TABS.push(['finance-materials','Material fakturalari','Materiallar kirim-chiqimi, faktura PDF va oylik Excel',['admin','rahbar','buxgalter']]);
 const financeRoles = ["admin","rahbar","buxgalter"];
-TABS.push(["finance-home","Moliya ish stoli","Hisob-kitoblar va moliyaviy hujjatlar",financeRoles],
-  ["finance-settlements","Ta’minotchilar bilan hisob-kitob","Fakturalar, to‘lovlar va avanslar",financeRoles]);
-const financeIcons = {"finance-home":"grid","finance-settlements":"sup","finance-payroll":"hr","finance-orders":"ord","finance-materials":"acct"};
+TABS.push(["finance-home","Umumiy holat","Qarzlar, diqqat talab qiladigan hujjatlar va hisob oylari",financeRoles],
+  ["finance-settlements","Ta’minotchilar bilan hisob-kitob","Fakturalar, to‘lovlar va avanslar",financeRoles],
+  ["finance-customers","Mijozlar","Mijoz bo‘yicha qarz, faktura (QQS bilan), to‘lov va akt sverka",financeRoles],
+  ["finance-close","Oyni yopish","Tekshiruv ro‘yxati, oyni qulflash va qayta ochish",financeRoles]);
+TABS.push(["pl","Foyda va zarar","Oy bo‘yicha tushum, xarajatlar va sof foyda",financeRoles],
+  ["finance-cash","Kassa va bank","Naqd pul va bank hisobi: kirim, chiqim va qoldiq",financeRoles],
+  ["lab","Sifat nazorati","Beton namunalarini sinash: 7 va 28 kunlik natija"]);
+TABS.push(["glossary","Lug‘at","Nomlar va tayyor iboralarning o‘zbekcha va ruscha tarjimasi",["admin","rahbar","pto"]]);
+// Bosh sahifa: direktor uchun — o'z zavodi (pul bilan), kuzatuvchi uchun — barcha zavodlar (faqat miqdorlar)
+TABS.unshift(["home", "Bosh sahifa", "Bugungi holat, signallar va tasdiqlar"]);
+const financeIcons = {"home":"grid","glossary":"cat","pl":"dash","finance-cash":"swap","lab":"inv","finance-home":"grid","finance-customers":"boss","finance-settlements":"sup","finance-payroll":"hr","finance-orders":"ord","finance-materials":"acct","finance-close":"day"};
 const NAV_GROUPS = [
-  { id: "overview", label: "Ish stoli", keys: ["all", "dash"] },
-  { id: "production", label: "Ishlab chiqarish", keys: ["day", "fg", "cat"] },
+  { id: "overview", label: "Ish stoli", keys: ["home", "all", "dash", "pl", "month"] },
+  { id: "production", label: "Ishlab chiqarish", keys: ["day", "fg", "lab", "cat"] },
   { id: "warehouse", label: "Ombor", keys: ["wh", "moves", "inv", "sup", "stock", "mat"] },
-  { id:'finance',label:'Finansiviy',keys:['finance-home','finance-settlements','finance-orders','finance-materials','finance-payroll','hr-payroll','hr-payments','acct'] },
+  { id:'finance',label:'Moliya',keys:['finance-home','finance-customers','finance-settlements','finance-cash','finance-payroll','acct','finance-close','finance-orders','finance-materials','hr-payroll','hr-payments'] },
   { id: "personnel", label: "Kadrlar bo‘limi", keys: ["hr-overview", "hr", "hr-time", "hr-archive", "hr-leaves", "hr-shifts", "hr-orders", "hr-documents", "hr-equipment", "hr-staff", "hr-reminders", "hr-reports"] },
   { id: "orders", label: "Buyurtmalar", keys: ["ord", "plan", "cost"] },
-  { id: "reports", label: "Hisobotlar", keys: ["month"] },
-  { id: "management", label: "Boshqaruv", keys: ["veh", "targets", "admin"] },
+  { id: "management", label: "Boshqaruv", keys: ["veh", "targets", "glossary", "admin"] },
 ];
+// Moliya menyusi 6 bo'lim: qolganlari bo'lim ichida yorliq bo'lib ochiladi (menyuda ko'rinmaydi)
+const FINANCE_PARENT = { "acct": "finance-close", "finance-orders": "finance-customers", "finance-materials": "finance-settlements", "hr-payroll": "finance-payroll", "hr-payments": "finance-payroll" };
+const FINANCE_SUBTABS = { "finance-customers": [["finance-customers", "Mijozlar"], ["finance-orders", "Buyurtmalar bo‘yicha"]], "finance-settlements": [["finance-settlements", "Ta’minotchilar"], ["finance-materials", "Material fakturalari"]], "finance-payroll": [["finance-payroll", "Vedomost"], ["hr-payroll", "Hisoblash"], ["hr-payments", "To‘lovlar"]], "finance-close": [["finance-close", "Oyni yopish"], ["acct", "Material hisoboti"]] };
 const groupFor = (key) => NAV_GROUPS.find((group) => group.keys.includes(key));
-const tabsFor = (user) => TABS.filter((t) => (!t[3] || t[3].includes(user?.role)) && (t[4] !== "hq" || (user && !user.factoryId && (user.factories?.length || 0) > 1)));
+// Kuzatuvchi va kurator pulni ko'rmaydi: faqat ombor qoldig'i, kunlik reja/fakt/brak, kirim-chiqim, buyurtmalar va reja
+const NO_MONEY_TABS = ["home", "day", "month", "wh", "moves", "fg", "ord", "plan", "lab"];
+const tabsFor = (user) => TABS.filter((t) => (!t[3] || t[3].includes(user?.role)) && (t[4] !== "hq" || (user && !user.factoryId && (user.factories?.length || 0) > 1)) && (!isNoMoney(user) || NO_MONEY_TABS.includes(t[0])));
 // Telefondagi pastki menyu: rol bo'yicha 4 ta asosiy bo'lim (+ o'rtada «+» tugmasi)
 const BOTTOM = {
   kadrlar: ["hr-overview", "hr", "hr-time"],
   omborchi: ["wh", "moves", "targets"],
-  buxgalter: ["finance-home", "finance-settlements", "finance-payroll", "acct"],
+  buxgalter: ["finance-home", "finance-customers", "finance-settlements", "finance-payroll"],
   usta: ["day", "plan", "hr"],
   admin: ["all", "day", "wh", "moves"],
   pto: ["day", "wh", "moves"],
-  rahbar: ["all", "dash", "day", "wh"], // to'liq huquq — o'rtada «+» (kirim/chiqim) ham bor
-  kuzatuvchi: ["all", "dash", "day", "plan", "wh"],
-  kurator: ["all", "dash", "day", "plan", "wh"],
+  rahbar: ["home", "dash", "day", "wh"], // to'liq huquq — o'rtada «+» (kirim/chiqim) ham bor
+  kuzatuvchi: ["home", "day", "wh", "ord", "plan"],
+  kurator: ["home", "day", "wh", "ord", "plan"],
 };
-const DEFAULT_TAB = { kadrlar: "hr-overview", buxgalter: "finance-home", admin: "dash", omborchi: "wh", rahbar: "dash", kuzatuvchi: "dash", kurator: "dash" };
+const DEFAULT_TAB = { kadrlar: "hr-overview", buxgalter: "finance-home", admin: "dash", omborchi: "wh", rahbar: "home", kuzatuvchi: "home", kurator: "home" };
 // bosh ofis rahbari tizimga kirganda — umumiy panel
-const HQ_DEFAULT = { admin: "all", rahbar: "all", kuzatuvchi: "all", kurator: "all" };
+const HQ_DEFAULT = { admin: "all", rahbar: "all", kuzatuvchi: "home", kurator: "home" };
 // pastki menyuda sig'adigan qisqa nomlar
-const SHORT = { "finance-home":"Moliya","finance-settlements":"Hisob-kitob", "finance-payroll":"Oylik", "finance-orders":"Moliya", "hr-overview":"Nazorat", hr:"Xodimlar", "hr-time":"Tabel", all: "Umumiy", day: "Kunlik", month: "Oylik", moves: "Tarix", targets: "Sex/texnika", stock: "Qoldiq", ord: "Buyurtma", plan: "Reja", inv: "Sanash", sup: "Ta'minot", fg: "Tayyor", veh: "Texnika", dash: "Grafik", acct: "Hisobot", cost: "Tannarx" };
+const SHORT = { home: "Bosh", "finance-home":"Moliya","finance-customers":"Mijozlar","finance-close":"Oy yopish","finance-settlements":"Hisob-kitob", "finance-payroll":"Oylik", "finance-orders":"Moliya", "hr-overview":"Nazorat", hr:"Xodimlar", "hr-time":"Tabel", all: "Umumiy", day: "Kunlik", month: "Oylik", moves: "Tarix", targets: "Sex/texnika", stock: "Qoldiq", ord: "Buyurtma", plan: "Reja", inv: "Sanash", sup: "Ta'minot", fg: "Tayyor", veh: "Texnika", dash: "Grafik", acct: "Hisobot", cost: "Tannarx" };
 
 function LangSwitch({ dark }) {
   const { lang, setLang } = useI18n();
@@ -206,7 +229,7 @@ function App() {
   const [dayFocus, setDayFocus] = useState(0);
   const toastTimer = useRef(null);
   const [navQuery, setNavQuery] = useState("");
-  const [collapsedGroups, setCollapsedGroups] = useState(["warehouse", "orders", "reports", "management"]);
+  const [collapsedGroups, setCollapsedGroups] = useState(["warehouse", "orders", "management"]);
   const menuButton = useRef(null);
   const navigation = useRef(null);
 
@@ -267,6 +290,7 @@ function App() {
       setOrders(o);
       setSettings(s);
       setPhase("ready");
+      loadGlossary().catch(() => {}); // o'z lug'atimiz: nomlar va iboralar uz ↔ ru
     } catch (e) {
       if (e.status === 401) setPhase("login");
       else {
@@ -433,7 +457,7 @@ function App() {
           <nav className="nav" aria-label={t("Bo'limlar")}>
             {NAV_GROUPS.map((group) => {
               const groupTabs = ["personnel","finance"].includes(group.id) ? group.keys.flatMap(key => tabs.filter(item => item[0] === key)) : tabs;
-              const visibleTabs = groupTabs.filter(([key, label]) => (group.id !== "personnel" || ["hr-overview","hr","hr-time",...(tabs.some(([k])=>k==="hr-archive")?["hr-archive"]:["hr-reports"])].includes(key)) && group.keys.includes(key) && (!navQuery.trim() || `${t(label)} ${t(group.label)}`.toLocaleLowerCase().includes(navQuery.trim().toLocaleLowerCase())));
+              const visibleTabs = groupTabs.filter(([key, label]) => (group.id !== "personnel" || ["hr-overview","hr","hr-time",...(tabs.some(([k])=>k==="hr-archive")?["hr-archive"]:["hr-reports"])].includes(key)) && group.keys.includes(key) && !(group.id === "finance" && FINANCE_PARENT[key]) && (!navQuery.trim() || `${t(label)} ${t(group.label)}`.toLocaleLowerCase().includes(navQuery.trim().toLocaleLowerCase())));
               if (!visibleTabs.length) return null;
               const expanded = Boolean(navQuery.trim()) || !collapsedGroups.includes(group.id);
               return (
@@ -443,7 +467,7 @@ function App() {
                   </button>
                   <div id={`nav-group-${group.id}`} className="nav-group-items" role="tablist" aria-label={t(group.label)} hidden={!expanded}>
                     {visibleTabs.map(([key, label]) => (
-                      <button key={key} id={`nav-tab-${key}`} type="button" role="tab" aria-selected={active === key} onClick={() => chooseTab(key)}>
+                      <button key={key} id={`nav-tab-${key}`} type="button" role="tab" aria-selected={active === key || FINANCE_PARENT[active] === key} onClick={() => chooseTab(key)}>
                         <Icon name={financeIcons[key] || (key.startsWith("hr") ? "hr" : key)} size={19} /><span>{t(label)}</span>
                       </button>
                     ))}
@@ -524,18 +548,36 @@ function App() {
             <Fragment key={factory?.id || "-"}>
               {active === "day" && <DayTab key={dayFocus} data={data} notify={notify} onSaved={reloadOrders} onDirtyChange={onDirtyChange} version={version} />}
               {active === "month" && <MonthTab data={data} notify={notify} />}
+              {FINANCE_SUBTABS[FINANCE_PARENT[active] || active] && (
+                <div className="fl-subnav no-print" role="tablist" aria-label={t("Bo‘lim ichidagi sahifalar")}>
+                  {FINANCE_SUBTABS[FINANCE_PARENT[active] || active].filter(([k]) => tabs.some(([x]) => x === k)).map(([k, l]) => (
+                    <button key={k} type="button" role="tab" aria-selected={active === k} onClick={() => chooseTab(k)}>{t(l)}</button>
+                  ))}
+                </div>
+              )}
               {active === "finance-home" && <FinanceHome navigate={chooseTab} />}
+              {active === "finance-customers" && <FinanceCustomers data={data} notify={notify} openForm={openForm} navigate={chooseTab} />}
+              {active === "finance-close" && <FinanceClose user={user} notify={notify} openForm={openForm} navigate={chooseTab} />}
               {active === "finance-settlements" && <SupplierSettlements factoryData={data} company={settings?.company} notify={notify} openForm={openForm} />}
               {active === "finance-payroll" && <FinancePayroll data={data} notify={notify} openForm={openForm} onManage={()=>chooseTab('hr-payroll')}/>}
               {active === "finance-materials" && <MaterialInvoices data={data} notify={notify} openForm={openForm} onSaved={bump}/>}
               {active === "finance-orders" && <FinanceOrders onImported={()=>Promise.all([reloadProducts(),reloadOrders()])} data={data} notify={notify} openForm={openForm}/>}
               {active === "acct" && <AcctTab data={data} notify={notify} />}
+              {active === "pl" && <FinanceProfit user={user} notify={notify} company={settings?.company} />}
+              {active === "finance-cash" && <FinanceCash notify={notify} openForm={openForm} company={settings?.company} />}
+              {active === "lab" && <QualityTab data={data} notify={notify} openForm={openForm} />}
+              {active === "glossary" && <GlossaryTab notify={notify} openForm={openForm} />}
               {active.startsWith("hr") && <HrTab company={settings?.company} initialView={active === "hr" ? "employees" : active.slice(3)} onViewChange={v=>chooseTab(v === "employees" ? "hr" : `hr-${v}`)} notify={notify} openForm={openForm} />}
               {active === "wh" && <WarehouseTab data={data} notify={notify} version={version} openMove={setMove} reloadMaterials={reloadMaterials} />}
               {active === "moves" && <MovesTab data={data} notify={notify} version={version} onChanged={bump} />}
               {active === "stock" && <StockTab data={data} notify={notify} reloadSettings={reloadSettings} version={version} />}
               {active === "ord" && <OrdersTab data={data} openForm={openForm} notify={notify} reload={reloadOrders} />}
               {active === "dash" && <DashTab data={data} notify={notify} />}
+              {active === "home" && (isNoMoney(user) ? (
+                <ObserverCenter user={user} notify={notify} onOpenFactory={(id) => { if (id !== factory?.id) switchFactory(id); setTab("day"); lsSet("pto.tab", "day"); }} />
+              ) : (
+                <DirectorHome user={user} factory={factory} notify={notify} version={version} onOpenTab={(k) => chooseTab(k)} />
+              ))}
               {active === "all" && (
                 <OverviewTab
                   notify={notify}
@@ -608,6 +650,7 @@ function App() {
         )}
 
         <FormDialog form={form} onClose={() => setForm(null)} />
+        <PhraseList />
         <PasswordDialog
           open={pwOpen || Boolean(user?.mustChangePassword)}
           forced={Boolean(user?.mustChangePassword)}

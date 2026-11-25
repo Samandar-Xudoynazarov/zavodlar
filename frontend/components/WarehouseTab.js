@@ -1,4 +1,7 @@
 "use client";
+import { useNoMoney } from "@/lib/money";
+import { show } from "@/lib/i18n";
+import { matches } from "@/lib/script";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useT } from "@/lib/i18n";
@@ -14,6 +17,7 @@ import { fileDate } from "@/lib/xlsx-export";
 export default function WarehouseTab({ data, notify, version, openMove, reloadMaterials }) {
   const t = useT();
   const { canStore, canEdit } = useUser();
+  const noMoney = useNoMoney();
   const { materials, mats } = data;
   const [stock, setStock] = useState(null);
   const [q, setQ] = useState("");
@@ -45,7 +49,7 @@ export default function WarehouseTab({ data, notify, version, openMove, reloadMa
       })
       .filter((r) => group === "all" || r.m.group === group)
       .filter((r) => !onlyLow || r.low)
-      .filter((r) => !s || r.m.name.toLowerCase().includes(s) || (r.m.code || "").toLowerCase().includes(s));
+      .filter((r) => !s || matches([r.m.name, r.m.code], s));
   }, [materials, mats, stock, q, group, onlyLow]);
 
   const all = materials.filter((m) => m.stock && !m.archived);
@@ -59,13 +63,13 @@ export default function WarehouseTab({ data, notify, version, openMove, reloadMa
   return (
     <section className="sheet">
       <div className="kpis kpis-3">
-        <div className="kpi">
+        {!noMoney && <div className="kpi">
           <div className="k">{t("Ombor qiymati")}</div>
           <div className="v">
             {fmt(total / 1e6, 1)}
             <small>{t("mln so'm")}</small>
           </div>
-        </div>
+        </div>}
         <div className="kpi">
           <div className="k">{t("Materiallar")}</div>
           <div className="v">{all.length}</div>
@@ -154,7 +158,7 @@ export default function WarehouseTab({ data, notify, version, openMove, reloadMa
               <button className="card-row" onClick={() => setOpen(r.m)}>
                 <span className={`dot g-${r.m.group}`} aria-hidden="true" />
                 <span className="card-main">
-                  <strong>{r.m.name}</strong>
+                  <strong>{show(r.m.name)}</strong>
                   <span className="muted">
                     {t(GROUPS.find(([k]) => k === r.m.group)?.[1] || "")}
                     {r.m.code ? ` · ${r.m.code}` : ""}
@@ -207,6 +211,7 @@ export default function WarehouseTab({ data, notify, version, openMove, reloadMa
 
 /** Material kartasi: qoldiq va oxirgi harakatlar */
 function MaterialCard({ material, qty, data, onClose, openMove, canStore, version }) {
+  const noMoney = useNoMoney();
   const t = useT();
   const ref = useRef(null);
   const [moves, setMoves] = useState(null);
@@ -228,7 +233,7 @@ function MaterialCard({ material, qty, data, onClose, openMove, canStore, versio
         <div className="bsheet-body">
           <div className="bsheet-grip" aria-hidden="true" />
           <div className="bsheet-head">
-            <h2>{material.name}</h2>
+            <h2>{show(material.name)}</h2>
             <button type="button" className="icon-btn" onClick={onClose} aria-label={t("Yopish")}>
               <Icon name="close" size={18} />
             </button>
@@ -247,7 +252,7 @@ function MaterialCard({ material, qty, data, onClose, openMove, canStore, versio
               </button>
             </div>
           )}
-          <PriceSummary moves={moves} material={material} />
+          {!noMoney && <PriceSummary moves={moves} material={material} />}
           <h3>{t("Oxirgi harakatlar")}</h3>
           {!moves ? (
             <div className="loading">{t("Yuklanmoqda…")}</div>
@@ -302,7 +307,7 @@ function PriceSummary({ moves, material }) {
         {rows.map((r) => (
           <li key={r.name}>
             <span>
-              {r.name}
+              {show(r.name)}
               <small className="muted"> · {fmtDate(r.date)}</small>
             </span>
             <strong className={rows.length > 1 && r.price === min ? "ok-text" : ""}>

@@ -1,4 +1,5 @@
 "use client";
+import { show } from "@/lib/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { tr, useT } from "@/lib/i18n";
 import { fmtDate, lsGet, lsSet } from "@/lib/calc";
@@ -187,7 +188,7 @@ export default function NakladnoyDialog({ ships, date, data, notify, onClose, on
             <datalist id="nk-contracts">
               {contracts.map((o) => (
                 <option key={o.id} value={o.contractNo}>
-                  №{o.no} {o.customer}
+                  №{o.no} {show(o.customer)}
                 </option>
               ))}
             </datalist>

@@ -1,4 +1,6 @@
 "use client";
+import { useNoMoney } from "@/lib/money";
+import { show } from "@/lib/i18n";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { useT } from "@/lib/i18n";
@@ -28,6 +30,7 @@ function range(p, from, to) {
 export default function MovesTab({ data, notify, version, onChanged }) {
   const t = useT();
   const { user, canEdit } = useUser();
+  const noMoney = useNoMoney();
   const { materials, targets = [], mats } = data;
   const [period, setPeriod] = useState("7");
   const [cFrom, setCFrom] = useState(shiftDate(today(), -6));
@@ -196,7 +199,7 @@ export default function MovesTab({ data, notify, version, onChanged }) {
             .filter((m) => m.stock)
             .map((m) => (
               <option key={m.id} value={m.id}>
-                {m.name}
+                {show(m.name)}
               </option>
             ))}
         </select>
@@ -204,7 +207,7 @@ export default function MovesTab({ data, notify, version, onChanged }) {
           <option value="">{t("Barcha bo'lim va texnikalar")}</option>
           {targets.map((x) => (
             <option key={x.id} value={x.id}>
-              {x.name}
+              {show(x.name)}
               {x.code ? ` · ${x.code}` : ""}
             </option>
           ))}
@@ -218,6 +221,7 @@ export default function MovesTab({ data, notify, version, onChanged }) {
             <div className="k">{t("Yozuvlar")}</div>
             <div className="v">{items.length}</div>
           </div>
+          {!noMoney && <>
           <div className="kpi kpi-in">
             <div className="k">{t("Kirim summasi")}</div>
             <div className="v">
@@ -232,6 +236,7 @@ export default function MovesTab({ data, notify, version, onChanged }) {
               <small>{t("mln so'm")}</small>
             </div>
           </div>
+          </>}
         </div>
       )}
 
@@ -278,7 +283,7 @@ export default function MovesTab({ data, notify, version, onChanged }) {
                       {open === m.id && (
                         <div className="mv-detail">
                           <dl>
-                            {m.price > 0 && (
+                            {!noMoney && m.price > 0 && (
                               <>
                                 <dt>{t("Narx")}</dt>
                                 <dd>
@@ -301,7 +306,7 @@ export default function MovesTab({ data, notify, version, onChanged }) {
                             {m.note && (
                               <>
                                 <dt>{t("Izoh")}</dt>
-                                <dd>{m.note}</dd>
+                                <dd>{show(m.note)}</dd>
                               </>
                             )}
                             <dt>{t("Kim kiritdi")}</dt>

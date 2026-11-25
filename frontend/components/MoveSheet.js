@@ -1,4 +1,6 @@
 "use client";
+import { show } from "@/lib/i18n";
+import { matches } from "@/lib/script";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useT } from "@/lib/i18n";
@@ -88,7 +90,7 @@ export default function MoveSheet({ init, onClose, onSaved, data, notify, reload
     const s = q.trim().toLowerCase();
     return materials
       .filter((m) => m.stock && !m.archived)
-      .filter((m) => !s || m.name.toLowerCase().includes(s) || (m.code || "").toLowerCase().includes(s));
+      .filter((m) => !s || matches([m.name, m.code], s));
   }, [materials, q]);
 
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
@@ -177,7 +179,7 @@ export default function MoveSheet({ init, onClose, onSaved, data, notify, reload
                       setTimeout(() => qtyRef.current?.focus(), 50);
                     }}
                   >
-                    <span>{m.name}</span>
+                    <span>{show(m.name)}</span>
                     <span className="muted">
                       {t(GROUPS.find(([k]) => k === m.group)?.[1] || "")} · {m.unit}
                     </span>
@@ -188,7 +190,7 @@ export default function MoveSheet({ init, onClose, onSaved, data, notify, reload
           ) : (
             <button type="button" className="picked" onClick={() => setPicking(true)}>
               <span>
-                <strong>{mat.name}</strong>
+                <strong>{show(mat.name)}</strong>
                 <span className="muted">
                   {t("Qoldiq")}: {bal === null ? "…" : `${fmtN(bal, 3)} ${mat.unit}`}
                 </span>
@@ -272,7 +274,7 @@ export default function MoveSheet({ init, onClose, onSaved, data, notify, reload
                   <option value="">—</option>
                   {depts.map((x) => (
                     <option key={x.id} value={x.id}>
-                      {x.name}
+                      {show(x.name)}
                     </option>
                   ))}
                 </select>
@@ -283,7 +285,7 @@ export default function MoveSheet({ init, onClose, onSaved, data, notify, reload
                   <option value="">—</option>
                   {cars.map((x) => (
                     <option key={x.id} value={x.id}>
-                      {x.name}
+                      {show(x.name)}
                       {x.code ? ` · ${x.code}` : ""}
                     </option>
                   ))}

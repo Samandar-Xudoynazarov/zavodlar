@@ -7,7 +7,9 @@ const REQUEST_TIMEOUT = 5000;
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{32,64}$/;
 const SECRET_PATTERN = /^[A-Za-z0-9_-]{16,256}$/;
 const usernameOf = (value) => String(value || "").trim().replace(/^@/, "");
-const observer = (user) => Boolean(user?.active && user.role === "kuzatuvchi");
+// Telegramga ulana oladiganlar: kuzatuvchi (pulsiz hisobot) va zavod direktori (rahbar, pul bilan)
+export const TELEGRAM_ROLES = ["kuzatuvchi", "rahbar"];
+const observer = (user) => Boolean(user?.active && TELEGRAM_ROLES.includes(user.role));
 const tokenHash = (token) => crypto.createHash("sha256").update(token).digest("hex");
 let cachedBot = null;
 
@@ -170,6 +172,9 @@ export function formatTelegramNotification(notification) {
 // No subscription / a later link / changed factory or role excludes old delivery.
 export async function flushTelegramNotifications({ notificationId, limit = 10 } = {}) {
   if (!telegramConfigured()) return { configured: false, sent: 0, failed: 0 };
+  // Har tahrirda emas — kuniga bir marta ertalabki hisobot (digest.js). Eski «reja qo'yildi» xabarlari
+  // faqat TELEGRAM_PLAN_ALERTS=1 bo'lsa Telegramga ketadi (ilova ichidagi bildirishnoma o'zgarmaydi).
+  if (process.env.TELEGRAM_PLAN_ALERTS !== "1") return { configured: true, sent: 0, failed: 0 };
   const batchLimit = Math.max(1, Math.min(10, Math.floor(Number(limit) || 10)));
   return tx(async (client) => {
     const pending = (await client.query(

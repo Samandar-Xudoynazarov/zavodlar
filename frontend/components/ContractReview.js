@@ -1,4 +1,5 @@
 "use client";
+import { show } from "@/lib/i18n";
 import { useState, useRef, useEffect } from "react";
 import { api } from "@/lib/api";
 import { fmtN } from "@/lib/calc";
@@ -291,7 +292,7 @@ export default function ContractReview({
               {lines.map((l, i) =>
                 l.removed ? (
                   <div className="contract-removed" key={l.key}>
-                    {l.name} · Olib tashlandi{" "}
+                    {show(l.name)} · Olib tashlandi{" "}
                     <button type="button" className="linkbtn" onClick={() => edit(l.key, { removed: false })}>
                       Qaytarish
                     </button>
@@ -332,7 +333,7 @@ export default function ContractReview({
                         {(kind === "sale" ? products : materials).map((p) => (
                           <option key={p.id} value={p.id}>
                             {p.code && p.code + " · "}
-                            {p.name}
+                            {show(p.name)}
                           </option>
                         ))}
                       </select>

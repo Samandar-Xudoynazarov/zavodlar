@@ -1,4 +1,5 @@
 "use client";
+import { show } from "@/lib/i18n";
 import { tr } from "@/lib/i18n";
 import ExportButtons from "./ExportButtons";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -59,7 +60,7 @@ function OpeningDialog({ open, onClose, data, onSaved, notify }) {
                     .filter((m) => m.stock)
                     .map((m) => (
                       <tr key={m.id}>
-                        <td>{m.name}</td>
+                        <td>{show(m.name)}</td>
                         <td className="n">
                           <input id={`op-m-${m.id}`} type="number" step="any" value={mq[m.id] ?? ""} onChange={(e) => setMq((x) => ({ ...x, [m.id]: e.target.value }))} aria-label={m.name} />
                         </td>
@@ -288,7 +289,7 @@ export default function StockTab({ data, notify, reloadSettings, version }) {
                 {matRows.map((r) => (
                   <tr key={r.m.id}>
                     <td>
-                      {r.m.name} <span className="unit-s">{r.m.unit}</span>
+                      {show(r.m.name)} <span className="unit-s">{r.m.unit}</span>
                     </td>
                     <td className={`n strong ${r.q < -1e-9 ? "late" : ""}`}>{fmtN(r.q, 3)}</td>
                     <td className="hide-s">{r.m.unit}</td>
@@ -319,7 +320,7 @@ export default function StockTab({ data, notify, reloadSettings, version }) {
                     <tr key={r.p.id}>
                       <td>
                         <span className="code">{r.p.code}</span>
-                        <span className="sub">{r.p.name}</span>
+                        <span className="sub">{show(r.p.name)}</span>
                       </td>
                       <td className={`n strong ${r.q < 0 ? "late" : ""}`}>{fmtN(r.q)}</td>
                       <td className="n">{r.price ? fmt(r.price) : "—"}</td>
@@ -357,7 +358,7 @@ export default function StockTab({ data, notify, reloadSettings, version }) {
                     {need.rows.map((r) => (
                       <tr key={r.m.id}>
                         <td>
-                          {r.m.name} <span className="muted">({r.m.unit})</span>
+                          {show(r.m.name)} <span className="muted">({r.m.unit})</span>
                         </td>
                         <td className="n">{fmtN(r.q, 3)}</td>
                         <td className="n">{fmtN(r.bal, 3)}</td>

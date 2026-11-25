@@ -1,4 +1,5 @@
 "use client";
+import { show } from "@/lib/i18n";
 import { tr } from "@/lib/i18n";
 import { autoKgPerM } from "@/lib/metal";
 import { useEffect, useRef, useState } from "react";
@@ -26,7 +27,7 @@ function LinesEditor({ idp, lines, setLines, materials, mats, showPrice }) {
                         .filter((x) => x.group !== "beton")
                         .map((x) => (
                           <option key={x.id} value={x.id}>
-                            {x.name} ({x.unit})
+                            {show(x.name)} ({x.unit})
                           </option>
                         ))}
                     </select>
@@ -255,7 +256,7 @@ export default function MaterialsTab({ data, notify, reload, reloadSettings }) {
             {list.map((m) => (
               <tr key={m.id}>
                 <td>
-                  {m.name}
+                  {show(m.name)}
                   {m.group === "beton" && (
                     <span className="sub">
                       Норма: {(m.writeoff || []).map((w) => `${mats.get(w.materialId)?.name.split(" ")[0]} ${fmtN(w.norm, 3)}`).join(", ")}

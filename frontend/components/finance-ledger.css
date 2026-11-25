@@ -1,0 +1,128 @@
+/* Moliya bo'limi: jadvalsiz ko'rinish (ro'yxat + batafsil panel + hujjatlar tarixi). Yon tomonga skrol yo'q. */
+.fl{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;min-width:0;overflow-x:clip;font-variant-numeric:tabular-nums}
+.fl *{min-width:0}
+.fl h2{font-size:clamp(22px,2.2vw,28px);line-height:1.15;letter-spacing:-.02em;margin:0;color:var(--ink);text-transform:none}
+.fl h3{font-size:16px;margin:0 0 8px;color:var(--ink);text-transform:none;letter-spacing:0}
+.fl-top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px}
+.fl-top p{margin:4px 0 0;color:var(--ink-2);font-size:13.5px}
+.fl-acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.fl-acts .btn{white-space:normal}
+.fl-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.fl-kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 15px;display:grid;gap:2px}
+.fl-kpi span{font-size:12.5px;color:var(--ink-2);font-weight:600}
+.fl-kpi strong{font-size:clamp(18px,1.8vw,24px);letter-spacing:-.02em;overflow-wrap:anywhere;color:var(--ink)}
+.fl-kpi small{color:var(--ink-3);font-size:12.5px}
+.fl-kpi.ok strong{color:var(--ok)}.fl-kpi.sig strong{color:var(--signal)}.fl-kpi.bad strong{color:var(--bad)}.fl-kpi.acc strong{color:var(--accent)}
+.fl-money{white-space:nowrap}
+.fl-tag{display:inline-block;font-size:11.5px;font-weight:700;border-radius:20px;padding:2px 9px;white-space:nowrap;line-height:1.5}
+.fl-tag.ok{background:var(--ok-soft);color:var(--ok)}.fl-tag.sig,.fl-tag.warn{background:var(--signal-soft);color:var(--signal)}
+.fl-tag.bad{background:var(--bad-soft);color:var(--bad)}.fl-tag.acc{background:var(--accent-soft);color:var(--accent)}
+.fl-tag.mut{background:var(--paper);color:var(--ink-2);border:1px solid var(--line)}
+.fl-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.fl-grid2{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:14px;align-items:start}
+.fl-alert{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.fl-alert:first-of-type{border-top:0}
+.fl-alert b{display:block;font-size:14px}.fl-alert small{color:var(--ink-3);font-size:12.5px}
+.fl-ico{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-weight:800;padding:0}
+.fl-months{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.fl-month{border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--paper);display:grid;gap:4px;justify-items:start;text-align:left;cursor:pointer;font:inherit;color:inherit}
+.fl-month b{font-size:13.5px}.fl-month.open{border-color:var(--accent);background:var(--accent-soft)}
+.fl-chips{display:flex;flex-wrap:wrap;gap:8px}
+.fl-chip{border:1.5px solid var(--line);background:var(--panel);border-radius:10px;padding:7px 12px;cursor:pointer;text-align:left;min-height:44px;font:inherit;color:inherit}
+.fl-chip b{display:block;font-size:13.5px}.fl-chip span{font-size:12px;color:var(--ink-2)}
+.fl-chip[aria-pressed=true]{border-color:var(--accent);background:var(--accent-soft)}
+.fl-split{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.4fr);gap:14px;align-items:start}
+.fl-search{width:100%;font-size:15px;padding:9px 12px;border-radius:10px;margin-bottom:8px}
+.fl-list{display:grid;gap:6px;max-height:70vh;overflow-y:auto;overflow-x:hidden;padding-right:3px;align-content:start}
+.fl-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel);cursor:pointer;text-align:left;font:inherit;color:inherit;width:100%}
+.fl-row[aria-selected=true]{border-color:var(--accent);background:var(--accent-soft)}
+.fl-row b{font-size:14px;overflow-wrap:anywhere}.fl-row small{color:var(--ink-3);font-size:12px}
+.fl-row .r{text-align:right;display:grid;gap:3px;justify-items:end}
+.fl-pipe{display:flex;height:8px;border-radius:5px;overflow:hidden;background:var(--line);margin:8px 0 4px}
+.fl-pipe i{display:block;height:100%}
+.fl-c1{background:var(--ok)}.fl-c2{background:var(--accent)}.fl-c3{background:var(--signal)}
+.fl-legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--ink-2)}
+.fl-legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px}
+.fl-detail{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;position:sticky;top:12px;display:grid;gap:12px}
+.fl-dh{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:flex-start}
+.fl-dh h3{margin:0;font-size:19px}.fl-dh small{color:var(--ink-3)}
+.fl-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.fl-fact{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.fl-fact span{font-size:12px;color:var(--ink-2)}.fl-fact b{display:block;font-size:14.5px;overflow-wrap:anywhere}
+.fl-tabs{display:flex;flex-wrap:wrap;gap:2px;border-bottom:1px solid var(--line)}
+.fl-tabs button{border:0;background:none;padding:8px 12px;border-bottom:3px solid transparent;font-weight:650;color:var(--ink-2);cursor:pointer;min-height:40px;font:inherit}
+.fl-tabs button[aria-pressed=true]{color:var(--ink);border-color:var(--accent)}
+.fl-orders{display:grid;gap:8px}
+.fl-ord{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:2px}
+.fl-ord .l{display:flex;justify-content:space-between;gap:6px 12px;flex-wrap:wrap;align-items:center}
+.fl-ord .l.sub{font-size:12.5px;color:var(--ink-2)}
+.fl-tl{list-style:none;margin:0;padding:0}
+.fl-tl li{display:grid;grid-template-columns:78px 26px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line);font-size:13.5px}
+.fl-tl li:first-child{border-top:0}
+.fl-tl time{color:var(--ink-3);font-size:12.5px}
+.fl-tl small{display:block;color:var(--ink-3);font-size:12px;overflow-wrap:anywhere}
+.fl-tl .void{opacity:.55}.fl-tl .void b{text-decoration:line-through}
+.fl-dot{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;color:#fff}
+.fl-dot.shipment{background:var(--accent)}.fl-dot.invoice{background:#7c5cd6}.fl-dot.receipt{background:var(--ok)}.fl-dot.opening{background:var(--ink-3)}
+.fl-plus{color:var(--ok)}.fl-minus{color:var(--signal)}.fl-neutral{color:var(--ink-3)}
+.fl-warn{background:var(--signal-soft);color:var(--signal);border-radius:10px;padding:9px 12px;font-size:13px}
+.fl-bad{background:var(--bad-soft);color:var(--bad);border-radius:10px;padding:9px 12px;font-size:13px}
+.fl-note{font-size:12.5px;color:var(--ink-3);margin:0}
+.fl-people{display:grid;gap:6px}
+.fl-person{display:grid;grid-template-columns:52px minmax(0,1fr) minmax(0,1.1fr) auto;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;cursor:pointer;text-align:left;font:inherit;color:inherit;width:100%}
+.fl-person[aria-expanded=true]{border-color:var(--accent);background:var(--accent-soft)}
+.fl-person .no{font-weight:800;color:var(--ink-3)}
+.fl-person small{display:block;color:var(--ink-3);font-size:12px}
+.fl-person .fl-pipe{margin:0 0 3px}
+.fl-breakdown{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:4px 0 8px}
+.fl-checks{display:grid;gap:8px}
+.fl-check{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.fl-check .fl-ico{width:28px;height:28px;font-size:13px}
+.fl-check small{color:var(--ink-3)}
+.fl-form{display:grid;gap:10px}
+.fl-form label{display:grid;gap:4px;font-size:12.5px;font-weight:600;color:var(--ink-2)}
+.fl-form input,.fl-form select{width:100%}
+.fl-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fl-dialog{border:1px solid var(--line);border-radius:14px;padding:20px;width:min(500px,94vw);background:var(--panel);color:var(--ink)}
+.fl-dialog::backdrop{background:#0f172a88}
+.fl-dialog h3{font-size:18px;margin:0 0 2px}
+.fl-empty{padding:18px;background:var(--paper);border:1px dashed var(--line);border-radius:10px;font-size:13px;color:var(--ink-3)}
+
+/* Qolgan moliya jadvallari: yon skrol o'rniga ixcham, matn keyingi qatorga tushadi */
+.finance-module .tbl-wrap,.finance-module .finance-table-wrap,.finance-dialog .tbl-wrap{overflow-x:hidden}
+.finance-module table,.finance-dialog table{width:100%;table-layout:auto}
+.finance-module .finance-table thead th{min-width:0;padding:9px 8px;white-space:normal}
+.finance-module .finance-table td{padding:8px;overflow-wrap:anywhere}
+.finance-module .finance-table .n{white-space:nowrap}
+.finance-module .finance-table td small{overflow-wrap:anywhere}
+.finance-dialog table input{min-width:0;width:100%}
+
+@media(max-width:1100px){.fl-split,.fl-grid2{grid-template-columns:minmax(0,1fr)}.fl-detail{position:static}.fl-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.fl-facts{grid-template-columns:repeat(2,minmax(0,1fr))}.fl-person{grid-template-columns:36px minmax(0,1fr) auto}.fl-person .bar{grid-column:2/-1;order:5}.fl-tl li{grid-template-columns:26px minmax(0,1fr) auto}.fl-tl time{grid-column:2/-1;order:-1}.fl-two{grid-template-columns:1fr}.fl-kpis{gap:8px}
+ .finance-module .finance-table thead{display:none}.finance-module .finance-table,.finance-module .finance-table tbody,.finance-module .finance-table tr,.finance-module .finance-table td{display:block;width:100%}.finance-module .finance-table tr{border-bottom:1px solid var(--line);padding:6px 0}.finance-module .finance-table td{border:0;padding:3px 8px}.finance-module .finance-table tfoot{display:block}}
+@media print{.fl-acts,.fl-chips,.fl-search,.fl-tabs{display:none}.fl-list{max-height:none;overflow:visible}.fl-split{grid-template-columns:1fr}}
+
+/* Moliya bo'limi ichidagi yorliqlar (menyuda 6 ta bo'lim, qolganlari shu yerda) */
+.fl-subnav{display:flex;flex-wrap:wrap;gap:4px;padding:4px;background:var(--paper);border:1px solid var(--line);border-radius:12px;justify-self:start;max-width:100%}
+.fl-subnav button{border:0;background:none;padding:8px 14px;border-radius:9px;font:600 13.5px var(--f-body);color:var(--ink-2);cursor:pointer;min-height:38px}
+.fl-subnav button[aria-selected=true]{background:var(--panel);color:var(--ink);box-shadow:var(--shadow)}
+
+/* Buyurtma moliyasi: kartochkalar (jadval o'rniga) */
+.fo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:12px}
+.fo-card{display:grid;gap:8px;align-content:start;text-align:left;font:inherit;color:inherit;background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer;min-width:0}
+.fo-card:hover{border-color:var(--ink-3)}
+.fo-card[aria-pressed=true]{border-color:var(--accent);background:var(--accent-soft)}
+.fo-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.fo-head b{display:block;font-size:15px;overflow-wrap:anywhere}.fo-head small{color:var(--ink-3);font-size:12px}
+.fo-total span{display:block;font-size:12px;color:var(--ink-2)}
+.fo-total strong{font-size:clamp(20px,1.9vw,25px);letter-spacing:-.02em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.fo-card .fl-pipe{margin:2px 0}
+.fo-nums{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.fo-nums div{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.fo-nums span{display:block;font-size:11px;color:var(--ink-3)}
+.fo-nums b{font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.fo-card .fl-warn{margin:0;padding:6px 10px;font-size:12px}
+.fo-items{display:grid;gap:8px}
+.fo-items .fl-acts{margin-top:4px}
+.finance-module .fl-ord.finance-void{opacity:.6}
+@media(max-width:420px){.fo-nums{grid-template-columns:repeat(2,minmax(0,1fr))}}

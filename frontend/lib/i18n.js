@@ -8,6 +8,10 @@
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { DICT } from "./dict";
+import { normApos, searchKey, showText, toCyr, toLat } from "./script";
+
+// lotin ↔ kirill o'girish va alifbodan qat'i nazar qidirish — lib/script.js
+export { toCyr, toLat, searchKey, matches, showText } from "./script";
 
 export const LANGS = [
   { code: "uz", label: "O'zbekcha", short: "UZ" },
@@ -16,84 +20,29 @@ export const LANGS = [
 ];
 const KEY = "pto.lang";
 
-/* ---------- lotin → kirill ---------- */
-const VOWELS = "aeiouAEIOUоОo'";
-const APOS = /[ʻʼ‘’`']/g;
-const PAIRS = [
-  ["o'", "ў"], ["O'", "Ў"], ["g'", "ғ"], ["G'", "Ғ"],
-  ["sh", "ш"], ["Sh", "Ш"], ["SH", "Ш"], ["ch", "ч"], ["Ch", "Ч"], ["CH", "Ч"],
-  ["yo", "ё"], ["Yo", "Ё"], ["YO", "Ё"], ["yu", "ю"], ["Yu", "Ю"], ["YU", "Ю"],
-  ["ya", "я"], ["Ya", "Я"], ["YA", "Я"], ["ye", "е"], ["Ye", "Е"], ["YE", "Е"],
-];
-const SINGLE = {
-  a: "а", b: "б", d: "д", e: "е", f: "ф", g: "г", h: "ҳ", i: "и", j: "ж", k: "к", l: "л", m: "м", n: "н", o: "о", p: "п",
-  q: "қ", r: "р", s: "с", t: "т", u: "у", v: "в", x: "х", y: "й", z: "з", c: "ц", w: "в",
-};
-// o'girilmaydigan so'zlar (brend, qisqartma)
-const KEEP = /^(Excel|PDF|Telegram|iPhone|Android|Safari|Chrome|ID|IP|PWA|APK|JSON|M\d+|B\d+)$/;
-
-// o'zlashma so'zlar: «ts» + unli → «ц» (kalkulyatsiya, retsept, koeffitsiyent), «-abr» oylari → «-абрь»
-const LOAN = [[/ts(?=[aeiouy])/g, "ц"], [/Ts(?=[aeiouy])/g, "Ц"]];
-
-// o'zakdagi yumshoq belgi va boshqa istisnolar: [lotin o'zak, kirill o'zak]
-const STEMS = [
-  ["kalkulyatsi", "калькуляци"], ["koeffitsiyent", "коэффициент"], ["sentyabr", "сентябрь"], ["oktyabr", "октябрь"],
-  ["noyabr", "ноябрь"], ["dekabr", "декабрь"], ["yanvar", "январь"], ["fevral", "февраль"], ["aprel", "апрель"], ["iyun", "июнь"], ["iyul", "июль"],
-  ["elektr", "электр"], ["tonna", "тонна"], ["film", "фильм"], ["relef", "рельеф"],
-];
-
-function cyrWord(w) {
-  if (KEEP.test(w) || (/^[A-Z0-9-]{2,}$/.test(w) && !/[aeiou]/.test(w))) return w;
-  const low = w.toLowerCase();
-  const stem = STEMS.find(([l]) => low.startsWith(l));
-  if (stem) {
-    const head = w[0] === w[0].toUpperCase() ? stem[1][0].toUpperCase() + stem[1].slice(1) : stem[1];
-    return head + (w.length > stem[0].length ? cyrWord(w.slice(stem[0].length)) : "");
-  }
-  for (const [re, to] of LOAN) w = w.replace(re, to);
-  let out = "";
-  for (let i = 0; i < w.length; ) {
-    const two = w.slice(i, i + 2);
-    const pair = PAIRS.find(([l]) => l === two);
-    if (pair) {
-      out += pair[1];
-      i += 2;
-      continue;
-    }
-    const ch = w[i];
-    if (ch === "'" ) {
-      out += "ъ";
-      i++;
-      continue;
-    }
-    const low = ch.toLowerCase();
-    let c = SINGLE[low];
-    if (c === undefined) {
-      out += ch;
-      i++;
-      continue;
-    }
-    // so'z boshida va unlidan keyin «e» → «э»
-    if (low === "e" && (i === 0 || VOWELS.includes(w[i - 1]))) c = "э";
-    out += ch === low ? c : c.toUpperCase();
-    i++;
+/* ---------- lug'at: apostrof turlari («'», «‘», «ʻ», «’») farq qilmasin ---------- */
+const normDict = (obj) => {
+  const out = {};
+  for (const [k, v] of Object.entries(obj || {})) {
+    out[k] = v;
+    const n = normApos(k);
+    if (!(n in out)) out[n] = v;
   }
   return out;
-}
-
-export function toCyr(text) {
-  // {o'rinbosar} va kirillcha qismlarga tegmaymiz
-  return String(text)
-    .replace(APOS, "'")
-    .split(/(\{[^}]*\})/)
-    .map((part) => (part.startsWith("{") ? part : part.replace(/[A-Za-z']+/g, (w) => (w === "'" ? w : cyrWord(w)))))
-    .join("");
-}
+};
+const RU = normDict(DICT.ru);
+const KR = normDict(DICT.kr);
+const lookup = (map, s) => (map[s] !== undefined ? map[s] : map[normApos(s)]);
 
 /* ---------- tarjima ---------- */
 function toRu(s) {
-  if (DICT.ru[s] !== undefined) return DICT.ru[s];
-  for (const [re, to] of DICT.ruPatterns) if (re.test(s)) return s.replace(re, to);
+  const hit = lookup(RU, s);
+  if (hit !== undefined) return hit;
+  const n = normApos(s);
+  for (const [re, to] of DICT.ruPatterns) {
+    if (re.test(s)) return s.replace(re, to);
+    if (n !== s && re.test(n)) return n.replace(re, to);
+  }
   if (s.includes("; ")) return s.split("; ").map(toRu).join("; "); // bir nechta xato birga
   return s;
 }
@@ -102,7 +51,7 @@ export function translate(lang, key, vars) {
   if (key === undefined || key === null) return "";
   let out = String(key);
   if (lang === "ru") out = toRu(out);
-  else if (lang === "kr") out = DICT.kr[out] ?? toCyr(out);
+  else if (lang === "kr") out = lookup(KR, out) ?? toCyr(out);
   if (vars) for (const [k, v] of Object.entries(vars)) out = out.replaceAll(`{${k}}`, String(v));
   return out;
 }
@@ -112,10 +61,71 @@ let current = "uz";
 export const tr = (key, vars) => translate(current, key, vars);
 export const currentLang = () => current;
 
+/* ---------- zavodning o'z lug'ati (Lug'at sahifasi): nomlar va tayyor iboralar, uz ↔ ru ---------- */
+let GLOSS = new Map(); // searchKey(matn) -> { uz, ru, kind }
+let GLOSS_ITEMS = [];
+const glossSubs = new Set();
+export function setGlossary(items) {
+  const map = new Map();
+  for (const e of items || []) {
+    for (const s of [e.uz, e.ru]) {
+      const k = searchKey(s);
+      if (k && !map.has(k)) map.set(k, e);
+    }
+  }
+  GLOSS = map;
+  GLOSS_ITEMS = items || [];
+  glossSubs.forEach((f) => f());
+}
+export const glossaryItems = () => GLOSS_ITEMS;
+const CYR = /[\u0400-\u04FF]/;
+/** Lug'at yozuvini tanlangan tilda: ru — ruschasi, uz — lotin, kr — kirill */
+export function glossText(lang, e) {
+  if (lang === "ru") return e.ru;
+  const uz = String(e.uz);
+  if (lang === "kr") return CYR.test(uz) ? uz : toCyr(uz);
+  return CYR.test(uz) ? toLat(uz) : uz;
+}
+const SEP = /([,;.!?:\n()]+\s*|\s+[-–—]\s+)/;
+function glossShow(lang, text) {
+  if (!GLOSS.size) return null;
+  const whole = GLOSS.get(searchKey(text));
+  if (whole) return glossText(lang, whole);
+  // izoh: bo'laklarga ajratib, lug'atda bori tarjima qilinadi
+  const parts = text.split(SEP);
+  if (parts.length < 2) return null;
+  let hit = false;
+  const out = parts.map((p, i) => {
+    if (i % 2) return p;
+    const lead = p.match(/^\s*/)[0], trail = p.match(/\s*$/)[0], core = p.trim();
+    const e = core && GLOSS.get(searchKey(core));
+    if (!e) return showText(lang, p);
+    hit = true;
+    let g = glossText(lang, e);
+    if (core[0] !== core[0].toUpperCase()) g = g.charAt(0).toLowerCase() + g.slice(1); // gap o'rtasida — kichik harf
+    return lead + g + trail;
+  });
+  return hit ? out.join("") : null;
+}
+
+/** Foydalanuvchi kiritgan matnni (ism, nom, izoh) tanlangan tilda ko'rsatish: show(o.customer).
+ *  Avval lug'at (uz ↔ ru), bo'lmasa — faqat alifbo (lotin ↔ kirill). */
+export const show = (text) => {
+  if (text === null || text === undefined || text === "") return text;
+  const s = String(text);
+  return glossShow(current, s) ?? showText(current, s);
+};
+
 const Ctx = createContext({ lang: "uz", setLang: () => {}, t: (k, v) => translate("uz", k, v) });
 
 export function I18nProvider({ children }) {
   const [lang, setLangState] = useState("uz");
+  const [glossVer, setGlossVer] = useState(0); // lug'at yuklanganda ekran yangilanadi
+  useEffect(() => {
+    const f = () => setGlossVer((v) => v + 1);
+    glossSubs.add(f);
+    return () => glossSubs.delete(f);
+  }, []);
   useEffect(() => {
     let saved = null;
     try {
@@ -136,7 +146,7 @@ export function I18nProvider({ children }) {
       localStorage.setItem(KEY, l);
     } catch {}
   }, []);
-  const value = useMemo(() => ({ lang, setLang, t: (k, v) => translate(lang, k, v) }), [lang, setLang]);
+  const value = useMemo(() => ({ lang, setLang, glossVer, t: (k, v) => translate(lang, k, v) }), [lang, setLang, glossVer]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

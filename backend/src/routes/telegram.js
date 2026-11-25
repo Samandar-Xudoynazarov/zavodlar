@@ -1,9 +1,10 @@
 import { Router } from "express";
-import { createTelegramLink, disconnectTelegram, getTelegramStatus, processTelegramUpdate, TelegramApiError, validTelegramSecret } from "../telegram.js";
+import { createTelegramLink, disconnectTelegram, getTelegramStatus, processTelegramUpdate, TelegramApiError, validTelegramSecret, TELEGRAM_ROLES } from "../telegram.js";
+import { telegramCommandReply } from "../digest.js";
 
 const r = Router();
 const observerOnly = (req, res, next) =>
-  req.user?.active && req.user.role === "kuzatuvchi" ? next() : res.status(403).json({ error: "Telegram xabarlari faqat kuzatuvchi uchun" });
+  req.user?.active && TELEGRAM_ROLES.includes(req.user.role) ? next() : res.status(403).json({ error: "Telegram hisoboti kuzatuvchi va zavod direktori uchun" });
 
 r.get("/notifications/telegram", observerOnly, async (req, res) => {
   res.json(await getTelegramStatus(req.user));
@@ -36,9 +37,12 @@ telegramWebhook.post("/", async (req, res) => {
     return res.json({
       method: "sendMessage",
       chat_id: req.body.message.chat.id,
-      text: "Telegram ulandi. Endi sizga kunlik reja qo'yilganda va o'zgartirilganda xabar keladi.",
+      text: "Telegram ulandi ✅ Har kuni ertalab soat 8:00 da hisobot keladi. Hozirgi holatni ko'rish uchun istalgan vaqtda /hisobot yozing.",
     });
   }
+  let reply = null;
+  try { reply = await telegramCommandReply(req.body); } catch { reply = null; }
+  if (reply) return res.json({ method: "sendMessage", chat_id: req.body.message.chat.id, text: reply, link_preview_options: { is_disabled: true } });
   res.json({ ok: true });
 });
 

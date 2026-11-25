@@ -1,4 +1,5 @@
 "use client";
+import { show } from "@/lib/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { tr, useT } from "@/lib/i18n";
@@ -110,7 +111,7 @@ export default function FleetTab({ data, notify, version }) {
                 <button className="veh-item" onClick={() => setOpen(v)}>
                   <span className="card-main">
                     <strong>
-                      {v.name}
+                      {show(v.name)}
                       {v.code && <span className="muted"> · {v.code}</span>}
                     </strong>
                     <span className="muted">
@@ -203,7 +204,7 @@ function VehicleSheet({ vehicle, from, to, data, notify, onClose, onChanged }) {
           <div className="bsheet-grip" aria-hidden="true" />
           <div className="bsheet-head">
             <h2>
-              {v.name} {v.code && <span className="muted">· {v.code}</span>}
+              {show(v.name)} {v.code && <span className="muted">· {v.code}</span>}
             </h2>
             <button type="button" className="icon-btn" onClick={onClose} aria-label={t("Yopish")}>
               <Icon name="close" size={18} />

@@ -4,8 +4,10 @@
 //  ruPatterns — ichida o'zgaruvchan qismi bo'lgan server xabarlari
 
 import { HR_RU } from './hr-dict';
+import { KR_EXTRA, RU_EXTRA } from './dict-ru-extra';
 export const DICT = {
   kr: {
+    ...KR_EXTRA,
     "«Qo'shish» / «Add»": "«Қўшиш» / «Add»",
     "Bu iOS versiyasida faqat Safari orqali o'rnatiladi — havolani Safari'da oching.": "Бу iOS версиясида фақат Safari орқали ўрнатилади — ҳаволани Safari'да очинг.",
     "Safari'da": "Safari'да",
@@ -51,6 +53,7 @@ export const DICT = {
   },
 
   ru: {
+    ...RU_EXTRA, // yetishmagan tarjimalar; quyidagi kalitlar ustun turadi
     "Moliya ish stoli": "Финансы",
     "Moliya": "Финансы",
     "Finansiviy": "Финансы",

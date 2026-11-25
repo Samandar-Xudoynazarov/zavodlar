@@ -1,4 +1,6 @@
 "use client";
+import { show } from "@/lib/i18n";
+import { matches } from "@/lib/script";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { tr, useT } from "@/lib/i18n";
@@ -198,11 +200,11 @@ function ProgramPlan({ data, notify, reloadOrders, reloadSettings }) {
               {active
                 .filter((o) => {
                   const s = pickQ.trim().toLowerCase();
-                  return !s || sel.has(o.id) || String(o.no) === s || o.customer.toLowerCase().includes(s) || (o.contractNo || "").toLowerCase().includes(s);
+                  return !s || sel.has(o.id) || String(o.no) === s || matches([o.customer, o.contractNo], s);
                 })
                 .map((o) => (
                   <button type="button" key={o.id} className="chip" aria-pressed={sel.has(o.id)} onClick={() => toggleSel(o.id)}>
-                    №{o.no} {o.customer}
+                    №{o.no} {show(o.customer)}
                     {o.contractNo ? ` · ${o.contractNo}` : ""}
                     {o.deadline ? <span className="muted"> · {fmtDate(o.deadline).slice(0, 5)}</span> : null}
                   </button>
@@ -609,7 +611,7 @@ function WhatIf({ products, prods, notify, canEdit, onCreated }) {
               <ul>
                 {res.affected.map((a) => (
                   <li key={a.id} className={a.becomesLate ? "late" : ""}>
-                    №{a.no} {a.customer} ({code(a.productId)}): {dmy(a.finishBefore)} → {dmy(a.finishAfter)}
+                    №{a.no} {show(a.customer)} ({code(a.productId)}): {dmy(a.finishBefore)} → {dmy(a.finishAfter)}
                     {a.becomesLate && ` — ${t("muddatdan kechikadi")}`}
                   </li>
                 ))}

@@ -1,4 +1,5 @@
 "use client";
+import { useNoMoney } from "@/lib/money";
 import { tr } from "@/lib/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
@@ -65,6 +66,7 @@ function DailyChart({ month, plan, fact }) {
 }
 
 export default function MonthTab({ data, notify }) {
+  const noMoney = useNoMoney();
   const { materials, products, mats, prods, settings } = data;
   const [month, setMonth] = useState(() => lsGet("pto.month", today().slice(0, 7)));
   const [days, setDays] = useState(null);
@@ -394,7 +396,7 @@ export default function MonthTab({ data, notify }) {
                     <th className="n">{tr("Sarf (norma)")}</th>
                     <th className="n">{tr("Farq")}</th>
                     <th className="n">{tr("Oy oxirida")}</th>
-                    <th className="n">{tr("Sarf qiymati, so'm")}</th>
+                    {!noMoney && <th className="n">{tr("Sarf qiymati, so'm")}</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -416,17 +418,17 @@ export default function MonthTab({ data, notify }) {
                           {pct !== null && r.diff ? <span className="sub">{fmtN(pct, 0)} %</span> : null}
                         </td>
                         <td className={`n strong ${r.end < -1e-9 ? "late" : ""}`}>{fmtN(r.end, 3)}</td>
-                        <td className="n">{r.value ? fmt(r.value) : ""}</td>
+                        {!noMoney && <td className="n">{r.value ? fmt(r.value) : ""}</td>}
                       </tr>
                     );
                   })}
                 </tbody>
-                <tfoot>
+                {!noMoney && <tfoot>
                   <tr>
                     <td colSpan={8}>{tr("Sarflangan materiallar qiymati")}</td>
                     <td className="n">{fmt(sarfValue)}</td>
                   </tr>
-                </tfoot>
+                </tfoot>}
               </table>
             </div>
             <p className="hint" style={{ marginTop: 6 }}>{tr(

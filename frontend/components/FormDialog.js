@@ -76,6 +76,7 @@ export default function FormDialog({ form, onClose }) {
                     required={f.req}
                     min={f.min}
                     step={f.step}
+                    list={f.name === "note" && (!f.type || f.type === "text") ? "phrase-list" : undefined}
                   />
                 )}
                 {f.hint&&<small className="hint">{tr(f.hint)}</small>}

@@ -1,4 +1,7 @@
 "use client";
+import { useNoMoney } from "@/lib/money";
+import { show } from "@/lib/i18n";
+import { matches } from "@/lib/script";
 import { tr } from "@/lib/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@/lib/role";
@@ -7,6 +10,7 @@ import { STATUSES, costCard, fmt, fmtDate, lsGet, lsSet, productLabel, today } f
 import DeleteButton from "./DeleteButton";
 import ExportButtons from "./ExportButtons";
 import OrderShipmentsDialog from "./OrderShipmentsDialog";
+import SalesMonthly from "./SalesMonthly";
 import { fileDate } from "@/lib/xlsx-export";
 
 const CLOSED = ["tayyor", "topshirildi"];
@@ -20,7 +24,10 @@ function itemPrice(it, byId, mats) {
 }
 
 export default function OrdersTab({ data, notify, reload }) {
-  const { canEdit } = useUser();
+  const { canEdit, user } = useUser();
+  const noMoney = useNoMoney();
+  const canFinance = ["admin", "rahbar", "buxgalter"].includes(user?.role);
+  const [monthly, setMonthly] = useState(false);
   const { products, orders, mats, prods: byId } = data;
   const [filter, setFilter] = useState(() => lsGet("pto.ordFilter", "faol"));
   const [q, setQ] = useState("");
@@ -39,7 +46,7 @@ export default function OrdersTab({ data, notify, reload }) {
   const s = q.trim().toLowerCase();
   const list = orders
     .filter((o) => (filter === "hammasi" ? true : filter === "faol" ? o.status !== "topshirildi" : o.status === filter))
-    .filter((o) => !s || String(o.no) === s || o.customer.toLowerCase().includes(s) || (o.contractNo || "").toLowerCase().includes(s) || o.items.some((it) => (byId.get(it.productId)?.code || "").toLowerCase().includes(s)))
+    .filter((o) => !s || String(o.no) === s || matches([o.customer, o.contractNo], s) || o.items.some((it) => matches(byId.get(it.productId)?.code, s)))
     .sort((a, b) => (a.deadline || "9999").localeCompare(b.deadline || "9999") || a.no - b.no);
 
   function chooseFilter(k) {
@@ -79,6 +86,9 @@ export default function OrdersTab({ data, notify, reload }) {
           <h2>{tr("Buyurtmalar")}</h2>
         </div>
         <div className="r">
+          {canFinance && (
+            <button className="btn" onClick={() => setMonthly(true)}>{tr("Oy bo'yicha hisob-kitob")}</button>
+          )}
           <ExportButtons company={data.settings?.company} notify={notify} disabled={!list.length} build={() => ordersExcel(list, filter, byId, mats, td)} />
           {canEdit && (
             <button className="btn primary" onClick={openNew}>{tr("+ Yangi buyurtma")}</button>
@@ -111,17 +121,23 @@ export default function OrdersTab({ data, notify, reload }) {
             <span>
               {tr("qoldi {n}", { n: fmt(list.reduce((t, o) => t + (o.left || 0), 0)) })} {tr("dona")}
             </span>
-            <strong>
+            {!noMoney && <strong>
               {fmt(list.reduce((t, o) => t + summaOf(o), 0))} {tr("so'm")}
-            </strong>
+            </strong>}
           </div>
         </>
       )}
       <p className="hint">{tr(
-        "Bitta buyurtmada bir nechta mahsulot bo'lishi mumkin. «Jo'natildi» = tizimdan oldin jo'natilgan (buyurtmada qo'lda kiritiladi) + kunlik hisobotda shu buyurtmaga bog'langan jo'natishlar. Narx 0 bo'lsa, kalkulyatsiyadagi QQS bilan narx olinadi."
+        "Bitta buyurtmada bir nechta mahsulot bo'lishi mumkin. «Jo'natildi» = tizimdan oldin jo'natilgan (buyurtmada qo'lda kiritiladi) + eski jo'natmalar (накладная bilan) + kunlik hisobotda shu buyurtmaga bog'langan jo'natishlar. Eski jo'natma qo'shish uchun mahsulot ustiga bosing. Narx 0 bo'lsa, kalkulyatsiyadagi QQS bilan narx olinadi."
       )}</p>
 
-      {shipment && <OrderShipmentsDialog {...shipment} product={byId.get(shipment.item.productId)} onClose={()=>setShipment(null)} notify={notify}/>}
+      {shipment && (() => {
+        // ro'yxat yangilansa, oynada ham yangi sonlar ko'rinsin
+        const o = orders.find((x) => x.id === shipment.order.id) || shipment.order;
+        const it = o.items.find((i) => i.productId === shipment.item.productId) || shipment.item;
+        return <OrderShipmentsDialog order={o} item={it} product={byId.get(it.productId)} onClose={()=>setShipment(null)} notify={notify} reload={reload}/>;
+      })()}
+      {monthly && <SalesMonthly onClose={() => setMonthly(false)} />}
       <OrderDialog
         order={edit}
         data={data}
@@ -140,6 +156,7 @@ const contractText = (c) => String(c || "").replace(/^№\s*/, "");
 
 /** Bitta buyurtma kartasi: sarlavha, ko'rsatkichlar va mahsulotlar (ixcham to'r) */
 function OrderCard({ o, td, byId, summa, canEdit, onEdit, onDelete, onStatus, onProduct }) {
+  const noMoney = useNoMoney();
   const [open, setOpen] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const late = o.deadline && o.deadline < td && !CLOSED.includes(o.status);
@@ -153,7 +170,7 @@ function OrderCard({ o, td, byId, summa, canEdit, onEdit, onDelete, onStatus, on
         <div className="ord-title">
           <span className="ord-no">№{o.no}</span>
           <div className="ord-name">
-            <strong>{o.customer}</strong>
+            <strong>{show(o.customer)}</strong>
             <span className="ord-meta">
               {o.contractNo && <span className="ord-contract">{tr("Shartnoma № {n}", { n: contractText(o.contractNo) })}</span>}
               {o.date && <span>{tr("qabul {d}", { d: fmtDate(o.date) })}</span>}
@@ -179,7 +196,7 @@ function OrderCard({ o, td, byId, summa, canEdit, onEdit, onDelete, onStatus, on
 
       {o.note && (
         <button type="button" className={`ord-note${noteOpen ? " open" : ""}`} onClick={() => setNoteOpen((v) => !v)} title={o.note}>
-          {o.note}
+          {show(o.note)}
         </button>
       )}
 
@@ -206,10 +223,10 @@ function OrderCard({ o, td, byId, summa, canEdit, onEdit, onDelete, onStatus, on
             {late && <small>{tr(" · kechikdi")}</small>}
           </strong>
         </div>
-        <div className="ord-stat">
+        {!noMoney && <div className="ord-stat">
           <span className="k">{tr("Summa, so'm")}</span>
           <strong>{fmt(summa)}</strong>
-        </div>
+        </div>}
       </div>
 
       <div className="ord-grid">

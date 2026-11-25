@@ -1,4 +1,7 @@
 "use client";
+import { useNoMoney } from "@/lib/money";
+import { show } from "@/lib/i18n";
+import { matches } from "@/lib/script";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { tr, useT } from "@/lib/i18n";
@@ -8,6 +11,7 @@ import { BRAK_REASONS, brakLabel, costCard, fmt, fmtDate, fmtN, shiftDate, today
 import ExportButtons from "./ExportButtons";
 import Icon from "./Icon";
 import { fileDate } from "@/lib/xlsx-export";
+import "./product-cards.css";
 
 const monthStart = (d) => d.slice(0, 8) + "01";
 const PERIODS = [
@@ -34,6 +38,7 @@ export default function FinishedTab({ data, notify, version }) {
   const [tick, setTick] = useState(0);
   const refresh = () => setTick((x) => x + 1);
   const { canEdit } = useUser();
+  const noMoney = useNoMoney();
   const [fix, setFix] = useState(null); // marka tuzatish oynasi: { fromId? }
   async function cancelFix(f) {
     if (!window.confirm(t("Tuzatishni bekor qilasizmi?"))) return; // eslint-disable-line no-alert
@@ -77,7 +82,7 @@ export default function FinishedTab({ data, notify, version }) {
           return { p, end, res, free: end - res, need: Math.max(0, (reserved.get(p.id) || 0) - Math.max(0, end)), c, value: Math.max(0, end) * c };
         })
         .filter((r) => r.end || r.need)
-        .filter((r) => !s || `${r.p.code} ${r.p.name}`.toLowerCase().includes(s))
+        .filter((r) => !s || matches(`${r.p.code} ${r.p.name}`, s))
         .sort((a, b) => b.end - a.end),
     [products, stock, reserved, mats, s]
   );
@@ -132,13 +137,13 @@ export default function FinishedTab({ data, notify, version }) {
                 <small>{t("dona")}</small>
               </div>
             </div>
-            <div className="kpi">
+            {!noMoney && <div className="kpi">
               <div className="k">{t("Tannarx bo'yicha qiymati")}</div>
               <div className="v">
                 {fmt(value / 1e6, 1)}
                 <small>{t("mln so'm")}</small>
               </div>
-            </div>
+            </div>}
             <div className="kpi">
               <div className="k">{t("Buyurtmalarga band")}</div>
               <div className="v">
@@ -168,42 +173,55 @@ export default function FinishedTab({ data, notify, version }) {
               )}
             </div>
           </div>
-          <div className="tbl-wrap">
+          <div>
             {!stock ? (
               <div className="loading">{t("Yuklanmoqda…")}</div>
             ) : !rows.length ? (
               <div className="empty">{t("Omborda tayyor mahsulot yo'q.")}</div>
             ) : (
-              <table className="click-rows">
-                <thead>
-                  <tr>
-                    <th>{t("Mahsulot")}</th>
-                    <th className="n">{t("Qoldiq")}</th>
-                    <th className="n">{t("Band")}</th>
-                    <th className="n">{t("Bo'sh")}</th>
-                    <th className="n hide-s">{t("Tannarx")}</th>
-                    <th className="n">{t("Qiymati")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.p.id} onClick={() => setOpen(r.p)} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && setOpen(r.p)}>
-                      <td>
-                        <span className="code">{r.p.code}</span>
-                        {r.p.name && <span className="sub">{r.p.name}</span>}
-                      </td>
-                      <td className={`n strong${r.end < 0 ? " late" : ""}`}>{fmtN(r.end)}</td>
-                      <td className="n">{r.res ? fmtN(r.res) : "—"}</td>
-                      <td className="n">
-                        {fmtN(Math.max(0, r.free))}
-                        {r.need > 0 && <span className="sub late">{t("yetmaydi {n}", { n: fmtN(r.need) })}</span>}
-                      </td>
-                      <td className="n hide-s">{r.c ? fmt(r.c) : "—"}</td>
-                      <td className="n">{r.value ? fmt(r.value) : "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <ul className="pgrid">
+                {rows.map((r) => (
+                  <li key={r.p.id}>
+                    <button type="button" className={`pcard${r.end < 0 ? " neg" : ""}`} onClick={() => setOpen(r.p)}>
+                      <span className="pcard-head">
+                        <span className="pcard-title">
+                          <span className="code">{r.p.code}</span>
+                          {r.p.name && <span className="name">{show(r.p.name)}</span>}
+                        </span>
+                        <span className={`pcard-big${r.end < 0 ? " late" : ""}`}>
+                          {fmtN(r.end)}
+                          <small>{t("Qoldiq")}</small>
+                        </span>
+                      </span>
+                      <dl className="pcard-stats">
+                        <div>
+                          <dt>{t("Band")}</dt>
+                          <dd>{r.res ? fmtN(r.res) : "—"}</dd>
+                        </div>
+                        <div>
+                          <dt>{t("Bo'sh")}</dt>
+                          <dd>
+                            {fmtN(Math.max(0, r.free))}
+                            {r.need > 0 && <span className="sub late">{t("yetmaydi {n}", { n: fmtN(r.need) })}</span>}
+                          </dd>
+                        </div>
+                        {!noMoney && (
+                          <div>
+                            <dt>{t("Tannarx")}</dt>
+                            <dd>{r.c ? fmt(r.c) : "—"}</dd>
+                          </div>
+                        )}
+                        {!noMoney && (
+                          <div>
+                            <dt>{t("Qiymati")}</dt>
+                            <dd>{r.value ? fmt(r.value) : "—"}</dd>
+                          </div>
+                        )}
+                      </dl>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
           {rep?.fixes?.length > 0 && (
@@ -248,6 +266,7 @@ export default function FinishedTab({ data, notify, version }) {
 function BrakView({ B, rep, period, setPeriod, from, to, data, notify, onChanged }) {
   const t = useT();
   const { canEdit, user } = useUser();
+  const noMoney = useNoMoney();
   const { prods } = data;
   const maxR = Math.max(1, ...(B?.reasons || []).map(([, n]) => n));
   async function cancel(b) {
@@ -300,13 +319,13 @@ function BrakView({ B, rep, period, setPeriod, from, to, data, notify, onChanged
                 <small>{t("dona")}</small>
               </div>
             </div>
-            <div className={`kpi ${B.loss ? "kpi-warn" : ""}`}>
+            {!noMoney && <div className={`kpi ${B.loss ? "kpi-warn" : ""}`}>
               <div className="k">{t("Zarar (tannarx bo'yicha)")}</div>
               <div className="v">
                 {fmt(B.loss / 1e6, 1)}
                 <small>{t("mln so'm")}</small>
               </div>
-            </div>
+            </div>}
           </div>
 
           {!B.reasons.length ? (
@@ -329,35 +348,38 @@ function BrakView({ B, rep, period, setPeriod, from, to, data, notify, onChanged
               </div>
               <div>
                 <h3>{t("Mahsulotlar bo'yicha")}</h3>
-                <div className="tbl-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>{t("Mahsulot")}</th>
-                        <th className="n">{t("Sifatli")}</th>
-                        <th className="n">{t("Brak")}</th>
-                        <th className="n">{t("Ombordan")}</th>
-                        <th className="n">{t("Zarar, so'm")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {B.prodRows.map((r) => (
-                        <tr key={r.p?.id || Math.random()}>
-                          <td>
-                            <span className="code">{r.p?.code || "—"}</span>
-                          </td>
-                          <td className="n">{fmtN(r.fact)}</td>
-                          <td className={`n${r.brak ? " late" : ""}`}>
+                <ul className="pgrid narrow">
+                  {B.prodRows.map((r, i) => (
+                    <li key={r.p?.id || `x${i}`} className="pcard compact">
+                      <span className="pcard-title">
+                        <span className="code">{r.p?.code || "—"}</span>
+                      </span>
+                      <dl className="pcard-stats">
+                        <div>
+                          <dt>{t("Sifatli")}</dt>
+                          <dd>{fmtN(r.fact)}</dd>
+                        </div>
+                        <div>
+                          <dt>{t("Brak")}</dt>
+                          <dd className={r.brak ? "late" : ""}>
                             {r.brak ? fmtN(r.brak) : "—"}
                             {r.brak > 0 && <span className="sub">{fmtN(r.pct, 1)} %</span>}
-                          </td>
-                          <td className="n">{r.writeoff ? fmtN(r.writeoff) : "—"}</td>
-                          <td className="n">{r.loss ? fmt(r.loss) : "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>{t("Ombordan")}</dt>
+                          <dd>{r.writeoff ? fmtN(r.writeoff) : "—"}</dd>
+                        </div>
+                        {!noMoney && (
+                          <div>
+                            <dt>{t("Zarar, so'm")}</dt>
+                            <dd>{r.loss ? fmt(r.loss) : "—"}</dd>
+                          </div>
+                        )}
+                      </dl>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
           )}
@@ -447,7 +469,7 @@ function ProductSheet({ product, end, onClose, notify, onChanged, onFix }) {
           <div className="bsheet-grip" aria-hidden="true" />
           <div className="bsheet-head">
             <h2>
-              <span className="code">{product.code}</span> {product.name}
+              <span className="code">{product.code}</span> {show(product.name)}
             </h2>
             <button type="button" className="icon-btn" onClick={onClose} aria-label={t("Yopish")}>
               <Icon name="close" size={18} />
@@ -514,35 +536,36 @@ function ProductSheet({ product, end, onClose, notify, onChanged, onFix }) {
           ) : !ev.length ? (
             <div className="empty">{t("Bu davrda harakat yo'q.")}</div>
           ) : (
-            <div className="tbl-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>{t("Sana")}</th>
-                    <th className="n">{t("Ishlab chiqarildi")}</th>
-                    <th className="n">{t("Jo'natildi")}</th>
-                    <th className="n">{t("Brak")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ev.map((e) => (
-                    <tr key={e.date}>
-                      <td className="num">{fmtDate(e.date)}</td>
-                      <td className="n">{e.fact ? `+${fmtN(e.fact)}` : "—"}</td>
-                      <td className="n">
+            <ul className="pgrid narrow">
+              {ev.map((e) => (
+                <li key={e.date} className="pcard compact">
+                  <span className="pcard-title">
+                    <strong className="num">{fmtDate(e.date)}</strong>
+                  </span>
+                  <dl className="pcard-stats">
+                    <div>
+                      <dt>{t("Ishlab chiqarildi")}</dt>
+                      <dd>{e.fact ? `+${fmtN(e.fact)}` : "—"}</dd>
+                    </div>
+                    <div>
+                      <dt>{t("Jo'natildi")}</dt>
+                      <dd>
                         {e.shipped ? `−${fmtN(e.shipped)}` : "—"}
                         {e.customers.length > 0 && <span className="sub">{[...new Set(e.customers)].join(", ")}</span>}
-                      </td>
-                      <td className={`n${e.brak || e.writeoff ? " late" : ""}`}>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{t("Brak")}</dt>
+                      <dd className={e.brak || e.writeoff ? "late" : ""}>
                         {e.brak || e.writeoff ? fmtN(e.brak + e.writeoff) : "—"}
                         {e.writeoff > 0 && <span className="sub">{t("ombordan {n}", { n: e.writeoff })}</span>}
                         {e.corr ? <span className="sub">{t("tuzatish {n}", { n: `${e.corr > 0 ? "+" : "−"}${fmtN(Math.abs(e.corr))}` })}</span> : null}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </dd>
+                    </div>
+                  </dl>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       )}
