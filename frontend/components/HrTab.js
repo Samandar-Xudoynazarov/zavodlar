@@ -22,6 +22,7 @@ import HrWorkforce from './HrWorkforce';
 import HrNavigation from './HrNavigation';
 import HrEmployeeProfile from './HrEmployeeProfile';
 import HrDocuments from './HrDocuments';
+import HrSignedTimesheet from './HrSignedTimesheet';
 import { exportTimesheet } from '@/lib/hr-timesheet';
 
 const PAY=['admin','rahbar','buxgalter'];
@@ -244,8 +245,10 @@ export default function HrTab({notify,openForm,initialView,onViewChange,company}
         {manage&&employee&&!ratesOpen&&<div className="hr-card"><h3>{show(employee.name)}</h3><p>{show(employee.position)} · {show(employee.department)}</p><p className="hint">{employee.notes}</p>{employee.endDate&&<p>{t('Oxirgi ish kuni')}: {employee.endDate}</p>}</div>}
       </>}
       {view!=='employees'&&!doc&&!error&&<div className="empty"><h3>{t('Bu oy hali ochilmagan')}</h3><p>{t('Mas’ul xodim oy normasini tekshirib, hisob oyini ochadi.')}</p></div>}
+      {view==='time'&&!doc&&!error&&!loading&&<HrSignedTimesheet month={month} onOpenArchive={()=>changeView('archive')} notify={notify}/>}
       {doc&&view==='time'&&<>
         <div className="hr-toolbar"><button className="btn" disabled={busy||loading||dirty||!!error} onClick={()=>run(()=>exportTimesheet({month,employees:eligible,doc,company,t}))}><Icon name="download"/>{t('Oylik tabel')} · Excel</button><button className="btn" disabled={busy||loading||dirty||!!error||!eligible.length} onClick={()=>setPrinting(true)}><Icon name="print"/>{t('Chop etish varag‘i')}</button><span className="hint">{t('Qog‘oz shakli: imzo va muhr joylari bilan, A4 albom')}</span></div>
+        <HrSignedTimesheet month={month} status={doc.status} onPrint={eligible.length?()=>setPrinting(true):null} onOpenArchive={()=>changeView('archive')} notify={notify}/>
         {editAttendance&&<div className='hr-toolbar'><label>{t('Yangi yozuvlar rejimi')}<select value={entryShiftCount} onChange={e=>setEntryShiftCount(+e.target.value)}><option value='1'>{t('1 smena')}</option><option value='2'>{t('2 smena')}</option></select></label><span className='hint'>{t('Har bir kun uchun smenalar soni alohida tanlanadi. Ikki smenaning soatlarini alohida kiriting; jami avtomatik hisoblanadi.')}</span></div>}
         <div className='hr-view-switch'><button className={`btn ${timeMode==='list'?'primary':''}`} onClick={()=>{if(askLeave()){setTimeMode('list');setListEdits({});setDirty(false);setDays(doc.attendance[selected]||{});}}}>{t('Kunlik ro‘yxat')}</button><button className={`btn ${timeMode==='calendar'?'primary':''}`} onClick={()=>{if(askLeave()){setTimeMode('calendar');setListEdits({});setDirty(false);}}}>{t('Oylik kalendar')}</button><button className={`btn ${timeMode==='grid'?'primary':''}`} onClick={()=>{if(askLeave()){setTimeMode('grid');setListEdits({});setDirty(false);setDays(doc.attendance[selected]||{});}}}>{t('Oylik jadval')}</button></div>
         {timeMode==='grid'&&<HrMonthGrid employees={eligible} doc={doc} month={month} onPick={id=>{setSelected(id);setTimeMode('calendar');}}/>}
