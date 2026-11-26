@@ -422,7 +422,7 @@ function BrakView({ B, rep, period, setPeriod, from, to, data, notify, onChanged
   );
 }
 
-/** Mahsulot kartasi: 30 kunlik harakat, brakka chiqarish */
+/** Mahsulot kartasi: harakatlar (standart 30 kun, istalgan davr), brakka chiqarish */
 function ProductSheet({ product, end, onClose, notify, onChanged, onFix }) {
   const t = useT();
   const { canDay } = useUser();
@@ -430,12 +430,21 @@ function ProductSheet({ product, end, onClose, notify, onChanged, onFix }) {
   const [ev, setEv] = useState(null);
   const [form, setForm] = useState(null);
   const [busy, setBusy] = useState(false);
+  // Harakatlar davri: standart — oxirgi 30 kun; kalendar tugmasi bilan istalgan davr
+  const [range, setRange] = useState(null); // null = oxirgi 30 kun, aks holda [from, to]
+  const [pick, setPick] = useState(false);
+  const [from, to] = range || [shiftDate(today(), -29), today()];
   const load = useCallback(() => {
-    if (!product) return;
+    if (!product || from > to) return;
     setEv(null);
-    api(`/finished?from=${shiftDate(today(), -29)}&to=${today()}&productId=${product.id}`)
+    api(`/finished?from=${from}&to=${to}&productId=${product.id}`)
       .then((r) => setEv(r.events || []))
       .catch(() => setEv([]));
+  }, [product, from, to]);
+  useEffect(() => {
+    // Boshqa mahsulot ochilganda davr yana 30 kunga qaytadi
+    setRange(null);
+    setPick(false);
   }, [product]);
   useEffect(() => {
     const d = ref.current;
@@ -530,7 +539,24 @@ function ProductSheet({ product, end, onClose, notify, onChanged, onFix }) {
               </div>
             </form>
           )}
-          <h3>{t("Oxirgi 30 kun")}</h3>
+          <div className="ps-hist-head">
+            <h3>{range ? `${fmtDate(from)} — ${fmtDate(to)}` : t("Oxirgi 30 kun")}</h3>
+            <button type="button" className="icon-btn" aria-pressed={pick} aria-expanded={pick} onClick={() => setPick(!pick)} title={t("Davrni tanlash")} aria-label={t("Davrni tanlash")}>
+              <Icon name="calendar" size={18} />
+            </button>
+          </div>
+          {pick && (
+            <div className="ps-hist-range">
+              <input type="date" value={from} max={to} onChange={(e) => e.target.value && setRange([e.target.value, to])} aria-label={t("Dan")} />
+              <span className="muted">—</span>
+              <input type="date" value={to} min={from} max={today()} onChange={(e) => e.target.value && setRange([from, e.target.value])} aria-label={t("Gacha")} />
+              {range && (
+                <button type="button" className="chip" onClick={() => setRange(null)}>
+                  {t("30 kun")}
+                </button>
+              )}
+            </div>
+          )}
           {!ev ? (
             <div className="loading">{t("Yuklanmoqda…")}</div>
           ) : !ev.length ? (

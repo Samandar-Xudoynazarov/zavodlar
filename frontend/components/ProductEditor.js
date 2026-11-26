@@ -2,7 +2,7 @@
 import { tr } from "@/lib/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
-import { ROW_TYPES, applyScheme, calcMetalKg, costCard, expandNorms, fmt, fmtN, priceOf } from "@/lib/calc";
+import { ROW_TYPES, applyScheme, calcMetalKg, costCard, expandNorms, fmt, fmtN, normalizeCalc, priceOf } from "@/lib/calc";
 
 const clone = (x) => JSON.parse(JSON.stringify(x ?? null));
 const blankCalc = (tpl) => ({ items: [], metalKg: 0, prodRows: [], otherRows: [], margin: 20, vat: 12, ...(clone(tpl) || {}), ...(tpl ? { items: [] } : {}) });
@@ -87,7 +87,13 @@ export default function ProductEditor({ product, open, onClose, data, notify, on
       const raw = product ? data.rawProds?.get(product.id) || product : null;
       const p = raw ? clone(raw) : { code: "", name: "", group: "", norms: [], calc: { ...blankCalc(settings.calcTemplate), scheme: schemes[0]?.id || "" }, forms: "", cycleDays: 1 };
       if (!p.forms) p.forms = "";
-      if (!p.calc) p.calc = { ...blankCalc(settings.calcTemplate), scheme: schemes[0]?.id || "" };
+      // «PTO hisobini kutmoqda» mahsulotlarida calc = {} va ba'zi maydonlar bo'sh keladi — oyna yiqilmasligi uchun to'ldiramiz
+      p.calc = normalizeCalc(p.calc, settings.calcTemplate, schemes[0]?.id || "");
+      if (!Array.isArray(p.norms)) p.norms = [];
+      p.code = p.code ?? "";
+      p.name = p.name ?? "";
+      p.group = p.group ?? "";
+      if (p.cycleDays == null || p.cycleDays === "") p.cycleDays = 1;
       setD(p);
       setTab("norm");
       setFromScheme("");

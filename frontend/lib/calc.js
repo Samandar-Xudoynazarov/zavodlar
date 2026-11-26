@@ -217,6 +217,24 @@ export function costCard(product, mats) {
   return { items, V, kg, materials, prodRows, prodSS, otherRows, other, itogo, marginAmt, noVat, vatAmt, final, margin: +c.margin || 0, vat: +c.vat || 0 };
 }
 
+/**
+ * Tahrirlash oynasi uchun kalkulyatsiyani to'liq shaklga keltiradi.
+ * Shartnomadan «katalogga qo'shish» orqali yaratilgan mahsulotda (PTO hisobini kutmoqda) calc = {} bo'ladi —
+ * items/prodRows/otherRows massivlari yo'q. Bo'sh bo'lsa yangi mahsulotdek andozadan to'ldiriladi,
+ * qisman bo'lsa yetishmagan maydonlar standart qiymat bilan qo'shiladi.
+ */
+export function normalizeCalc(calc, template, defaultScheme = "") {
+  const c = calc && typeof calc === "object" && !Array.isArray(calc) ? calc : {};
+  const tpl = template && typeof template === "object" ? JSON.parse(JSON.stringify(template)) : {};
+  const empty = !Object.keys(c).length;
+  const base = { metalKg: 0, prodRows: [], otherRows: [], margin: 20, vat: 12, ...(empty ? tpl : {}), items: [] };
+  if (empty) base.scheme = defaultScheme || "";
+  const out = { ...base, ...c };
+  for (const k of ["items", "prodRows", "otherRows"]) if (!Array.isArray(out[k])) out[k] = base[k] || [];
+  for (const k of ["metalKg", "margin", "vat"]) if (out[k] == null) out[k] = base[k];
+  return out;
+}
+
 /** Kalkulyatsiyadagi metall og'irligi (Логистика метала uchun) — metall guruhidagi qatorlar */
 export function calcMetalKg(product, mats) {
   return (product?.calc?.items || []).reduce((s, l) => {

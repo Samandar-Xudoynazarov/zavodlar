@@ -153,6 +153,7 @@ export const RU_EXTRA = {
   "Maosh belgilanmagan": "Оклад не установлен",
   "Maosh belgilash": "Установить оклад",
   "Maosh tarixi": "История окладов",
+  "Yopish": "Закрыть",
   "Mas'ul": "Ответственный",
   "Mas'ul xodim": "Ответственный сотрудник",
   "Mas'ul xodim oy normasini tekshirib, hisob oyini ochadi.": "Ответственный сотрудник проверяет норму месяца и открывает расчётный месяц.",
@@ -488,6 +489,7 @@ export const RU_EXTRA = {
   "Masalan: 3 oy, 2 hafta yoki Sinovsiz. Muddat tugashidan 30 kun oldin «Muddatlar»da eslatma chiqadi.": "Например: 3 месяца, 2 недели или «Без испытания». За 30 дней до окончания появится напоминание в разделе «Сроки».",
   "Rag‘batlantirildi": "Поощрён(а)",
   "Ta’til qo‘shish": "Добавить отпуск",
+  "Davrni tanlash": "Выбрать период",
 };
 
 // Kirillcha: avtomatik o'girish noto'g'ri chiqadigan satrlar

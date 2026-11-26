@@ -20,3 +20,9 @@ button.pcard:hover,button.pcard:focus-visible{border-color:var(--accent)}
 .pcard.compact{gap:6px;padding:10px 12px}
 .pgrid.narrow{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
 @media (max-width:560px){.pgrid{grid-template-columns:1fr}}
+/* Mahsulot kartasidagi harakatlar davri (kalendar tugmasi) */
+.ps-hist-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ps-hist-head h3{margin:0}
+.ps-hist-head .icon-btn[aria-pressed="true"]{color:var(--accent)}
+.ps-hist-range{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 12px}
+.ps-hist-range input[type="date"]{flex:1 1 140px;min-width:0}

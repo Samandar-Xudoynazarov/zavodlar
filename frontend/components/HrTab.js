@@ -47,7 +47,8 @@ export default function HrTab({notify,openForm,initialView,onViewChange,company}
   const [layout,setLayoutState]=useState(()=>lsGet('hr.layout','cards')),[stateFilter,setStateFilter]=useState('active'),[printing,setPrinting]=useState(false);
   const setLayout=v=>{setLayoutState(v);lsSet('hr.layout',v);};
   const employeeAdmin=['admin','kadrlar'].includes(user?.role),headAdmin=user?.role==='admin'&&!user?.factoryId;
-  const [rates,setRates]=useState(null),[history,setHistory]=useState(null);
+  const [rates,setRates]=useState(null),[history,setHistory]=useState(null),[ratesOpen,setRatesOpen]=useState(false);
+  const ratesDialog=useRef(null);
   useEffect(()=>{if(initialView){setView(initialView);setDirty(false);setListEdits({});setDays(doc?.attendance?.[selected]||{});}},[initialView]);
   useEffect(()=>{setListDay(day=>Math.min(day,endOf(month)));},[month]);
   const request=useRef(0),ratesRequest=useRef(0);
@@ -69,6 +70,8 @@ export default function HrTab({notify,openForm,initialView,onViewChange,company}
     if(selected&&pay&&view==='employees') api(`/hr/rates/${selected}`).then(list=>{if(id===ratesRequest.current)setRates(list);}).catch(e=>{if(id===ratesRequest.current)notify(e.message);});
     return()=>{ratesRequest.current++;};
   },[selected,month,pay,view,notify]);
+  useEffect(()=>{const d=ratesDialog.current;if(ratesOpen&&d&&!d.open)d.showModal();},[ratesOpen,employee]);
+  useEffect(()=>{if(view!=='employees'||profileId)setRatesOpen(false);},[view,profileId]);
   const askLeave=()=>!dirty||confirmLeave(t("Saqlanmagan o'zgarishlar bor. Ularni tashlab ketasizmi?"));
   const run=async(fn)=>{if(busy)return;setBusy(true);setError('');try{await fn();}catch(e){setError(e.message);notify(e.message);}finally{setBusy(false);}};
   const refresh=()=>{if(askLeave())load();};
@@ -134,7 +137,7 @@ export default function HrTab({notify,openForm,initialView,onViewChange,company}
       {name:'holidays',label:'Dam olish sanalari (vergul bilan)',wide:true}
     ],onSubmit:async v=>{await api(`/hr/months/${month}/settings`,{method:'PUT',body:{...v,version:doc.version,workDays:v.workDays.split(',').map(x=>Number(x.trim())),holidays:v.holidays.split(',').map(x=>x.trim()).filter(Boolean)}});await load();notify('Saqlandi');}});
   }
-  function showRates(e) { choose(e.id); }
+  function showRates(e) { if(askLeave()){setSelected(e.id);setDirty(false);setRatesOpen(true);} }
   function rateForm(e,editing=null) {
     const latest=editing||rates?.[0];
     openForm({title:'Maosh belgilash',values:{effectiveDate:editing?editing.effectiveDate:latest?(e.hireDate>today()?e.hireDate:today()):e.hireDate,salary:latest?.salary||0,coefficient:latest?.coefficient??247500,grade:latest?.grade||''},fields:[
@@ -213,6 +216,7 @@ export default function HrTab({notify,openForm,initialView,onViewChange,company}
       {months.length>0&&<label>{t('Saqlangan oylar')}<select value={months.some(m=>m.month===month)?month:''} onChange={e=>{if(e.target.value&&e.target.value!==month&&askLeave()){setDoc(null);setLoading(true);setMonth(e.target.value);setDirty(false);}}}><option value="">{t('Tanlang')}</option>{months.map(m=><option key={m.month} value={m.month}>{m.month} · {t(MONTH_STATUS[m.status])}</option>)}</select></label>}
     </div>}
     {error&&<p role="alert" className="err">{t(error)}</p>}
+    {pay&&ratesOpen&&employee&&<dialog ref={ratesDialog} className="wide-dlg" onClose={()=>setRatesOpen(false)} onCancel={()=>setRatesOpen(false)}><div style={{padding:22,display:'grid',gap:14,maxHeight:'calc(100vh - 40px)',overflow:'auto'}}><div className="hr-heading"><h3>{t('Maosh tarixi')} · {show(employee.name)}</h3><div className="acts"><button className="btn primary" disabled={!rates} onClick={()=>rateForm(employee)}>{t('Maosh belgilash')}</button><button className="btn" onClick={()=>setRatesOpen(false)}>{t('Yopish')}</button></div></div><p className="hint">{t('Har bir maosh o‘z sanasidan amal qiladi. Tasdiqlangan davr o‘zgarmaydi.')}</p>{!rates?<div className="loading">{t("Ma'lumotlar yuklanmoqda…")}</div>:<><div className="tbl-wrap"><table><thead><tr>{['Amal qilish sanasi','Lavozim maoshi','Koeffitsiyent haqi','Razryad','Sabab','Amallar'].map(x=><th key={x}>{t(x)}</th>)}</tr></thead><tbody>{rates.map(r=><tr key={r.id}><td>{r.effectiveDate}</td><td>{fmtN(r.salary,2)}</td><td>{fmtN(r.coefficient,2)}</td><td>{r.grade}</td><td>{r.reason}</td><td><button className="btn sm" disabled={months.some(m=>m.status!=='draft'&&m.month>=r.effectiveDate.slice(0,7))} onClick={()=>rateForm(employee,r)}>{t('Tahrirlash')}</button></td></tr>)}</tbody></table></div>{!rates.length&&<p>{t('Maosh belgilanmagan')}</p>}</>}</div></dialog>}
     {printing&&doc&&<HrTimesheetPrint employees={eligible} doc={doc} month={month} company={company} onClose={()=>setPrinting(false)}/>}
     {loading?<div className="loading">{t("Ma'lumotlar yuklanmoqda…")}</div>:<div role="tabpanel" id="hr-panel" aria-label={t(tabs.find(([id])=>id===view)?.[1]||'Kadrlar bo‘limi')}>
       {view==='employees'&&<>
@@ -237,7 +241,6 @@ export default function HrTab({notify,openForm,initialView,onViewChange,company}
         :<div className="tbl-wrap"><table><thead><tr>{['Tabel raqami','F.I.Sh.','Lavozim','Sex / bo‘lim','Ishga kirish sanasi','Holat','Amallar'].map(x=><th key={x}>{t(x)}</th>)}</tr></thead><tbody>{visible.map(e=><tr key={e.id}><td>{e.code}</td><td><strong>{show(e.name)}</strong>{manage&&e.phone&&<div className="hint">{e.phone}</div>}</td><td>{show(e.position)}</td><td>{show(e.department)}</td><td>{e.hireDate}</td><td><span className={`hr-state ${ended(e)?'personnel-inactive':'personnel-active'}`}>{t(!e.hireDate?'Ma’lumotlar to‘ldirilmagan':ended(e)?'Ishdan chiqqan':'Faol')}</span></td><td className="hr-no-print"><div className="acts">{canProfile&&<button className="btn sm primary" onClick={()=>setProfileId(e.id)}>{t('Ko‘rish')}</button>}{manage&&<button className="btn sm" onClick={()=>employeeForm(e)}>{t('Tahrirlash')}</button>}<button className="btn sm" onClick={()=>{choose(e.id);changeView('time');}}>{t('Tabel')}</button>{pay&&<button className="btn sm" onClick={()=>showRates(e)}>{t('Maosh tarixi')}</button>}</div></td></tr>)}</tbody></table></div>}
         {!visible.length&&<div className="empty">{t('Xodimlar hali kiritilmagan')}</div>}
         {manage&&employee&&<div className="hr-card"><h3>{show(employee.name)}</h3><p>{show(employee.position)} · {show(employee.department)}</p><p className="hint">{employee.notes}</p>{employee.endDate&&<p>{t('Oxirgi ish kuni')}: {employee.endDate}</p>}</div>}
-        {pay&&rates&&employee&&<div className="hr-card"><div className="hr-heading"><h3>{t('Maosh tarixi')} · {show(employee.name)}</h3><button className="btn primary" onClick={()=>rateForm(employee)}>{t('Maosh belgilash')}</button></div><p className="hint">{t('Har bir maosh o‘z sanasidan amal qiladi. Tasdiqlangan davr o‘zgarmaydi.')}</p><div className="tbl-wrap"><table><thead><tr>{['Amal qilish sanasi','Lavozim maoshi','Koeffitsiyent haqi','Razryad','Sabab','Amallar'].map(x=><th key={x}>{t(x)}</th>)}</tr></thead><tbody>{rates.map(r=><tr key={r.id}><td>{r.effectiveDate}</td><td>{fmtN(r.salary,2)}</td><td>{fmtN(r.coefficient,2)}</td><td>{r.grade}</td><td>{r.reason}</td><td><button className="btn sm" disabled={months.some(m=>m.status!=='draft'&&m.month>=r.effectiveDate.slice(0,7))} onClick={()=>rateForm(employee,r)}>{t('Tahrirlash')}</button></td></tr>)}</tbody></table></div>{!rates.length&&<p>{t('Maosh belgilanmagan')}</p>}</div>}
       </>}
       {view!=='employees'&&!doc&&!error&&<div className="empty"><h3>{t('Bu oy hali ochilmagan')}</h3><p>{t('Mas’ul xodim oy normasini tekshirib, hisob oyini ochadi.')}</p></div>}
       {doc&&view==='time'&&<>
