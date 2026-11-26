@@ -1,0 +1,206 @@
+/* Kadrlar bo'limi — kartochkali ko'rinish (2026-11). Ranglar ilovaning umumiy o'zgaruvchilaridan. */
+
+/* ---------- guruhlangan menyu ---------- */
+.hrx-nav{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 18px}
+.hrx-nav>.hrx-group{flex:1 1 auto}
+.hrx-group{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 10px;box-shadow:var(--shadow)}
+.hrx-group>span{display:block;font-size:11.5px;font-weight:600;color:var(--ink-3);margin:2px 0 6px 4px}
+.hrx-group>div{display:flex;flex-wrap:wrap;gap:4px}
+.hrx-group button{font:inherit;font-size:13.5px;border:0;background:transparent;color:var(--ink-2);padding:7px 11px;border-radius:8px;cursor:pointer;min-height:36px}
+.hrx-group button:hover{background:var(--paper)}
+.hrx-group button[aria-current=page]{background:var(--accent-soft);color:var(--accent);font-weight:700}
+.hrx-group button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.hrx-navfoot{display:flex;justify-content:flex-end;margin:-8px 0 14px}
+
+/* ---------- umumiy kartochkalar ---------- */
+.hrx-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow);min-width:0}
+.hrx-card>h3{font-size:15px;margin:0 0 12px}
+.hrx-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.hrx-kpi span{font-size:12.5px;color:var(--ink-2)}
+.hrx-kpi strong{display:block;font-size:clamp(22px,2.6vw,28px);line-height:1.2;margin:4px 0 2px;font-variant-numeric:tabular-nums}
+.hrx-kpi small{font-size:12px;color:var(--ink-3)}
+.hrx-kpi.warn strong{color:var(--signal)}.hrx-kpi.bad strong{color:var(--bad)}.hrx-kpi.ok strong{color:var(--ok)}
+button.hrx-kpi{font:inherit;text-align:left;cursor:pointer;color:inherit}
+button.hrx-kpi:hover{border-color:var(--accent)}
+.hrx-two{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px;margin-bottom:14px}
+.hrx-even{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:14px}
+.hrx-rows{display:grid;gap:10px}
+.hrx-row{display:grid;grid-template-columns:minmax(0,9em) minmax(0,1fr) auto;gap:10px;align-items:center;font-size:13.5px}
+.hrx-row>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hrx-row em{font-style:normal;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.hrx-bar{height:10px;border-radius:6px;background:var(--muted-soft);overflow:hidden}
+.hrx-bar>b{display:block;height:100%;border-radius:6px;background:var(--s1)}
+.hrx-bar.ok>b{background:var(--s3)}.hrx-bar.warn>b{background:var(--s4)}.hrx-bar.bad>b{background:var(--bad)}
+.hrx-big{font-size:34px;font-weight:700;line-height:1.1;margin:0;font-variant-numeric:tabular-nums}
+.hrx-todo{display:grid;gap:8px}
+.hrx-item{display:flex;gap:10px;align-items:center;padding:9px 11px;border-radius:10px;background:var(--paper);border-left:4px solid var(--line)}
+.hrx-item.bad{border-left-color:var(--bad)}.hrx-item.warn{border-left-color:var(--s4)}.hrx-item.info{border-left-color:var(--accent)}
+.hrx-item>div{flex:1;min-width:0}.hrx-item b{display:block;font-size:13.5px}.hrx-item small{display:block;color:var(--ink-3);font-size:12px}
+.hrx-pill{display:inline-block;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap;background:var(--muted-soft);color:var(--ink-2)}
+.hrx-pill.ok{background:var(--ok-soft);color:var(--ok)}.hrx-pill.bad{background:var(--bad-soft);color:var(--bad)}
+.hrx-pill.warn{background:var(--signal-soft);color:var(--signal)}.hrx-pill.info{background:var(--accent-soft);color:var(--accent)}
+.hrx-empty{color:var(--ink-3);font-size:13px;margin:6px 0}
+.hrx-legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12.5px;color:var(--ink-2);margin:8px 0 0}
+.hrx-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.hrx-log{list-style:none;margin:0;padding:0;display:grid;gap:8px;font-size:13px}
+.hrx-log li{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line-2);padding-bottom:6px}
+.hrx-log small{color:var(--ink-3);white-space:nowrap}
+
+/* ---------- xodim kartochkalari ---------- */
+.hrx-people{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin:4px 0 14px}
+.hrx-person{position:relative;display:flex;flex-direction:column;gap:10px;transition:box-shadow .15s,transform .15s}
+.hrx-person.click{cursor:pointer}
+.hrx-person.click:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(16,24,40,.1)}
+.hrx-person.ended{opacity:.7}
+.hrx-person:hover,.hrx-person:focus-within{z-index:2}
+.hrx-person:has(.hrx-more[open]){z-index:30}
+.hrx-ptop{display:flex;gap:11px;align-items:center;min-width:0}
+.hrx-ptop>div{min-width:0;flex:1}
+.hrx-ptop b{display:block;line-height:1.25;overflow-wrap:anywhere}
+.hrx-ptop small{color:var(--ink-3);font-size:12.5px}
+.hrx-av{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:700;color:#fff;flex:none;font-size:15px}
+.hrx-pmeta{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-2)}
+.hrx-pmeta>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hrx-more{position:relative}
+.hrx-more>summary{list-style:none;width:34px;height:34px;border-radius:8px;display:grid;place-items:center;cursor:pointer;color:var(--ink-3);font-size:20px;line-height:1}
+.hrx-more>summary::-webkit-details-marker{display:none}
+.hrx-more>summary:hover{background:var(--paper)}
+.hrx-more[open]>summary{background:var(--paper)}
+.hrx-menu{position:absolute;right:0;top:38px;z-index:20;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-lg);padding:6px;display:grid;min-width:190px}
+.hrx-menu button{font:inherit;font-size:13.5px;text-align:left;border:0;background:transparent;color:var(--ink);padding:9px 10px;border-radius:7px;cursor:pointer}
+.hrx-menu button:hover{background:var(--paper)}
+.hrx-menu button.danger{color:var(--bad)}
+.hrx-chips{display:flex;flex-wrap:wrap;gap:6px}
+.hrx-chip{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--ink-2);border-radius:20px;padding:5px 12px;cursor:pointer;min-height:32px}
+.hrx-chip[aria-pressed=true]{background:var(--ink);border-color:var(--ink);color:var(--panel)}
+.hrx-settings{margin:4px 0 14px}
+.hrx-settings>summary{cursor:pointer;font-weight:600;color:var(--ink-2);padding:6px 0}
+
+/* ---------- tabel: oylik rangli jadval ---------- */
+.hrx-grid{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.hrx-grid table{border-collapse:collapse;font-size:12px;width:max-content;min-width:100%}
+.hrx-grid th,.hrx-grid td{padding:0;text-align:center;border-bottom:1px solid var(--line-2)}
+.hrx-grid th{font-weight:600;color:var(--ink-3);padding:6px 0;font-size:11px;line-height:1.2}
+.hrx-grid th.nm,.hrx-grid td.nm{text-align:left;padding:5px 10px;position:sticky;left:0;background:var(--panel);min-width:160px;max-width:220px;z-index:1}
+.hrx-grid td.nm small{display:block;color:var(--ink-3)}
+.hrx-grid tr.grp td{background:var(--paper);font-weight:700;text-align:left;padding:6px 10px;color:var(--ink-2)}
+.hrx-grid .wk{background:var(--paper)}
+.hrx-grid td.tot{font-weight:700;padding:0 10px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hrx-cell{width:24px;height:24px;margin:2px auto;border-radius:6px;display:grid;place-items:center;font-weight:600;font-variant-numeric:tabular-nums;border:0;font:inherit;font-size:11.5px;cursor:pointer;padding:0}
+.hrx-cell.work{background:var(--accent-soft);color:var(--accent)}
+.hrx-cell.trip{background:#7c5cd6;color:#fff}.hrx-cell.leave{background:var(--s3);color:#fff}
+.hrx-cell.sick{background:var(--s4);color:#1b1300}.hrx-cell.absent{background:var(--s2);color:#fff}
+.hrx-cell.off{background:transparent;color:var(--ink-3)}.hrx-cell.none{background:transparent;border:1px dashed var(--line)}
+.hrx-cell.out{background:transparent;cursor:default}
+.hrx-cell:focus-visible{outline:2px solid var(--accent)}
+
+/* ---------- chop etiladigan tabel varag'i ---------- */
+.hrx-print-wrap{position:fixed;inset:0;z-index:200;background:rgba(15,23,42,.5);overflow:auto;padding:20px}
+.hrx-print-bar{max-width:1200px;margin:0 auto 10px;display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.hrx-print-bar strong{margin-right:auto;color:#fff}
+.hrx-sheet{max-width:1200px;margin:0 auto;background:#fff;color:#111;padding:18px 20px;border-radius:6px;font-family:Arial,sans-serif;overflow-x:auto}
+.hrx-sheet .head{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;margin-bottom:8px}
+.hrx-sheet h2{font-size:15px;margin:0 0 6px;color:#111}
+.hrx-sheet p{margin:2px 0;font-size:10.5px;color:#222}
+.hrx-sheet .rules{max-width:640px}
+.hrx-sheet table{width:100%;border-collapse:collapse;min-width:980px}
+.hrx-sheet th,.hrx-sheet td{border:1px solid #9aa3ad;padding:2px 2px;text-align:center;font-size:10px;color:#111}
+.hrx-sheet th{font-weight:700;background:#fff}
+.hrx-sheet td.l{text-align:left;white-space:nowrap;padding:2px 4px}
+.hrx-sheet .w{background:#e8e8e8}
+.hrx-sheet tr.g td{background:#f6d36b;font-weight:700;text-align:left;padding:3px 5px}
+.hrx-sheet td.x{color:#d00;font-weight:700}
+.hrx-sheet tr.tot td{font-weight:700;border-top:2px solid #333}
+.hrx-sheet .signs{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:22px;font-size:11px;break-inside:avoid}
+.hrx-sheet .sg p{font-size:11px;text-align:left}
+.hrx-sheet .sg input{font:inherit;font-size:11px;border:0;border-bottom:1px dotted #999;width:100%;max-width:340px;padding:2px 0;color:#111;background:transparent}
+.hrx-sheet .ln{display:flex;gap:8px;align-items:flex-end;margin-top:12px}
+.hrx-sheet .ln span{flex:1;border-bottom:1px solid #111;height:18px}
+.hrx-sheet .ln em{font-style:normal;font-size:9.5px;color:#555;width:34px}
+.hrx-sheet .sgrow{display:flex;gap:22px;align-items:flex-start}
+.hrx-sheet .seal{width:92px;height:92px;border:1.5px dashed #888;border-radius:50%;display:grid;place-items:center;text-align:center;font-size:9px;color:#666;margin-top:10px;line-height:1.3;flex:none}
+@page hrxland{size:A4 landscape;margin:8mm}
+@media print{
+  body.hrx-printing>*:not(.hrx-print-wrap){display:none!important}
+  body.hrx-printing .hrx-print-wrap{position:static;inset:auto;background:#fff;padding:0;overflow:visible}
+  .hrx-print-bar{display:none!important}
+  .hrx-sheet{page:hrxland;max-width:none;padding:0;border-radius:0;overflow:visible}
+  .hrx-sheet table{min-width:0}
+  .hrx-sheet tr{break-inside:avoid}
+  .hrx-sheet .sg input{border:0}
+  .hrx-sheet .sg input::placeholder{color:transparent}
+}
+
+/* ---------- tabel arxivi ---------- */
+.hrx-years{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0 12px}
+.hrx-year{font:inherit;text-align:left;cursor:pointer;min-width:170px;color:inherit}
+.hrx-year[aria-pressed=true]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.hrx-year b{font-size:19px;display:block}.hrx-year small{color:var(--ink-2);font-size:12.5px}
+.hrx-year .hrx-bar{margin-top:6px;height:6px}
+.hrx-months{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.hrx-month{display:flex;flex-direction:column;gap:8px;min-height:140px}
+.hrx-month .mh{display:flex;justify-content:space-between;align-items:center;gap:8px}.hrx-month .mh b{font-size:16px}
+.hrx-month.miss{border:2px dashed var(--bad-soft);box-shadow:none;background:transparent}
+.hrx-month.fut{opacity:.5;box-shadow:none;background:transparent;border-style:dashed}
+.hrx-month.app{border-color:var(--accent)}
+.hrx-file{font:inherit;display:flex;gap:10px;align-items:center;padding:7px 9px;border-radius:9px;background:var(--paper);border:1px solid var(--line);cursor:pointer;text-align:left;width:100%;color:inherit}
+.hrx-file:hover{border-color:var(--accent)}
+.hrx-file>span{flex:1;min-width:0;font-size:13px;line-height:1.3;overflow-wrap:anywhere}
+.hrx-file small{display:block;color:var(--ink-3);font-size:11.5px}
+.hrx-pdf{width:28px;height:34px;border-radius:4px;background:var(--bad-soft);color:var(--bad);font-size:9.5px;font-weight:800;display:grid;place-items:center;flex:none}
+.hrx-drop{font:inherit;border:2px dashed var(--line);border-radius:10px;padding:12px;text-align:center;color:var(--ink-3);font-size:12.5px;cursor:pointer;margin-top:auto;background:transparent;width:100%}
+.hrx-drop:hover,.hrx-drop.over{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.hrx-modal{position:fixed;inset:0;z-index:150;background:rgba(15,23,42,.5);display:grid;place-items:center;padding:16px}
+.hrx-modal>div{width:min(1000px,100%);height:min(88vh,900px);display:flex;flex-direction:column;gap:10px}
+.hrx-modal .mh{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.hrx-modal iframe{flex:1;width:100%;border:1px solid var(--line);border-radius:8px;background:#fff}
+.hrx-upload{display:grid;gap:10px;max-width:520px}
+.hrx-upload label{display:grid;gap:4px;font-size:13px;color:var(--ink-2)}
+
+/* ---------- xodim kabineti ---------- */
+.hrx-khead{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:16px;align-items:center;margin:10px 0 12px}
+.hrx-khead .hrx-av{width:72px;height:72px;font-size:24px}
+.hrx-khead h2{font-size:24px;margin:0 0 3px;line-height:1.2}
+.hrx-khead p{margin:0;color:var(--ink-2)}
+.hrx-khead .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.hrx-kacts{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;align-items:center}
+.hrx-tl{list-style:none;margin:0;padding:0 0 0 18px;border-left:2px solid var(--line);display:grid;gap:13px}
+.hrx-tl li{position:relative;font-size:13.5px}
+.hrx-tl li::before{content:"";position:absolute;left:-25px;top:4px;width:12px;height:12px;border-radius:50%;background:var(--accent);border:2px solid var(--panel)}
+.hrx-tl li.ok::before{background:var(--s3)}.hrx-tl li.warn::before{background:var(--s4)}.hrx-tl li.bad::before{background:var(--bad)}
+.hrx-tl small{display:block;color:var(--ink-3);font-size:12px}
+.hrx-ring{display:flex;gap:16px;align-items:center}
+.hrx-ring svg{width:104px;height:104px;flex:none}
+.hrx-cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;max-width:380px}
+.hrx-cal>span{text-align:center;font-size:11px;color:var(--ink-3)}
+.hrx-cal .hrx-cell{width:auto;height:auto;aspect-ratio:1;margin:0;cursor:default}
+.hrx-heat{display:grid;grid-template-columns:auto repeat(31,minmax(0,1fr));gap:2px;font-size:10.5px;color:var(--ink-3);align-items:center}
+.hrx-heat i{display:block;aspect-ratio:1;border-radius:3px}
+.hrx-heat i.work{background:var(--accent-soft)}.hrx-heat i.trip{background:#7c5cd6}.hrx-heat i.leave{background:var(--s3)}
+.hrx-heat i.sick{background:var(--s4)}.hrx-heat i.absent{background:var(--s2)}.hrx-heat i.none{border:1px dashed var(--line-2)}
+.hrx-heat>span:first-child,.hrx-heat .mlabel{padding-right:6px;white-space:nowrap}
+.hrx-lock{display:flex;gap:10px;align-items:center;color:var(--ink-2);font-size:13.5px}
+.hrx-lock svg{flex:none}
+
+/* ---------- shtat va muddatlar ---------- */
+.hrx-depts{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px;margin:6px 0 14px}
+.hrx-dept .top{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.hrx-dept .num{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;margin:6px 0}.hrx-dept .num small{font-size:15px;color:var(--ink-3);font-weight:500}
+.hrx-dept ul{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:4px;font-size:13px}
+.hrx-dept li{display:flex;justify-content:space-between;gap:8px;align-items:center;color:var(--ink-2);min-height:30px}
+.hrx-dept li>span:first-child{min-width:0;overflow-wrap:anywhere}
+.hrx-dept li .acts{display:flex;gap:4px;flex:none;align-items:center}
+.hrx-dues{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin:6px 0 14px}
+.hrx-due{border-top:4px solid var(--line)}.hrx-due.bad{border-top-color:var(--bad)}.hrx-due.warn{border-top-color:var(--s4)}
+.hrx-due b{display:block;margin:8px 0 2px}.hrx-due small{color:var(--ink-3)}
+
+@media(max-width:1000px){.hrx-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.hrx-two,.hrx-even{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:700px){.hrx-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.hrx-khead{grid-template-columns:auto minmax(0,1fr)}.hrx-kacts{grid-column:1/-1;justify-content:flex-start}.hrx-khead h2{font-size:20px}}
+@media(prefers-reduced-motion:reduce){.hrx-person{transition:none}}
+
+/* ---------- yillik ta'tillar jadvali: oylar bo'yicha ustunlar ---------- */
+.hrx-mbars{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;height:120px;align-items:stretch}
+.hrx-mbars>div{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;min-width:0}
+.hrx-mbars b{display:block;width:100%;max-width:36px;background:var(--s3);border-radius:5px 5px 2px 2px;min-height:2px}
+.hrx-mbars em{font-style:normal;font-size:11.5px;font-weight:700;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.hrx-mbars span{font-size:11px;color:var(--ink-3)}

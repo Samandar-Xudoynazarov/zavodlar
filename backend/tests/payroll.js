@@ -100,7 +100,7 @@ try {
   const profile={...e,endDate:'2026-11-30',phone:'998'};await ok('/hr/employees/'+e.id,'PUT',profile,users.kadrlar);
   const safeEmployee=(await ok('/hr/employees','GET',undefined,users.usta))[0];assert.ok(!('phone' in safeEmployee));
   const backup=await ok('/backup');assert.equal(backup.data.hr_employees.length,1);assert.equal(backup.data.hr_payments.length,2);assert.ok(backup.data.hr_events.length>0);
-  assert.equal((await call('/hr/events','GET',undefined,users.kadrlar)).status,403);
+  const hrEvents=await call('/hr/events','GET',undefined,users.kadrlar);assert.equal(hrEvents.status,200);assert.ok(hrEvents.body.every(e=>!/^(rate|payroll|payment)\./.test(e.action)&&!('detail' in e)));
   const folder=fs.mkdtempSync(path.join(os.tmpdir(),'payroll-restore-'));
   try {
     const file=path.join(folder,'test-backup.json');fs.writeFileSync(file,JSON.stringify(backup));

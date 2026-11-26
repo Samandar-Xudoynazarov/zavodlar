@@ -2,6 +2,7 @@ import { toCyr } from './i18n';
 import { deliverPdf } from './plan-pdf';
 import { personnelDefinition } from './hr-document-definitions';
 import { centerDefinition } from './hr-center-pdf';
+import { recordOrderDefinition, leaveScheduleDefinition, recordOrderKind } from './hr-record-orders';
 import { api } from './api';
 let engine;
 async function pdfEngine(){
@@ -32,3 +33,13 @@ export async function centerPdfBlob(options){
  const pdf=await pdfEngine();return new Promise((resolve,reject)=>{try{pdf.createPdf(centerDefinition(options),undefined,pdf.fonts,pdf.vfs).getBlob(resolve);}catch(e){reject(e);}});
 }
 export async function downloadCenterPdf(options){return deliverPdf(await centerPdfBlob(options),`${options.kind}_${String(options.employee.code).replace(/[^\p{L}\p{N}_-]/gu,'_')}.pdf`);}
+const makeBlob=async definition=>{const pdf=await pdfEngine();return new Promise((resolve,reject)=>{try{pdf.createPdf(definition,undefined,pdf.fonts,pdf.vfs).getBlob(resolve);}catch(e){reject(e);}});};
+const safe=s=>String(s||'').replace(/[^\p{L}\p{N}_-]/gu,'_');
+// Ta'til, rag'batlantirish va intizomiy jazo buyrug'i (kadrlar yozuvidan)
+export async function downloadRecordOrderPdf({record,employee,employer}){
+ const blob=await makeBlob(recordOrderDefinition({record,employee,employer,cyr:toCyr}));
+ return deliverPdf(blob,`buyruq_${recordOrderKind(record)}_${safe(record.detail?.number||employee.code)}.pdf`);
+}
+export async function downloadLeaveSchedulePdf({year,rows,employer}){
+ return deliverPdf(await makeBlob(leaveScheduleDefinition({year,rows,employer,cyr:toCyr})),`tatillar_jadvali_${year}.pdf`);
+}

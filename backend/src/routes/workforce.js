@@ -38,8 +38,20 @@ function clean(b,e) {
  if(b.kind==='document'){
   if(!['contract','medical','safety','qualification','other'].includes(d.docType))throw new ValidationError('Hujjat turi noto‘g‘ri');detail.docType=d.docType;
  }
+ if(['leave','order'].includes(b.kind)&&d.orderDate){if(!validDate(d.orderDate))throw new ValidationError('Buyruq sanasi noto‘g‘ri');detail.orderDate=d.orderDate;}
  if(b.kind==='order'){
-  if(!['hire','transfer','salary','termination','other'].includes(d.orderType))throw new ValidationError('Buyruq turi noto‘g‘ri');detail.orderType=d.orderType;
+  if(!['hire','transfer','salary','termination','reward','penalty','other'].includes(d.orderType))throw new ValidationError('Buyruq turi noto‘g‘ri');detail.orderType=d.orderType;
+  if(d.orderType==='reward'){
+   if(!['gratitude','bonus','gift','honor','other'].includes(d.rewardType))throw new ValidationError('Rag‘batlantirish turi noto‘g‘ri');
+   detail.rewardType=d.rewardType;detail.basis=text(d.basis,500);if(!detail.basis)throw new ValidationError('Rag‘batlantirish asosini yozing');
+  }
+  if(d.orderType==='penalty'){
+   if(!['reprimand','fine','other'].includes(d.penaltyType))throw new ValidationError('Intizomiy jazo turi noto‘g‘ri');
+   if(!validDate(d.violationDate)||d.violationDate>b.startDate)throw new ValidationError('Qoidabuzarlik sanasi noto‘g‘ri');
+   if(!['received','refused'].includes(d.explanation))throw new ValidationError('Xodimning yozma tushuntirishi olinganini belgilang');
+   detail.penaltyType=d.penaltyType;detail.violationDate=d.violationDate;detail.explanation=d.explanation;
+   detail.basis=text(d.basis,500);if(!detail.basis)throw new ValidationError('Qoidabuzarlik mazmunini yozing');
+  }
  }
  if(b.kind==='equipment')detail.quantity=number(d.quantity,'Miqdor',.01,100000);
  return {kind:b.kind,title,startDate:b.startDate,endDate:b.endDate,detail};

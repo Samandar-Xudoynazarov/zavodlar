@@ -38,12 +38,23 @@ for(const method of ['post','put'])r[method]('/staff-positions'+(method==='put'?
  await audit(c,req,'staff.save',saved.id,{department,position,slots});return saved;
 })));
 r.delete('/staff-positions/:id',guard,async(req,res)=>res.json(await tx(async c=>{await lock(c,req.factoryId);if(!isId(req.params.id))throw new ValidationError('Shtat topilmadi');const d=await one('DELETE FROM hr_staff_positions WHERE factory_id=$1 AND id=$2 AND version=$3 RETURNING *',[req.factoryId,req.params.id,req.body?.version],c);if(!d)throw new ConflictError('Shtat o‘zgargan. Qayta yuklang');await audit(c,req,'staff.delete',d.id,{position:d.position});return {ok:true};})));
+export function trialEnd(start,trial){
+ if(!validDate(start))return '';const s=String(trial||'').toLowerCase();
+ const n=(re)=>{const m=s.match(re);return m?Number(m[1]):0;};
+ const months=n(/(\d+)\s*(?:oy|ой|мес|month)/),weeks=n(/(\d+)\s*(?:hafta|ҳафта|хафта|нед|week)/),days=n(/(\d+)\s*(?:kun|кун|дн|day)/);
+ if(!months&&!weeks&&!days)return '';
+ const [y,m,d]=start.split('-').map(Number),end=new Date(Date.UTC(y,m-1+months,d+weeks*7+days-1));
+ return end.toISOString().slice(0,10);
+}
 r.get('/reminders',async(req,res)=>{
  const day=today(),end=new Date(Date.parse(day)+30*86400000).toISOString().slice(0,10),items=[];
  const employees=await rows("SELECT id,code,name,profile FROM hr_employees WHERE factory_id=$1 AND (end_date='' OR end_date>$2)",[req.factoryId,day]),byId=new Map(employees.map(e=>[e.id,e]));
  const add=(id,e,title,date)=>{if(!validDate(date)||date>end)return;items.push({id,employeeId:e.id,name:e.name,code:e.code,title,date,days:Math.round((Date.parse(date)-Date.parse(day))/86400000)});};
  for(const e of employees)if(e.profile?.passportExpiry)add('passport:'+e.id,e,'Pasport / ID amal qilish muddati',e.profile.passportExpiry);
  for(const d of await rows("SELECT id,employee_id,title,end_date FROM hr_records WHERE factory_id=$1 AND kind IN ('document','equipment') AND status='approved'",[req.factoryId])){const e=byId.get(d.employeeId);if(e)add(d.id,e,d.title,d.endDate);}
- const contracts=await rows("SELECT DISTINCT ON (employee_id) id,employee_id,payload FROM hr_employment_docs WHERE factory_id=$1 AND kind='contract' AND status='issued' ORDER BY employee_id,effective_date DESC,created_at DESC",[req.factoryId]);for(const d of contracts){const e=byId.get(d.employeeId);if(e&&d.payload.terms?.termType==='fixed')add(d.id,e,'Mehnat shartnomasi muddati',d.payload.terms.endDate);}
+ const contracts=await rows("SELECT DISTINCT ON (employee_id) id,employee_id,payload,effective_date FROM hr_employment_docs WHERE factory_id=$1 AND kind='contract' AND status='issued' ORDER BY employee_id,effective_date DESC,created_at DESC",[req.factoryId]);for(const d of contracts){const e=byId.get(d.employeeId);if(e&&d.payload.terms?.termType==='fixed')add(d.id,e,'Mehnat shartnomasi muddati',d.payload.terms.endDate);}
+ // Sinov muddati: imzolangan shartnomadagi «Sinov sharti» (masalan, «3 oy») bo'yicha; ikki haftadan eski tugaganlari ko'rsatilmaydi
+ const recent=new Date(Date.parse(day)-14*86400000).toISOString().slice(0,10);
+ for(const d of contracts){const e=byId.get(d.employeeId),t=d.payload?.terms||{},end=e&&trialEnd(t.startDate||d.effectiveDate||e.hireDate,t.trial);if(end&&end>=recent)add('trial:'+d.id,e,'Sinov muddati tugaydi',end);}
  res.set('Cache-Control','no-store');res.json({today:day,items:items.sort((a,b)=>a.date.localeCompare(b.date)||a.name.localeCompare(b.name)),dueDays:30});
 });export default r;

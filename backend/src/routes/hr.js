@@ -115,7 +115,9 @@ r.delete('/departments/:id',guard(EMPLOYEE_ADMINS),write(async(c,req)=>{
  await c.query('DELETE FROM hr_departments WHERE factory_id=$1 AND id=$2',[req.factoryId,d.id]);
  await event(c,req,'department.delete',d.id,{name:d.name});return {ok:true};
 }));
-r.delete('/employees/:id',guard(EMPLOYEE_ADMINS),write(async(c,req)=>{
+// Butunlay o'chirish faqat bosh administrator (zavodga bog'lanmagan admin) uchun: xato kiritilgan kartochkani tozalash
+const headAdmin=(req,res,next)=>req.user.role==='admin'&&!req.user.factoryId?next():res.status(403).json({error:"Xodimni butunlay o‘chirishni faqat bosh administrator qiladi. Xato kiritilgan bo‘lsa, unga murojaat qiling"});
+r.delete('/employees/:id',headAdmin,write(async(c,req)=>{
  const e=await employee(c,req.factoryId,req.params.id);version(e,req.body||{});
  if(req.body.confirmName!==e.name)throw new ValidationError('Tasdiqlash uchun xodimning F.I.Sh.ini aynan kiriting');
  const months=await rows('SELECT * FROM hr_months WHERE factory_id=$1',[req.factoryId],c);
@@ -126,7 +128,6 @@ r.delete('/employees/:id',guard(EMPLOYEE_ADMINS),write(async(c,req)=>{
   if(!Object.hasOwn(m.attendance,e.id)&&!Object.hasOwn(m.adjustments,e.id))continue;
   await c.query('UPDATE hr_months SET attendance=attendance-$3,adjustments=adjustments-$3,version=version+1,updated_at=now() WHERE factory_id=$1 AND month=$2',[req.factoryId,m.month,e.id]);
  }
- await c.query('DELETE FROM hr_events WHERE factory_id=$1 AND entity_id=$2',[req.factoryId,e.id]);
  await c.query('DELETE FROM hr_employees WHERE factory_id=$1 AND id=$2',[req.factoryId,e.id]);
  await invalidateDrafts(c,req.factoryId);await event(c,req,'employee.delete',e.id,{code:e.code,name:e.name});return {ok:true};
 }));
@@ -205,6 +206,10 @@ r.post('/months/:month/approve',guard(PAY_ROLES),write(async(c,req)=>{
   if (!data.previousClosed) throw new ConflictError("Avval oldingi oyni yoping");
   if (!data.payroll.length) throw new ValidationError("Hisoblash uchun xodim yo'q");
   if (data.payroll.some(p=>p.missingRates.length)) throw new ValidationError("Ishlangan kunlar uchun maosh belgilanmagan");
+  // Shu oyda ishlagan, lekin tabelida birorta ham belgilangan kun yo'q xodim bo'lsa, oylik tasdiqlanmaydi
+  const employees=await rows('SELECT * FROM hr_employees WHERE factory_id=$1 ORDER BY '+EMPLOYEE_ORDER,[req.factoryId],c);
+  const empty=employees.filter(e=>inMonth(e,m.month)&&!Object.values(m.attendance[e.id]||{}).some(d=>d?.status));
+  if (empty.length) throw new ValidationError(`Tabeli bo‘sh xodimlar bor: ${empty.slice(0,5).map(e=>e.name).join(', ')}${empty.length>5?` va yana ${empty.length-5} kishi`:''}. Avval tabelni to‘ldiring`);
   await c.query("UPDATE hr_months SET status='approved',snapshot=$3,approved_by=$4 WHERE factory_id=$1 AND month=$2",[req.factoryId,m.month,JSON.stringify(data.payroll),actor(req)]);
   await event(c,req,'payroll.approve',m.month,{count:data.payroll.length});return {version:(await bump(c,req.factoryId,m.month)).version};
 }));
@@ -242,5 +247,20 @@ r.post('/months/:month/payments/:id/void',guard(PAY_ROLES),write(async(c,req)=>{
   if (!pay) throw new ConflictError("To'lov topilmadi yoki bekor qilingan");
   await event(c,req,'payment.void',pay.id,{reason});return {version:(await bump(c,req.factoryId,m.month)).version};
 }));
-r.get('/events',guard(PAY_ROLES),async(req,res)=>res.json(await rows('SELECT * FROM hr_events WHERE factory_id=$1 ORDER BY created_at DESC,id DESC LIMIT 200',[req.factoryId])));
+// Tasdiqlangan (hali yopilmagan) oyni xato topilganda qayta ochish: faqat admin va rahbar, sabab bilan.
+// Keyingi oy tasdiqlangan bo'lsa ochilmaydi — aks holda qarz zanjiri buziladi. To'lovlar saqlanib qoladi.
+r.post('/months/:month/reopen',guard(['admin','rahbar']),write(async(c,req)=>{
+  const m=await getMonth(c,req.factoryId,req.params.month);version(m,req.body||{});
+  if (m.status!=='approved') throw new ConflictError("Faqat tasdiqlangan va hali yopilmagan oy qayta ochiladi");
+  const reason=text(req.body.reason,300);if (!reason) throw new ValidationError("Qayta ochish sababini yozing");
+  if (await one("SELECT month FROM hr_months WHERE factory_id=$1 AND month>$2 AND status<>'draft' LIMIT 1",[req.factoryId,m.month],c)) throw new ConflictError("Keyingi oy tasdiqlangan. Avval o'sha oyni qayta oching");
+  await c.query("UPDATE hr_months SET status='draft',snapshot=NULL,approved_by=NULL WHERE factory_id=$1 AND month=$2",[req.factoryId,m.month]);
+  await event(c,req,'payroll.reopen',m.month,{reason,approvedBy:m.approvedBy});return {version:(await bump(c,req.factoryId,m.month)).version};
+}));
+// O'zgarishlar tarixi: oylik huquqi borlar hammasini ko'radi; kadrlar — pulsiz amallarni, summalarsiz.
+const MONEY_EVENT=/^(rate|payroll|payment)\./;
+r.get('/events',guard(HR_ROLES),async(req,res)=>{
+  const list=await rows('SELECT * FROM hr_events WHERE factory_id=$1 ORDER BY created_at DESC,id DESC LIMIT 200',[req.factoryId]);
+  res.json(PAY_ROLES.includes(req.user.role)?list:list.filter(e=>!MONEY_EVENT.test(e.action)&&e.action!=='month.settings').map(({detail,...e})=>e));
+});
 export default r;
