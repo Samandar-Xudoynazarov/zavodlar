@@ -70,7 +70,7 @@ export default function HrTab({notify,openForm,initialView,onViewChange,company}
     if(selected&&pay&&view==='employees') api(`/hr/rates/${selected}`).then(list=>{if(id===ratesRequest.current)setRates(list);}).catch(e=>{if(id===ratesRequest.current)notify(e.message);});
     return()=>{ratesRequest.current++;};
   },[selected,month,pay,view,notify]);
-  useEffect(()=>{const d=ratesDialog.current;if(ratesOpen&&d&&!d.open)d.showModal();},[ratesOpen,employee]);
+  useEffect(()=>{const d=ratesDialog.current;if(ratesOpen&&d&&!d.open)d.showModal();},[ratesOpen,selected,employees]);
   useEffect(()=>{if(view!=='employees'||profileId)setRatesOpen(false);},[view,profileId]);
   const askLeave=()=>!dirty||confirmLeave(t("Saqlanmagan o'zgarishlar bor. Ularni tashlab ketasizmi?"));
   const run=async(fn)=>{if(busy)return;setBusy(true);setError('');try{await fn();}catch(e){setError(e.message);notify(e.message);}finally{setBusy(false);}};
