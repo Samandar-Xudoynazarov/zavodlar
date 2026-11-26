@@ -5,7 +5,8 @@ export default function manifest() {
     short_name: "ПТО",
     description: "Temir-beton zavodi ПТО bo'limi: ishlab chiqarish, ombor, buyurtmalar, kalkulyatsiya",
     lang: "uz",
-    start_url: "/",
+    // "/" serverdagi nginx keshida eskirib qolishi mumkin; ilova keshlanmaydigan manzildan ochiladi.
+    start_url: "/?app=1",
     scope: "/",
     display: "standalone",
     orientation: "any",
