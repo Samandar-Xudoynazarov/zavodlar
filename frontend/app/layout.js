@@ -1,5 +1,9 @@
 import "./globals.css";
 
+// Sahifa HTML'i serverda (Engintron/nginx) va brauzerda keshlanmasin: har deploydan keyin yangi versiya darhol ochilsin.
+// force-dynamic bo'lganda Next.js "Cache-Control: private, no-cache, no-store" yuboradi. /_next/static fayllari baribir keshlanadi.
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Zavod ish stoli — ПТО va ombor",
   description: "Temir-beton zavodi: ishlab chiqarish hisoboti, ombor kirim-chiqimi, buyurtmalar, kalkulyatsiya",
