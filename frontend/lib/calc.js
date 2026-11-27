@@ -5,6 +5,7 @@ export const STATUSES = [
   ["jarayonda", "Jarayonda"],
   ["tayyor", "Tayyor"],
   ["topshirildi", "Topshirildi"],
+  ["bekor", "Bekor qilingan"], // ro'yxatdan yashiriladi, rejaga va omborga band qilinmaydi
 ];
 // brak sabablari (backend/src/models.js → BRAK_REASONS bilan bir xil kalitlar)
 export const BRAK_REASONS = [

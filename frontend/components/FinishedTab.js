@@ -65,7 +65,7 @@ export default function FinishedTab({ data, notify, version }) {
   const reserved = useMemo(() => {
     const m = new Map();
     for (const o of orders) {
-      if (o.status === "topshirildi") continue;
+      if (o.status === "topshirildi" || o.status === "bekor") continue;
       for (const it of o.items || []) if (it.left) m.set(it.productId, (m.get(it.productId) || 0) + it.left);
     }
     return m;

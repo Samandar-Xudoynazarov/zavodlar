@@ -143,7 +143,7 @@ export default function StockTab({ data, notify, reloadSettings, version }) {
   const need = useMemo(() => {
     const left = new Map();
     for (const o of orders) {
-      if (o.status === "topshirildi") continue;
+      if (o.status === "topshirildi" || o.status === "bekor") continue;
       for (const it of o.items || []) if (it.left) left.set(it.productId, (left.get(it.productId) || 0) + it.left);
     }
     const toMake = [];

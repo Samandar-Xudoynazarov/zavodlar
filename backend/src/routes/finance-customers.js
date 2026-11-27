@@ -1,7 +1,7 @@
 // Mijozlar bo'yicha hisob-kitob: qarz mijoz bo'yicha jamlanadi, boshlang'ich qoldiq, to'lovlar, akt sverka, to'lov muddati.
 // /api/finance/customers ostida ulanadi — faqat admin, rahbar va buxgalter (finance.js tekshiradi).
 import { Router } from 'express';
-import { one, rows, tx } from '../db.js';
+import { one, rows, tx, q } from '../db.js';
 import { isId, validDate, ValidationError, ConflictError } from '../valid.js';
 import { money, number, text, today } from '../payroll.js';
 import { actor } from '../dispatch.js';
@@ -9,6 +9,7 @@ import { financeLock } from '../finance-integrity.js';
 import { assertMonthOpen } from '../finance-period-lock.js';
 import { customerLedger, customerStatement, customerKey, customerName } from '../finance-customers.js';
 import { audit } from '../audit.js';
+import { canonicalCustomer, cleanCustomerName } from '../customer-name.js';
 
 const r = Router();
 export const receiptCols = 'id,order_id,invoice_id,customer,date,amount,method,doc_number,note,created_at,voided_at,void_reason';
@@ -66,7 +67,7 @@ export async function createReceipt(c, req, b, order = null) {
     order = await one('SELECT * FROM orders WHERE factory_id=$1 AND id=$2 FOR UPDATE', [f, b.orderId], c);
     if (!order) throw new ValidationError('Buyurtma topilmadi');
   }
-  const customer = customerName(order ? order.customer : b.customer);
+  const customer = order ? customerName(order.customer) : await canonicalCustomer(q, f, b.customer, c);
   if (!customer) throw new ValidationError('Mijozni tanlang');
   if (order && b.customer && customerKey(b.customer) !== customerKey(order.customer)) throw new ValidationError('Buyurtma boshqa mijozga tegishli');
   await assertMonthOpen(c, f, b.date);
@@ -109,12 +110,13 @@ r.post('/openings', edit('Mijozning boshlang‘ich qoldig‘i', async (c, req, b
   if (!isId(b.requestId)) throw new ValidationError('So‘rov raqami noto‘g‘ri');
   const old = await one('SELECT ' + openingCols + ' FROM finance_customer_openings WHERE factory_id=$1 AND request_id=$2', [req.factoryId, b.requestId], c);
   if (old) return { doc: old, repeat: true };
-  const customer = customerName(text(b.customer, 160));
+  const customer = await canonicalCustomer(q, req.factoryId, text(b.customer, 160), c);
   if (!customer) throw new ValidationError('Mijoz nomini kiriting');
   if (!['debt', 'advance'].includes(b.kind)) throw new ValidationError('Qoldiq turini tanlang: qarz yoki avans');
   if (!validDate(b.date) || b.date > today()) throw new ValidationError('Sana noto‘g‘ri');
   const amount = number(b.amount, 'Summa', 0.01, 1e12);
-  if (await one("SELECT id FROM finance_customer_openings WHERE factory_id=$1 AND lower(regexp_replace(btrim(customer), '\\s+', ' ', 'g'))=$2 AND voided_at IS NULL", [req.factoryId, customerKey(customer)], c))
+  const active = await rows('SELECT customer FROM finance_customer_openings WHERE factory_id=$1 AND voided_at IS NULL', [req.factoryId], c);
+  if (active.some((x) => customerKey(x.customer) === customerKey(customer)))
     throw new ConflictError('Bu mijoz uchun boshlang‘ich qoldiq allaqachon kiritilgan. O‘zgartirish uchun avvalgisini bekor qiling');
   await assertMonthOpen(c, req.factoryId, b.date);
   const doc = await one(`INSERT INTO finance_customer_openings(factory_id,request_id,customer,inn,date,kind,amount,note,created_by)
@@ -142,5 +144,45 @@ r.post('/invoices/:id/due-date', edit('Fakturaning to‘lov muddati', async (c, 
   if (due && (!validDate(due) || due < inv.date)) throw new ValidationError('To‘lov muddati faktura sanasidan oldin bo‘lmasin');
   return one('UPDATE finance_invoices SET due_date=$3 WHERE factory_id=$1 AND id=$2 RETURNING id,due_date', [req.factoryId, inv.id, due], c);
 }));
+
+/* ---------- Ikki mijozni birlashtirish ----------
+ * Bir mijoz turli yozilgan bo'lsa (masalan, ortiqcha tirnoq bilan), «from» mijozning buyurtmalari, to'lovlari,
+ * boshlang'ich qoldig'i va sotuv shartnomalari «to» mijoz nomiga o'tkaziladi. Summalar o'zgarmaydi.
+ */
+export async function mergeCustomers(c, f, fromName, toName) {
+  const fromKey = customerKey(fromName), toKey = customerKey(toName);
+  if (!fromKey || !toKey) throw new ValidationError('Ikkala mijozni tanlang');
+  if (fromKey === toKey) throw new ValidationError('Bir xil mijozni tanladingiz');
+  const pick = async (sql, col) => (await rows(sql, [f], c)).filter((x) => [fromKey, toKey].includes(customerKey(x[col])));
+  const orders = await pick('SELECT id,customer FROM orders WHERE factory_id=$1 FOR UPDATE', 'customer');
+  const receipts = await pick('SELECT id,customer FROM finance_receipts WHERE factory_id=$1 FOR UPDATE', 'customer');
+  const openings = await pick('SELECT id,customer,voided_at FROM finance_customer_openings WHERE factory_id=$1 FOR UPDATE', 'customer');
+  const contracts = await pick('SELECT id,counterparty,number,date FROM finance_contracts WHERE factory_id=$1 AND order_id IS NOT NULL FOR UPDATE', 'counterparty');
+  const side = (list, col, key) => list.filter((x) => customerKey(x[col]) === key);
+  if (!side(orders, 'customer', fromKey).length && !side(receipts, 'customer', fromKey).length && !side(openings, 'customer', fromKey).length)
+    throw new ValidationError('Birlashtiriladigan mijoz topilmadi');
+  if (!side(orders, 'customer', toKey).length && !side(receipts, 'customer', toKey).length && !side(openings, 'customer', toKey).length)
+    throw new ValidationError('Asosiy mijoz topilmadi');
+  const activeOpening = (key) => side(openings, 'customer', key).filter((x) => !x.voidedAt);
+  if (activeOpening(fromKey).length && activeOpening(toKey).length)
+    throw new ConflictError('Ikkala mijozda ham boshlang‘ich qoldiq bor. Avval birini bekor qiling, keyin birlashtiring');
+  const sameContract = (a, b) => a.number.toLowerCase() === b.number.toLowerCase() && a.date === b.date;
+  if (side(contracts, 'counterparty', fromKey).some((a) => side(contracts, 'counterparty', toKey).some((b) => sameContract(a, b))))
+    throw new ConflictError('Ikkala mijozda bir xil raqam va sanali shartnoma bor. Avval takroriy shartnomani tekshiring');
+  const target = await canonicalCustomer(q, f, toName, c);
+  const ids = (list, col) => side(list, col, fromKey).map((x) => x.id).concat(side(list, col, toKey).filter((x) => x[col] !== target).map((x) => x.id));
+  const moved = {};
+  const upd = async (name, table, col, list, extra = '') => {
+    const list2 = ids(list, col);
+    moved[name] = list2.length;
+    if (list2.length) await c.query(`UPDATE ${table} SET ${col}=$3${extra} WHERE factory_id=$1 AND id = ANY($2::uuid[])`, [f, list2, target]);
+  };
+  await upd('orders', 'orders', 'customer', orders, ', updated_at=now()');
+  await upd('receipts', 'finance_receipts', 'customer', receipts);
+  await upd('openings', 'finance_customer_openings', 'customer', openings);
+  await upd('contracts', 'finance_contracts', 'counterparty', contracts);
+  return { id: '', from: cleanCustomerName(fromName), to: target, moved };
+}
+r.post('/merge', edit('Mijozlar birlashtirildi', (c, req, b) => mergeCustomers(c, req.factoryId, text(b.from, 200), text(b.to, 200))));
 
 export default r;

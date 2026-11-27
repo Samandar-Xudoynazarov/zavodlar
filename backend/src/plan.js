@@ -18,7 +18,7 @@ export const dayDiff = (a, b) => Math.round((toUTC(b) - toUTC(a)) / DAY_MS); // 
 const weekday = (s) => new Date(toUTC(s)).getUTCDay(); // 0 = yakshanba
 
 export const DEFAULT_PLAN = { concretePerDay: 0, workDays: [1, 2, 3, 4, 5, 6], holidays: [] };
-const ACTIVE = (o) => o.status !== "tayyor" && o.status !== "topshirildi";
+const ACTIVE = (o) => o.status !== "tayyor" && o.status !== "topshirildi" && o.status !== "bekor"; // bekor qilingan buyurtma rejaga kirmaydi
 const HORIZON = 730; // kalendar kun — undan uzoqqa rejalashtirilmaydi
 const RISK_SLACK = 1; // muddatdan oldin shuncha ish kunidan kam zaxira qolsa — «xavf»
 

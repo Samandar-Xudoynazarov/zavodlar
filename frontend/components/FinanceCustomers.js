@@ -9,8 +9,13 @@ import { openPdf } from "@/lib/finance-files";
 import { exportSheets } from "@/lib/xlsx-export";
 import { InvoiceDialog, receiptForm } from "./FinanceOrders";
 import { money, short, STATUS, Tag, Pipe, Legend, ddmm, monthEndDate, shiftMonth, useLoad } from "./FinanceUi";
+import { ActUploadDialog, ActList } from "./ActUpload";
 
 const DOT = { shipment: "N", invoice: "F", receipt: "₮", opening: "Q" };
+// Buyurtmalar bo'limi: holat bo'yicha guruhlar (Tugallangan = tayyor + yakunlangan)
+const ORD_GROUPS = [["all", "Hammasi"], ["yangi", "Yangi"], ["jarayonda", "Jarayonda"], ["done", "Tugallangan"]];
+const ORD_STATUS = { yangi: ["Yangi", "mut"], jarayonda: ["Jarayonda", "sig"], tayyor: ["Tayyor", "ok"], topshirildi: ["Tugallangan", "ok"], bekor: ["Bekor qilingan", "mut"] };
+const ordGroup = (o) => (o.status === "tayyor" || o.status === "topshirildi" || o.status === "bekor" ? "done" : o.status === "jarayonda" ? "jarayonda" : "yangi");
 export const PICK_KEY = "fin.customer";
 
 /** /finance/orders dan buyurtma modeli (faktura oynasi uchun) */
@@ -25,6 +30,7 @@ export default function FinanceCustomers({ data, notify, openForm, navigate }) {
   const list = useLoad("/finance/customers");
   const [orders, setOrders] = useState(null);
   const [filter, setFilter] = useState("all"), [q, setQ] = useState(""), [sel, setSel] = useState(() => { try { const k = sessionStorage.getItem(PICK_KEY) || ""; sessionStorage.removeItem(PICK_KEY); return k; } catch { return ""; } });
+  const [ordFilter, setOrdFilter] = useState("all"), [ordSort, setOrdSort] = useState("new");
   const [tab, setTab] = useState("hist"), [invoiceOrder, setInvoiceOrder] = useState(null), [statement, setStatement] = useState(false), [busy, setBusy] = useState(false);
   const customers = list.data?.customers || [];
   const locks = new Set(list.data?.locks || []);
@@ -61,6 +67,19 @@ export default function FinanceCustomers({ data, notify, openForm, navigate }) {
     const path = e.type === "receipt" ? "/finance/customers/receipts/" + e.id + "/void" : e.type === "opening" ? "/finance/customers/openings/" + e.id + "/void" : "/finance/orders/" + e.orderId + "/invoices/" + e.id + "/void";
     openForm({ title: e.title + " · bekor qilish", fields: [{ name: "reason", label: "Bekor qilish sababi", req: true, wide: true }], onSubmit: async (v) => { await api(path, { method: "POST", body: v }); reload(); notify("Bekor qilindi"); } });
   }
+  function mergeInto() {
+    const others = customers.filter((x) => x.key !== c.key).sort((a, b) => a.name.localeCompare(b.name));
+    if (!others.length) return notify("Birlashtirish uchun boshqa mijoz yo‘q");
+    openForm({ title: "Mijozni birlashtirish · " + c.name, submitLabel: "Birlashtirish",
+      description: "Bir mijoz ikki xil yozilgan bo‘lsa, shu mijozning buyurtmalari, to‘lovlari, boshlang‘ich qoldig‘i va shartnomalari tanlangan mijozga o‘tkaziladi. Summalar o‘zgarmaydi. Bu mijoz ro‘yxatdan yo‘qoladi.",
+      values: { to: others[0].name }, fields: [{ name: "to", label: "Qaysi mijozga qo‘shilsin", type: "select", raw: true, wide: true, req: true, options: others.map((x) => [x.name, x.name + (x.inn ? " · STIR " + x.inn : "") + " · " + x.orders.length + " buyurtma"]) }],
+      onSubmit: async (v) => {
+        const res = await api("/finance/customers/merge", { method: "POST", body: { from: c.name, to: v.to } });
+        const target = others.find((x) => x.name === v.to);
+        if (target) setSel(target.key);
+        reload(); notify("Birlashtirildi: " + (res.moved?.orders || 0) + " buyurtma, " + (res.moved?.receipts || 0) + " to‘lov o‘tkazildi");
+      } });
+  }
   function dueDate(inv) {
     openForm({ title: "Faktura №" + inv.number + " · to‘lov muddati", values: { dueDate: inv.dueDate || inv.date }, fields: [{ name: "dueDate", label: "To‘lov muddati", type: "date", req: true, min: inv.date }],
       onSubmit: async (v) => { await api("/finance/customers/invoices/" + inv.id + "/due-date", { method: "POST", body: v }); reload(); notify("Muddat saqlandi"); } });
@@ -88,7 +107,7 @@ export default function FinanceCustomers({ data, notify, openForm, navigate }) {
             {!visible.length && <p className="fl-empty">Mijoz topilmadi.</p>}</div></div>
         {c ? <article className="fl-detail">
           <div className="fl-dh"><div><h3>{show(c.name)}</h3><small>{c.inn ? "STIR " + c.inn : "STIR kiritilmagan"}</small></div>
-            <div className="fl-acts"><button className="btn sm" onClick={() => setStatement(true)}>Akt sverka</button><button className="btn sm" onClick={addInvoice}>+ Faktura</button><button className="btn sm primary" onClick={addReceipt}>+ To‘lov</button></div></div>
+            <div className="fl-acts"><button className="btn sm" onClick={() => setStatement(true)}>Akt sverka</button><button className="btn sm" onClick={mergeInto} title="Bir mijoz ikki xil yozilgan bo‘lsa — bitta qilish">Birlashtirish</button><button className="btn sm" onClick={addInvoice}>+ Faktura</button><button className="btn sm primary" onClick={addReceipt}>+ To‘lov</button></div></div>
           <div className="fl-facts">
             <div className="fl-fact"><span>Boshlang‘ich qoldiq</span><b>{c.openingEntry ? money(c.opening) : <button className="linkbtn" onClick={() => addOpening(c)}>Kiritish</button>}</b></div>
             <div className="fl-fact"><span>Faktura (QQS bilan)</span><b>{money(c.invoiced)}</b></div>
@@ -112,24 +131,33 @@ export default function FinanceCustomers({ data, notify, openForm, navigate }) {
               <div className="l sub"><span>{i.remaining > 0 ? "Qoldiq " + money(i.remaining) : "To‘langan"}{i.dueDate ? " · muddat " + fmtDate(i.dueDate) : ""} {i.overdue && <Tag tone="bad">Muddati o‘tgan</Tag>}</span>
                 <span className="fl-acts"><button className="btn sm" onClick={() => dueDate(i)}>Muddat</button><button className="btn sm" onClick={() => openPdf("/finance/invoices/" + i.id + "/pdf", "Faktura_" + i.number + ".pdf").catch((e) => notify(e.message))}>PDF</button></span></div></div>)}</div>
             : <p className="fl-empty">Faktura yo‘q.</p>)
-          : <div className="fl-orders">{c.orders.map((o) => <div className="fl-ord" key={o.id}><div className="l"><b>Buyurtma №{o.no} · {o.contractNo || "Shartnomasiz"}</b><span className="fl-money">{money(o.total)}</span></div>
+          : <div className="fl-orders">
+            <div className="fl-ordbar">
+              <div className="fl-tabs" role="group" aria-label="Buyurtma holati">{ORD_GROUPS.map(([k, l]) => <button key={k} aria-pressed={ordFilter === k} onClick={() => setOrdFilter(k)}>{l} · {k === "all" ? c.orders.length : c.orders.filter((o) => ordGroup(o) === k).length}</button>)}</div>
+              <select aria-label="Tartib" value={ordSort} onChange={(e) => setOrdSort(e.target.value)}><option value="new">Yangilari avval</option><option value="old">Eskilari avval</option></select>
+            </div>
+            {c.orders.filter((o) => ordFilter === "all" || ordGroup(o) === ordFilter)
+              .sort((a, b) => ((a.date || "").localeCompare(b.date || "") || a.no - b.no) * (ordSort === "new" ? -1 : 1))
+              .map((o) => <div className="fl-ord" key={o.id}><div className="l"><b>Buyurtma №{o.no} · {o.contractNo || "Shartnomasiz"}{o.date ? " · " + fmtDate(o.date) : ""}</b><span className="fl-money">{money(o.total)}</span></div>
               <Pipe total={o.total} done={o.shipped} paid={o.paid} />
-              <div className="l sub"><span>Jo‘natildi {short(o.shipped)}</span><span>Faktura {short(o.invoiced)}</span><span>To‘landi {short(o.paid)}</span>{o.unpricedLines > 0 && <Tag tone="sig">Narx yo‘q</Tag>}</div></div>)}
-            {!c.orders.length && <p className="fl-empty">Buyurtma yo‘q (faqat boshlang‘ich qoldiq yoki to‘lov).</p>}</div>}
+              <div className="l sub"><span>Jo‘natildi {short(o.shipped)}</span><span>Faktura {short(o.invoiced)}</span><span>To‘landi {short(o.paid)}</span>{ORD_STATUS[o.status] && <Tag tone={ORD_STATUS[o.status][1]}>{ORD_STATUS[o.status][0]}</Tag>}{o.unpricedLines > 0 && <Tag tone="sig">Narx yo‘q</Tag>}</div></div>)}
+            {!c.orders.length ? <p className="fl-empty">Buyurtma yo‘q (faqat boshlang‘ich qoldiq yoki to‘lov).</p>
+              : !c.orders.some((o) => ordFilter === "all" || ordGroup(o) === ordFilter) && <p className="fl-empty">Bu holatda buyurtma yo‘q.</p>}</div>}
           <p className="fl-note">Qarz = boshlang‘ich qoldiq + fakturalar (QQS bilan) − to‘lovlar. Yopilgan oydagi hujjatlarni o‘zgartirib bo‘lmaydi.</p>
         </article> : <p className="fl-empty">Mijoz yo‘q. Buyurtma qo‘shing yoki boshlang‘ich qoldiq kiriting.</p>}
       </div></>}
     {invoiceOrder && <InvoiceDialog order={invoiceOrder} notify={notify} onClose={() => setInvoiceOrder(null)} onSaved={() => { setInvoiceOrder(null); reload(); }} />}
-    {statement && c && <StatementDialog customer={c} company={data.settings?.company} notify={notify} onClose={() => setStatement(false)} />}
+    {statement && c && <StatementDialog customer={c} company={data.settings?.company} notify={notify} onChanged={reload} onClose={() => setStatement(false)} />}
   </section>;
 }
 
 /** Akt sverka: istalgan davr (oy, chorak, yil yoki o'zingiz tanlagan sanalar) */
-export function StatementDialog({ customer, company, notify, onClose }) {
+export function StatementDialog({ customer, company, notify, onClose, onChanged }) {
   const ref = useRef(null);
   const m = today().slice(0, 7), y = m.slice(0, 4), qStart = y + "-" + String(Math.floor((+m.slice(5, 7) - 1) / 3) * 3 + 1).padStart(2, "0");
   const presets = [["Bu oy", m + "-01", today()], ["O‘tgan oy", shiftMonth(m, -1) + "-01", monthEndDate(shiftMonth(m, -1))], ["Shu chorak", qStart + "-01", today()], ["Shu yil", y + "-01-01", today()], ["O‘tgan yil", (+y - 1) + "-01-01", (+y - 1) + "-12-31"]];
   const [from, setFrom] = useState(m + "-01"), [to, setTo] = useState(today()), [st, setSt] = useState(null), [error, setError] = useState(""), [busy, setBusy] = useState(false);
+  const [upload, setUpload] = useState(false), [acts, setActs] = useState(0);
   useEffect(() => { ref.current?.showModal(); }, []);
   useEffect(() => {
     if (!from || !to || from > to) return;
@@ -150,7 +178,7 @@ export function StatementDialog({ customer, company, notify, onClose }) {
         notes: [(company || "Korxona") + " ____________________  M.O‘.", customer.name + " ____________________  M.O‘."] }] });
     } catch (e) { notify(e.message); } finally { setBusy(false); }
   }
-  return <dialog ref={ref} className="fl-dialog" onClose={onClose}><div className="fl-form">
+  return <><dialog ref={ref} className="fl-dialog" onClose={onClose}><div className="fl-form">
     <div><h3>Akt sverka</h3><p className="fl-note">{show(customer.name)}</p></div>
     <div className="fl-chips">{presets.map(([l, a, b]) => <button key={l} type="button" className="fl-chip" aria-pressed={from === a && to === b} onClick={() => { setFrom(a); setTo(b); }}><b>{l}</b></button>)}</div>
     <div className="fl-two"><label>Boshlanishi<input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} /></label><label>Oxiri<input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} /></label></div>
@@ -159,6 +187,10 @@ export function StatementDialog({ customer, company, notify, onClose }) {
       <div className="fl-fact"><span>Boshlang‘ich qoldiq</span><b>{bal(st.initial)}</b></div><div className="fl-fact"><span>Yakuniy qoldiq</span><b>{bal(st.closing)}</b></div>
       <div className="fl-fact"><span>Faktura (debet)</span><b>{money(st.debit)}</b></div><div className="fl-fact"><span>To‘lov (kredit)</span><b>{money(st.credit)}</b></div></div>}
     {st && <p className="fl-note">{st.entries.length} ta hujjat. Jo‘natmalar akt sverkaga kirmaydi, faqat faktura va to‘lovlar.</p>}
+    <ActList party="customer" counterparty={customer.name} notify={notify} version={acts} onUpload={() => setUpload(true)} />
     <div className="fl-acts" style={{ justifyContent: "flex-end" }}><button className="btn" onClick={() => ref.current.close()}>Yopish</button><button className="btn primary" disabled={!st || busy} onClick={download}>Excelga yuklash</button></div>
-  </div></dialog>;
+  </div></dialog>
+  {upload && <ActUploadDialog party="customer" counterparty={customer.name} hasOpening={!!customer.openingEntry} notify={notify}
+    onClose={() => { setUpload(false); onChanged?.(); }} onSaved={() => { setUpload(false); setActs((n) => n + 1); onChanged?.(); }} />}
+  </>;
 }

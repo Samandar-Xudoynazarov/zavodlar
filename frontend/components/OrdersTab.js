@@ -13,7 +13,8 @@ import OrderShipmentsDialog from "./OrderShipmentsDialog";
 import SalesMonthly from "./SalesMonthly";
 import { fileDate } from "@/lib/xlsx-export";
 
-const CLOSED = ["tayyor", "topshirildi"];
+const CLOSED = ["tayyor", "topshirildi", "bekor"];
+const CANCELLED = "bekor"; // bekor qilinganlar faqat o'z filtrida ko'rinadi
 const pct = (a, b) => (b ? Math.min(100, (a / b) * 100) : 0);
 
 /** Buyurtma qatori narxi: kiritilgan, bo'lmasa kalkulyatsiyadagi QQS bilan narx */
@@ -35,9 +36,11 @@ export default function OrdersTab({ data, notify, reload }) {
   const [edit, setEdit] = useState(null); // null — yopiq, {} — yangi, order — tahrirlash
 
   const counts = useMemo(() => {
-    const c = { faol: 0, hammasi: orders.length };
+    const c = { faol: 0, hammasi: 0 };
     for (const o of orders) {
       c[o.status] = (c[o.status] || 0) + 1;
+      if (o.status === CANCELLED) continue;
+      c.hammasi++;
       if (o.status !== "topshirildi") c.faol++;
     }
     return c;
@@ -45,7 +48,7 @@ export default function OrdersTab({ data, notify, reload }) {
 
   const s = q.trim().toLowerCase();
   const list = orders
-    .filter((o) => (filter === "hammasi" ? true : filter === "faol" ? o.status !== "topshirildi" : o.status === filter))
+    .filter((o) => (filter === "hammasi" ? o.status !== CANCELLED : filter === "faol" ? o.status !== "topshirildi" && o.status !== CANCELLED : o.status === filter))
     .filter((o) => !s || String(o.no) === s || matches([o.customer, o.contractNo], s) || o.items.some((it) => matches(byId.get(it.productId)?.code, s)))
     .sort((a, b) => (a.deadline || "9999").localeCompare(b.deadline || "9999") || a.no - b.no);
 
@@ -152,7 +155,9 @@ export default function OrdersTab({ data, notify, reload }) {
 }
 
 const SHOW_ITEMS = 8; // shundan ko'p mahsulot bo'lsa — «yana N ta»
-const contractText = (c) => String(c || "").replace(/^№\s*/, "");
+const contractText = (c) => String(c || "").replace(/^№\s*/, "").trim();
+/** Kartadagi raqam: shartnoma raqami (masalan «EKM 13»), bo'lmasa ichki tartib raqami */
+const orderLabel = (o) => contractText(o?.contractNo) || String(o?.no ?? "");
 
 /** Bitta buyurtma kartasi: sarlavha, ko'rsatkichlar va mahsulotlar (ixcham to'r) */
 function OrderCard({ o, td, byId, summa, canEdit, onEdit, onDelete, onStatus, onProduct }) {
@@ -165,14 +170,14 @@ function OrderCard({ o, td, byId, summa, canEdit, onEdit, onDelete, onStatus, on
   const done = o.items.filter((it) => it.left === 0).length;
   const p = pct(o.shipped, o.qty);
   return (
-    <article className={`ord-card${late ? " is-late" : ""}`}>
+    <article className={`ord-card${late ? " is-late" : ""}${o.status === CANCELLED ? " is-cancelled" : ""}`}>
       <header className="ord-head">
         <div className="ord-title">
-          <span className="ord-no">№{o.no}</span>
+          <span className="ord-no" title={o.contractNo ? tr("Buyurtma №{n}", { n: o.no }) : undefined}>№ {orderLabel(o)}</span>
           <div className="ord-name">
             <strong>{show(o.customer)}</strong>
             <span className="ord-meta">
-              {o.contractNo && <span className="ord-contract">{tr("Shartnoma № {n}", { n: contractText(o.contractNo) })}</span>}
+              {!o.contractNo && <span className="ord-contract">{tr("Shartnomasiz")}</span>}
               {o.date && <span>{tr("qabul {d}", { d: fmtDate(o.date) })}</span>}
             </span>
           </div>
@@ -296,6 +301,7 @@ function OrderDialog({ order, data, onClose, onSaved }) {
   const set = (patch) => setF((x) => ({ ...x, ...patch }));
   const setItem = (i, patch) => setF((x) => ({ ...x, items: x.items.map((r, j) => (j === i ? { ...r, ...patch } : r)) }));
   const used = new Set((f?.items || []).map((r) => r.productId).filter(Boolean));
+  const customers = useMemo(() => [...new Set((data.orders || []).map((o) => String(o.customer || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [data.orders]);
 
   async function save(e) {
     e.preventDefault();
@@ -339,13 +345,14 @@ function OrderDialog({ order, data, onClose, onSaved }) {
       {f && (
         <form onSubmit={save}>
           <h2>
-            {order?.id ? tr("Buyurtma №{n}", { n: order.no }) : tr("Yangi buyurtma")}
-            {order?.contractNo && <span className="muted"> · {tr("Shartnoma № {n}", { n: order.contractNo })}</span>}
+            {order?.id ? (order.contractNo ? tr("Shartnoma № {n}", { n: contractText(order.contractNo) }) : tr("Buyurtma №{n}", { n: order.no })) : tr("Yangi buyurtma")}
           </h2>
           <div className="form-grid">
             <div className="field span2">
               <label htmlFor="od-c">{tr("Buyurtmachi")}</label>
-              <input id="od-c" value={f.customer} onChange={(e) => set({ customer: e.target.value })} required maxLength={200} />
+              <input id="od-c" value={f.customer} onChange={(e) => set({ customer: e.target.value })} required maxLength={200} list="od-customers" autoComplete="off" />
+              {/* mavjud mijozlar ro'yxati: bir mijoz ikki xil yozilmasligi uchun ro'yxatdan tanlang */}
+              <datalist id="od-customers">{customers.map((c) => <option key={c} value={c} />)}</datalist>
             </div>
             <div className="field">
               <label htmlFor="od-cn">{tr("Shartnoma (договор) №")}</label>

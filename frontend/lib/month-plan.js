@@ -225,7 +225,7 @@ export function rowsFromOrders(orders, products, mats, month, base = { customers
     for (const r of rows) r.orders.push(0);
     return customers.length - 1;
   };
-  const active = orders.filter((o) => o.status !== "tayyor" && o.status !== "topshirildi" && (o.left ?? 1) > 0);
+  const active = orders.filter((o) => o.status !== "tayyor" && o.status !== "topshirildi" && o.status !== "bekor" && (o.left ?? 1) > 0);
   let added = 0;
   for (const o of active) {
     for (const it of o.items || []) {

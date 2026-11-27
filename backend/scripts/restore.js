@@ -89,10 +89,10 @@ if(Object.hasOwn(D,'day_reviews')){if(!Array.isArray(D.day_reviews))throw new Er
 // Tabel PDF arxivi: eski zaxirada bo'lmasa, mavjud fayllar o'chirilmaydi
 if(Object.hasOwn(D,'hr_timesheet_files')){if(!Array.isArray(D.hr_timesheet_files))throw new Error('Tabel arxivi zaxirasi noto‘g‘ri');ORDER.push('hr_timesheet_files');}
 // Moliya: yopilgan oylar va mijozlarning boshlang'ich qoldig'i (eski zaxirada bo'lmasa — mavjudlari saqlanadi)
-for(const t of ['finance_period_locks','finance_customer_openings','finance_cash_accounts','finance_cash_entries','quality_tests','glossary'])if(Object.hasOwn(D,t)){if(!Array.isArray(D[t]))throw new Error('Moliyaviy zaxira noto‘g‘ri: '+t);ORDER.push(t);}
+for(const t of ['finance_period_locks','finance_customer_openings','finance_cash_accounts','finance_cash_entries','quality_tests','glossary','finance_reconciliation_acts'])if(Object.hasOwn(D,t)){if(!Array.isArray(D[t]))throw new Error('Moliyaviy zaxira noto‘g‘ri: '+t);ORDER.push(t);}
 const JSONB = new Set(["document_profile","signed_pdf","lines", "items", "rows", "customers", "extra_cols", "signers", "opening", "calc_template", "cost_schemes", "plan", "recipe", "writeoff", "norms", "calc", "notes", "production", "materials", "shipments", "created_by", "approved_by", "updated_by"]);
 for (const key of ['locked_by','reopened_by']) JSONB.add(key);
-for (const key of ['history','source_data','previous_data','counts','work_days','holidays','attendance','adjustments','snapshot','closed_by','voided_by','actor','detail','profile','decided_by','payload','issued_by','uploaded_by']) JSONB.add(key);
+for (const key of ['history','source_data','previous_data','counts','work_days','holidays','attendance','adjustments','snapshot','closed_by','voided_by','actor','detail','profile','decided_by','payload','issued_by','uploaded_by','parsed','comparison']) JSONB.add(key);
 try {
   await tx(async (c) => {
     if(!Object.hasOwn(D,'day_reviews')&&(await c.query('SELECT 1 FROM day_reviews WHERE factory_id=ANY($1::uuid[]) LIMIT 1',[fids])).rowCount)throw new Error('Bu eski zaxirada hisobot tasdiqlash tarixi yo‘q. Yangi to‘liq zaxiradan foydalaning.');

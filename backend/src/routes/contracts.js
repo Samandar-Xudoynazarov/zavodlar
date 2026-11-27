@@ -1,11 +1,13 @@
 import { Router } from "express";
-import { one, rows, tx } from "../db.js";
+import { one, rows, tx, q } from "../db.js";
+import { canonicalCustomer, customerKey } from "../customer-name.js";
 import { isId, validDate, ValidationError, ConflictError, clean, SPEC, insertSql } from "../valid.js";
 import { pdfContent, sendPdf } from "../dispatch.js";
 import { money, number, text } from "../payroll.js";
 import { nextNo } from "../common.js";
 import { audit } from "../audit.js";
 import { readContract } from "../contract-reader.js";
+import { resolveSupplier } from "../supplier-accounts.js";
 
 const r = Router();
 const cols = "id,order_id,supplier_id,number,date,counterparty,items,original_total,name";
@@ -37,14 +39,17 @@ r.post("/", async (req, res) => {
         existing.number !== text(b.number, 60) ||
         existing.date !== b.date ||
         Boolean(existing.orderId) !== (b.kind === "sale") ||
-        existing.counterparty.toLowerCase() !== text(b.counterparty, 160).replace(/\s+/g, " ").toLowerCase()
+        customerKey(existing.counterparty) !== customerKey(text(b.counterparty, 160))
       )
         throw new ConflictError("Bu so‘rov raqami boshqa shartnomaga tegishli");
       return existing;
     }
     pdfContent(b.contentBase64);
     const no = text(b.number, 60),
-      customer = text(b.counterparty, 160).replace(/\s+/g, " ");
+      customer =
+        b.kind === "sale"
+          ? await canonicalCustomer(q, f, text(b.counterparty, 160), c)
+          : text(b.counterparty, 160).replace(/\s+/g, " ");
     if (
       !no ||
       !customer ||
@@ -67,18 +72,10 @@ r.post("/", async (req, res) => {
       order = null;
     if (!isSale) {
       if (b.supplierId && !isId(b.supplierId)) throw new ValidationError("Ta’minotchini tekshiring");
-      if (!b.supplierId)
-        await c.query("INSERT INTO suppliers(factory_id,name) VALUES($1,$2) ON CONFLICT DO NOTHING", [
-          f,
-          customer,
-        ]);
-      supplier = await one(
-        b.supplierId
-          ? "SELECT id,name FROM suppliers WHERE factory_id=$1 AND id=$2 AND NOT archived"
-          : "SELECT id,name FROM suppliers WHERE factory_id=$1 AND lower(regexp_replace(trim(name),'\\s+',' ','g'))=lower($2) AND NOT archived",
-        [f, b.supplierId || customer],
-        c,
-      );
+      // Avval STIR, keyin tozalangan nom bo'yicha — bir ta'minotchi ikki marta yaratilmaydi
+      supplier = b.supplierId
+        ? await one("SELECT id,name FROM suppliers WHERE factory_id=$1 AND id=$2 AND NOT archived", [f, b.supplierId], c)
+        : await resolveSupplier(c, f, { name: customer, inn: /^\d{9}$/.test(String(b.inn || "")) ? b.inn : "" });
       if (!supplier) throw new ValidationError("Faol ta’minotchini tanlang");
     }
     const items = [];

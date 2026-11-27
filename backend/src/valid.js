@@ -186,7 +186,7 @@ const arr0 = (v, label) => {
 
 /* ---------- jadvallar ---------- */
 export const MATERIAL_GROUPS = ["beton", "xomashyo", "metall", "zaklad", "yoqilgi", "ehtiyot", "boshqa", "xizmat"];
-export const STATUSES = ["yangi", "jarayonda", "tayyor", "topshirildi"];
+export const STATUSES = ["yangi", "jarayonda", "tayyor", "topshirildi", "bekor"];
 export const MOVE_TYPES = ["in", "out"];
 export const TARGET_KINDS = ["department", "vehicle"];
 export const VEHICLE_LOG_KINDS = ["tamir", "to", "meter", "boshqa"];

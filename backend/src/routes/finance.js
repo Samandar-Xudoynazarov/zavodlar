@@ -10,6 +10,7 @@ import supplierSettlements from './supplier-settlements.js';
 import contracts from './contracts.js';
 import salesArchive from './sales-archive.js';
 import customers,{createReceipt,voidReceipt,receiptCols} from './finance-customers.js';
+import acts from './finance-acts.js';
 import periods from './finance-periods.js';
 import cash from './finance-cash.js';
 import profit from './finance-profit.js';
@@ -22,6 +23,7 @@ r.use('/supplier-settlements', supplierSettlements);
 r.use('/contracts',contracts);
 r.use('/archive',salesArchive);
 r.use('/customers',customers);
+r.use('/acts',acts);
 r.use('/periods',periods);
 r.use('/cash',cash);
 r.use('/profit',profit);
@@ -44,7 +46,7 @@ r.get('/orders',async(req,res)=>res.json(await tx(async c=>{
  return {contracts:await rows("SELECT id,order_id,number,original_total,items,name FROM finance_contracts WHERE factory_id=$1 AND order_id IS NOT NULL",fid,c),orders:orders.map(o=>orderView(o,shipped)),progress:await rows('SELECT * FROM finance_order_progress WHERE factory_id=$1',fid,c),invoices:await rows('SELECT '+invoiceCols+' FROM finance_invoices WHERE factory_id=$1 ORDER BY date DESC,created_at DESC',fid,c),receipts:await rows('SELECT '+receiptCols+' FROM finance_receipts WHERE factory_id=$1 ORDER BY date DESC,created_at DESC',fid,c)};
 })));
 r.put('/orders/:id/status',mutate(async(c,req,o)=>{
- if(!['yangi','jarayonda','topshirildi','tayyor'].includes(req.body.status))throw new ValidationError('Holatni tanlang');
+ if(!['yangi','jarayonda','topshirildi','tayyor','bekor'].includes(req.body.status))throw new ValidationError('Holatni tanlang');
  return one('UPDATE orders SET status=$3,updated_at=now() WHERE factory_id=$1 AND id=$2 RETURNING id,status',[req.factoryId,o.id,req.body.status],c);
 }));
 r.put('/orders/:id/progress',mutate(async(c,req,o)=>{

@@ -88,7 +88,7 @@ function ProgramPlan({ data, notify, reloadOrders, reloadSettings }) {
 
   // rejaga kiradigan (faol, jo'natilmagan qismi bor) buyurtmalar
   const active = useMemo(
-    () => data.orders.filter((o) => o.status !== "tayyor" && o.status !== "topshirildi" && (o.left ?? 1) > 0).sort((a, b) => (a.deadline || "9999").localeCompare(b.deadline || "9999") || a.no - b.no),
+    () => data.orders.filter((o) => o.status !== "tayyor" && o.status !== "topshirildi" && o.status !== "bekor" && (o.left ?? 1) > 0).sort((a, b) => (a.deadline || "9999").localeCompare(b.deadline || "9999") || a.no - b.no),
     [data.orders]
   );
   const selIds = useMemo(() => active.filter((o) => sel.has(o.id)).map((o) => o.id), [active, sel]);

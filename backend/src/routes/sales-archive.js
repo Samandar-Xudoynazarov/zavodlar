@@ -10,6 +10,7 @@ import { itemsOf, orderView } from '../orders.js';
 import { shippedByOrder } from './production.js';
 import { assertInvoiceCoverage, financeLock } from '../finance-integrity.js';
 import { audit } from '../audit.js';
+import { cleanCustomerName, customerKey } from '../customer-name.js';
 
 const r = Router();
 export const ARCHIVE_FROM = '2025-01-01';
@@ -119,11 +120,12 @@ export function monthlySummary({ orders, shipments, invoices, receipts, openings
   const orderById = new Map(orders.map((o) => [o.id, o]));
   const priceOf = new Map();
   for (const o of orders) for (const it of itemsOf(o)) priceOf.set(o.id + ':' + it.productId, +it.price || 0);
-  const key = (o) => String(o?.customer || '').trim() || '—';
-  const norm = (s) => String(s || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  // bir mijozning turli yozilishlari (tirnoq, apostrof) bitta qatorga jamlanadi
+  const norm = customerKey;
   const nameOf = new Map();
-  for (const o of orders) if (!nameOf.has(norm(o.customer))) nameOf.set(norm(o.customer), key(o));
-  const byName = (name) => nameOf.get(norm(name)) || String(name || '').trim().replace(/\s+/g, ' ') || '—';
+  for (const o of orders) if (!nameOf.has(norm(o.customer))) nameOf.set(norm(o.customer), cleanCustomerName(o.customer) || '—');
+  const key = (o) => nameOf.get(norm(o?.customer)) || '—';
+  const byName = (name) => nameOf.get(norm(name)) || cleanCustomerName(name) || '—';
   const acc = new Map(); // customer -> month -> sums
   const cell = (customer, month) => {
     if (!acc.has(customer)) acc.set(customer, new Map());

@@ -3,9 +3,10 @@
 import { itemsOf } from './orders.js';
 
 const r2 = (x) => Math.round((+x || 0) * 100) / 100;
-/** Mijoz kaliti: bo'sh joylar va harf katta-kichikligi hisobga olinmaydi */
-export const customerKey = (name) => String(name || '').trim().replace(/\s+/g, ' ').toLowerCase();
-export const customerName = (name) => String(name || '').trim().replace(/\s+/g, ' ');
+import { customerKey, cleanCustomerName } from './customer-name.js';
+/** Mijoz kaliti: tirnoqlar, apostrof turi, bo'sh joylar va harf katta-kichikligi hisobga olinmaydi */
+export { customerKey };
+export const customerName = cleanCustomerName;
 const daysBetween = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 864e5);
 const METHOD = { bank: 'bank', naqd: 'naqd', karta: 'karta' };
 
@@ -34,7 +35,7 @@ export function customerLedger({ orders = [], shipments = [], invoices = [], rec
     if (!c.orders.has(o.id)) {
       const lines = itemsOf(o);
       const total = lines.reduce((s, it) => s + (+it.qty || 0) * (+it.price || 0), 0);
-      c.orders.set(o.id, { id: o.id, no: o.no, contractNo: o.contractNo || '', status: o.status, total: r2(total), unpricedLines: lines.filter((it) => !(+it.price > 0)).length, shipped: 0, shippedQty: 0, unpricedQty: 0, invoiced: 0, paid: 0 });
+      c.orders.set(o.id, { id: o.id, no: o.no, date: o.date || '', contractNo: o.contractNo || '', status: o.status, total: r2(total), unpricedLines: lines.filter((it) => !(+it.price > 0)).length, shipped: 0, shippedQty: 0, unpricedQty: 0, invoiced: 0, paid: 0 });
     }
     return c.orders.get(o.id);
   };

@@ -429,6 +429,7 @@ export const RU_EXTRA = {
   "Iyn": "Июн",
   "Iyl": "Июл",
   "Bekor qilingan": "Отменено",
+  "Shartnomasiz": "Без договора",
   "Davomat va ta’til": "Посещаемость и отпуск",
   "O‘zgarishlar": "Изменения",
   "Oylikni qayta ochish": "Повторно открыть зарплату",

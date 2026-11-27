@@ -32,7 +32,7 @@ async function factorySummary(f, month, today, day) {
       return { materials: pick(s.materials), products: pick(s.products) };
     })(),
     planInput(fid).then(planOrders),
-    rows("SELECT count(*) AS n FROM orders WHERE factory_id = $1 AND status <> 'topshirildi'", [fid]),
+    rows("SELECT count(*) AS n FROM orders WHERE factory_id = $1 AND status NOT IN ('topshirildi', 'bekor')", [fid]),
   ]);
   const [headcount,finance]=await Promise.all([
     rows("SELECT count(*)::int AS active FROM hr_employees WHERE factory_id=$1 AND hire_date<>'' AND hire_date<=$2 AND (end_date='' OR end_date>$2)",[fid,today]),

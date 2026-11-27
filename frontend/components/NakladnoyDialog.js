@@ -49,7 +49,7 @@ export default function NakladnoyDialog({ ships, date, data, notify, onClose, on
     () =>
       orders
         .filter((o) => o.contractNo)
-        .sort((a, b) => (a.status === "topshirildi" || a.status === "tayyor") - (b.status === "topshirildi" || b.status === "tayyor") || b.no - a.no),
+        .sort((a, b) => (a.status === "bekor") - (b.status === "bekor") || (a.status === "topshirildi" || a.status === "tayyor") - (b.status === "topshirildi" || b.status === "tayyor") || b.no - a.no),
     [orders]
   );
 

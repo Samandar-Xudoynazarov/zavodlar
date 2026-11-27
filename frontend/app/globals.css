@@ -166,6 +166,8 @@ table.edit td.wide{min-width:230px}
 .st-jarayonda{background:var(--signal-soft);color:#92400E}
 .st-tayyor{background:var(--ok-soft);color:var(--ok)}
 .st-topshirildi{background:var(--muted-soft);color:var(--ink-2)}
+.st-bekor{background:var(--bad-soft);color:var(--bad)}
+.ord-card.is-cancelled{opacity:.7}
 select.st{border:0;font-weight:600;font-size:12px;border-radius:999px;padding:3px 8px;cursor:pointer}
 .prog{display:flex;align-items:center;gap:8px;min-width:130px}
 .ord-items{display:grid;gap:3px;min-width:150px}

@@ -9,8 +9,9 @@ import { todayTashkent, openingOf } from '../common.js';
 import { lockMaterial, minBalanceFrom } from './store.js';
 import { audit } from '../audit.js';
 import { assertMonthOpen } from '../finance-period-lock.js';
+import { resolveSupplier } from '../supplier-accounts.js';
 const r = Router();
-const cols = 'id,type,number,date,due_date,supplier_id,counterparty,items,amount,note,name,size_bytes,created_at,voided_at,void_reason';
+const cols = 'id,type,number,date,due_date,supplier_id,contract_id,counterparty,items,amount,note,name,size_bytes,created_at,voided_at,void_reason';
 r.use((req,res,next)=>FINANCE_ROLES.includes(req.user.role)?next():res.status(403).json({error:'Material fakturalari faqat admin, rahbar va buxgalter uchun'}));
 r.use((req,res,next)=>{res.set('Cache-Control','no-store');next();});
 r.get('/',async(req,res)=>{
@@ -32,6 +33,9 @@ r.post('/',async(req,res)=>{
   const dueDate=b.type==='in' && b.dueDate ? b.dueDate : null;
   if(dueDate && (!validDate(dueDate) || dueDate<b.date))throw new ValidationError('To‘lov muddati faktura sanasidan oldin bo‘lmasin');
   const no=text(b.number,80),party=text(b.counterparty,160);if(!no||!party)throw new ValidationError('Faktura raqami va kontragentni kiriting');
+  // Ta'minotchi: STIR yoki tozalangan nom bo'yicha (bir korxona ikki marta yaratilmaydi)
+  const supplier=b.type==='in'?await resolveSupplier(c,f,{name:party,inn:b.inn}):null;
+  if(b.contractId&&(b.type!=='in'||!isId(b.contractId)||!await one('SELECT 1 FROM finance_contracts WHERE factory_id=$1 AND supplier_id=$2 AND id=$3',[f,supplier.id,b.contractId],c)))throw new ValidationError('Shartnoma bu ta’minotchiga tegishli emas');
   if(!Array.isArray(b.items)||!b.items.length||b.items.length>100)throw new ValidationError('1–100 ta material kiriting');
   const seen=new Set(),items=[];
   // Acquire all stock locks in the same order, including incoming invoices.
@@ -52,7 +56,7 @@ r.post('/',async(req,res)=>{
    items.push({materialId:mat.id,name:mat.name,unit:mat.unit,qty,price,vatRate,net,vat,amount,movementId:move?.id||null});
   }
   let size=0,content='';if(b.contentBase64){size=pdfContent(b.contentBase64).length;content=b.contentBase64;}
-  const saved=await one('INSERT INTO material_invoices(factory_id,request_id,type,number,date,counterparty,items,amount,note,name,content_base64,size_bytes,created_by,due_date) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING '+cols,[f,b.requestId,b.type,no,b.date,party,JSON.stringify(items),money(items.reduce((s,i)=>s+i.amount,0)),text(b.note,1000),content?(text(b.name,160)||'Faktura.pdf'):'',content,size,actor(req),dueDate],c);
+  const saved=await one('INSERT INTO material_invoices(factory_id,request_id,type,number,date,counterparty,items,amount,note,name,content_base64,size_bytes,created_by,due_date,supplier_id,contract_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING '+cols,[f,b.requestId,b.type,no,b.date,party,JSON.stringify(items),money(items.reduce((s,i)=>s+i.amount,0)),text(b.note,1000),content?(text(b.name,160)||'Faktura.pdf'):'',content,size,actor(req),dueDate,supplier?.id||null,b.type==='in'&&b.contractId?b.contractId:null],c);
   for(const line of b.items){
     if(!line.receiptId)continue;
     if(b.type!=='in'||b.stockMode!=='invoiceOnly')throw new ValidationError('Kirimni faqat alohida kirim fakturasiga bog‘lash mumkin');

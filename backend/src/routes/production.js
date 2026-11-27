@@ -12,6 +12,7 @@ import { createDailyPlanNotification } from "../notifications.js";
 import { deliverTelegramNotification } from "../telegram.js";
 
 import { assertInvoiceCoverage, financeLock } from "../finance-integrity.js";
+import { canonicalCustomer, cleanCustomerName, customerKey } from "../customer-name.js";
 import { archiveDispatch, sendPdf } from "../dispatch.js";
 const r = Router();
 const OPEN0 = "0000-00-00";
@@ -344,6 +345,7 @@ r.post("/orders", async (req, res) => {
   const data = clean(SPEC.order, orderBody(req.body));
   await checkProducts(req.factoryId, data.items);
   const doc = await tx(async (c) => {
+    data.customer = await canonicalCustomer(q, req.factoryId, data.customer, c);
     const s = insertSql("orders", { factoryId: req.factoryId, no: await nextNo(req.factoryId, "order", "orders", c), ...data });
     return one(s.text, s.values, c);
   });
@@ -358,6 +360,11 @@ r.put("/orders/:id", async (req, res) => {
   const before = await one("SELECT * FROM orders WHERE id = $1 AND factory_id = $2", [req.params.id, f],c);
   if (!before) return null;
   const data = clean(SPEC.order, orderBody(req.body), { partial: true });
+  if (data.customer !== undefined) {
+    // nom faqat yozilishi bo'yicha tuzatilsa — yozilgani qoladi; boshqa mijozga o'tsa — mavjud mijoz nomi olinadi
+    data.customer = customerKey(data.customer) === customerKey(before.customer) ? cleanCustomerName(data.customer) : await canonicalCustomer(q, f, data.customer, c);
+    if (!data.customer) throw new ValidationError("Buyurtmachi kiritilmagan");
+  }
   if (data.items) {
     await checkProducts(f, data.items);
     // buyurtmadan olib tashlangan mahsulotga kunlik hisobotda jo'natish bog'langan bo'lsa — ruxsat yo'q

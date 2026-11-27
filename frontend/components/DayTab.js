@@ -349,7 +349,7 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
             ? tr("Barcha o'zgarishlar saqlangan")
             : tr("Yangi hisobot");
   const popts = productOptions(products);
-  const activeOrders = orders.filter((o) => o.status !== "topshirildi");
+  const activeOrders = orders.filter((o) => o.status !== "topshirildi" && o.status !== "bekor");
 
   return (
     <section className={`sheet day${canDay ? " has-savebar" : ""}${quickEntry?' day-quick':''}`}>

@@ -159,6 +159,7 @@ export default function ContractReview({
           counterparty: party,
           status,
           supplierId: kind === "purchase" ? supplier?.id : null,
+          inn: kind === "purchase" && !supplier ? parsed?.sellerTin || "" : "",
           requestId: request.current,
           items: accepted,
           originalTotal: original === "" ? lines.reduce((s, l) => s + Number(l.total || 0), 0) : Number(original),

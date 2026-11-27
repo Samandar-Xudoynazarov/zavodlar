@@ -14,7 +14,7 @@
     "restore": "node --env-file-if-exists=.env scripts/restore.js",
     "import-mongo": "node --env-file-if-exists=.env scripts/import-mongo.js",
     "import-products": "node --env-file-if-exists=.env scripts/import-products.js",
-    "test": "node --env-file-if-exists=.env tests/regression.js && node --env-file-if-exists=.env tests/notifications.js && node --env-file-if-exists=.env tests/telegram.js && node --env-file-if-exists=.env tests/payroll.js && node --env-file-if-exists=.env tests/hr-safety.js && node --env-file-if-exists=.env tests/workforce.js && node --env-file-if-exists=.env tests/personnel.js && node --env-file-if-exists=.env tests/finance.js && node --env-file-if-exists=.env tests/factory-import.js && node --env-file-if-exists=.env tests/material-invoices.js && node --env-file-if-exists=.env tests/factory-import-employees.js && node --env-file-if-exists=.env tests/departments.js && node --env-file-if-exists=.env tests/factory-tools.js && node --env-file-if-exists=.env tests/timesheet-shifts.js && node --env-file-if-exists=.env tests/operations-flow.js && node --env-file-if-exists=.env tests/sales-archive.js && node --env-file-if-exists=.env tests/finance-ledger.js && node --env-file-if-exists=.env tests/cash-profit-quality.js && node --env-file-if-exists=.env tests/glossary.js && node --env-file-if-exists=.env tests/pulse-observer.js",
+    "test": "node --env-file-if-exists=.env tests/regression.js && node --env-file-if-exists=.env tests/notifications.js && node --env-file-if-exists=.env tests/telegram.js && node --env-file-if-exists=.env tests/payroll.js && node --env-file-if-exists=.env tests/hr-safety.js && node --env-file-if-exists=.env tests/workforce.js && node --env-file-if-exists=.env tests/personnel.js && node --env-file-if-exists=.env tests/finance.js && node --env-file-if-exists=.env tests/factory-import.js && node --env-file-if-exists=.env tests/material-invoices.js && node --env-file-if-exists=.env tests/factory-import-employees.js && node --env-file-if-exists=.env tests/departments.js && node --env-file-if-exists=.env tests/factory-tools.js && node --env-file-if-exists=.env tests/timesheet-shifts.js && node --env-file-if-exists=.env tests/operations-flow.js && node --env-file-if-exists=.env tests/sales-archive.js && node --env-file-if-exists=.env tests/finance-ledger.js && node --env-file-if-exists=.env tests/customer-merge.js && node --env-file-if-exists=.env tests/reconciliation-acts.js && node --env-file-if-exists=.env tests/supplier-contracts.js && node --env-file-if-exists=.env tests/cash-profit-quality.js && node --env-file-if-exists=.env tests/glossary.js && node --env-file-if-exists=.env tests/pulse-observer.js",
     "test:payroll": "node --env-file-if-exists=.env tests/payroll.js",
     "test:hr-safety": "node --env-file-if-exists=.env tests/hr-safety.js",
     "test:notifications": "node --env-file-if-exists=.env tests/notifications.js",
@@ -34,6 +34,9 @@
     "test:operations": "node --env-file-if-exists=.env tests/operations-flow.js",
     "test:sales-archive": "node --env-file-if-exists=.env tests/sales-archive.js",
     "test:finance-ledger": "node --env-file-if-exists=.env tests/finance-ledger.js",
+    "test:suppliers": "node --env-file-if-exists=.env tests/supplier-contracts.js",
+    "test:customers": "node --env-file-if-exists=.env tests/customer-merge.js",
+    "test:acts": "node --env-file-if-exists=.env tests/reconciliation-acts.js",
     "test:cash-quality": "node --env-file-if-exists=.env tests/cash-profit-quality.js",
     "test:glossary": "node --env-file-if-exists=.env tests/glossary.js"
   },

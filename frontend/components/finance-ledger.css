@@ -126,3 +126,7 @@
 .fo-items .fl-acts{margin-top:4px}
 .finance-module .fl-ord.finance-void{opacity:.6}
 @media(max-width:420px){.fo-nums{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* Mijoz → Buyurtmalar: holat filtri va tartib */
+.fl-ordbar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px}
+.fl-ordbar .fl-tabs{border-bottom:0}
+.fl-ordbar select{min-height:36px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--paper);font:inherit}
