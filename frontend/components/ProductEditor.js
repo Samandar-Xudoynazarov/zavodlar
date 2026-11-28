@@ -87,6 +87,7 @@ export default function ProductEditor({ product, open, onClose, data, notify, on
       const raw = product ? data.rawProds?.get(product.id) || product : null;
       const p = raw ? clone(raw) : { code: "", name: "", group: "", norms: [], calc: { ...blankCalc(settings.calcTemplate), scheme: schemes[0]?.id || "" }, forms: "", cycleDays: 1 };
       if (!p.forms) p.forms = "";
+      p.area = +p.area ? p.area : "";
       // «PTO hisobini kutmoqda» mahsulotlarida calc = {} va ba'zi maydonlar bo'sh keladi — oyna yiqilmasligi uchun to'ldiramiz
       p.calc = normalizeCalc(p.calc, settings.calcTemplate, schemes[0]?.id || "");
       if (!Array.isArray(p.norms)) p.norms = [];
@@ -148,7 +149,7 @@ export default function ProductEditor({ product, open, onClose, data, notify, on
     if (!numeric.code.trim()) return notify("Marka kiritilmagan");
     setBusy(true);
     try {
-      const body = { code: numeric.code.trim(), name: numeric.name, group: numeric.group, norms: numeric.norms, calc: numeric.calc, forms: +d.forms || 0, cycleDays: +d.cycleDays || 1 };
+      const body = { code: numeric.code.trim(), name: numeric.name, group: numeric.group, norms: numeric.norms, calc: numeric.calc, forms: +d.forms || 0, cycleDays: +d.cycleDays || 1, area: +d.area || 0 };
       if (product?.id) await api(`/products/${product.id}`, { method: "PUT", body });
       else await api("/products", { method: "POST", body });
       notify("Saqlandi");
@@ -197,6 +198,12 @@ export default function ProductEditor({ product, open, onClose, data, notify, on
                 {tr("Qolip aylanishi")} <span className="u">({tr("kun")})</span>
               </label>
               <input id="pe-cycle" type="number" min="0.1" step="any" value={d.cycleDays} onChange={(e) => setD({ ...d, cycleDays: e.target.value })} />
+            </div>
+            <div className="field">
+              <label htmlFor="pe-area">
+                {tr("Kvadratura")} <span className="u">({tr("m² / dona")})</span>
+              </label>
+              <input id="pe-area" type="number" min="0" step="any" value={d.area} placeholder="0" onChange={(e) => setD({ ...d, area: e.target.value })} />
             </div>
             {lidHost && (
               <p className="hint" style={{ gridColumn: "1/-1", margin: 0 }}>

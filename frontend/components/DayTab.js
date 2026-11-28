@@ -337,6 +337,13 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
   const brakSum = prod.reduce((s, r) => s + num(r.brak), 0);
   const shippedSum = [...shipBy.values()].reduce((s, qty) => s + qty, 0);
   const completion = planSum ? (factSum / planSum) * 100 : null;
+  // Kvadratura (m²): har mahsulotning «m² / dona» qiymati × reja va sifatli fakt
+  const areaOf = (id) => +prods.get(id)?.area || 0;
+  const areaRows = prod.filter((r) => r.productId && (num(r.plan) || num(r.fact)));
+  const planArea = areaRows.reduce((s, r) => s + num(r.plan) * areaOf(r.productId), 0);
+  const factArea = areaRows.reduce((s, r) => s + num(r.fact) * areaOf(r.productId), 0);
+  const noArea = [...new Set(areaRows.filter((r) => !areaOf(r.productId)).map((r) => r.productId))];
+  const areaPct = planArea ? (factArea / planArea) * 100 : null;
   const saveState = saving
     ? tr("Saqlanmoqda…")
     : loading
@@ -457,6 +464,40 @@ export default function DayTab({ data, notify, onSaved, onDirtyChange, version }
               <div className="v">{fmtN(shippedSum)} <small>{tr("dona")}</small></div>
               <p className="hint day-kpi-meta">{tr("Shu kundagi jo'natishlar")}</p>
             </div>
+          </div>
+
+          <div className={`day-area-card no-print${areaPct !== null && areaPct < 100 ? " is-behind" : areaPct !== null ? " is-done" : ""}`} aria-label={tr("Kunlik kvadratura")}>
+            <div className="day-area-head">
+              <strong>{tr("Kunlik kvadratura")}</strong>
+              <span className="hint">{fmtDate(date)} · m²</span>
+            </div>
+            <div className="day-area-grid">
+              <div>
+                <div className="k">{tr("Reja")}</div>
+                <div className="v">{fmtN(planArea, 2)} <small>m²</small></div>
+              </div>
+              <div>
+                <div className="k">{tr("Fakt")}</div>
+                <div className="v">{fmtN(factArea, 2)} <small>m²</small></div>
+              </div>
+              <div>
+                <div className="k">{tr("Farq")}</div>
+                <div className={`v${factArea - planArea < 0 ? " bad" : ""}`}>{factArea - planArea > 0 ? "+" : ""}{fmtN(factArea - planArea, 2)} <small>m²</small></div>
+              </div>
+              <div>
+                <div className="k">{tr("Bajarilishi")}</div>
+                <div className="v">{areaPct === null ? "—" : `${fmtN(areaPct, 0)} %`}</div>
+              </div>
+            </div>
+            <div className="day-area-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(100, areaPct || 0))}>
+              <span style={{ width: `${Math.min(100, areaPct || 0)}%` }} />
+            </div>
+            {noArea.length > 0 && (
+              <p className="hint day-area-warn">
+                {tr("{n} ta mahsulotda kvadratura (m² / dona) kiritilmagan — ular hisobga olinmadi:", { n: noArea.length })}{" "}
+                {noArea.map((id) => prods.get(id)?.code || "?").join(", ")}
+              </p>
+            )}
           </div>
 
           {/* ---- reja / fakt ---- */}

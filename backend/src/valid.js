@@ -217,6 +217,7 @@ export const SPEC = {
     notes: t.json(strList(500, 50), { default: () => [] }),
     forms: t.num({ min: 0, minMsg: "Qoliplar soni manfiy bo'lmaydi", default: 0 }),
     cycleDays: t.num({ min: 0.1, minMsg: "Aylanish muddati kamida 0,1 kun", default: 1 }),
+    area: t.num({ min: 0, minMsg: "Kvadratura manfiy bo'lmaydi", default: 0 }), // m² / dona — kunlik kvadratura reja/fakt uchun
     sort: t.int({ default: 0 }),
   },
   order: {

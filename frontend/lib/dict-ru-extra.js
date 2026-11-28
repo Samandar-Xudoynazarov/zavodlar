@@ -498,6 +498,13 @@ export const RU_EXTRA = {
   "Rag‘batlantirildi": "Поощрён(а)",
   "Ta’til qo‘shish": "Добавить отпуск",
   "Davrni tanlash": "Выбрать период",
+  // Kunlik kvadratura (m²) kartasi
+  "Kunlik kvadratura": "Квадратура за день",
+  "Kvadratura": "Квадратура",
+  "m² / dona": "м² / шт",
+  "Farq": "Разница",
+  "Kvadratura manfiy bo'lmaydi": "Квадратура не может быть отрицательной",
+  "{n} ta mahsulotda kvadratura (m² / dona) kiritilmagan — ular hisobga olinmadi:": "У {n} изделий не указана квадратура (м² / шт) — они не учтены:",
 };
 
 // Kirillcha: avtomatik o'girish noto'g'ri chiqadigan satrlar
